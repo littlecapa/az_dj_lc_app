@@ -1,6 +1,14 @@
-Django
-mssql-django==1.4.0
-django-redis==5.4.0
-whitenoise==6.6.0
+# Core Django
+Django==4.0.2
+# SQL Server backend
+django-mssql-backend==2.8.1
+pyodbc==5.0.1
+
+# Environment variable support
+python-dotenv==1.0.0
+
+# Optional: Azure deployment helpers
 gunicorn==21.2.0
-python-dotenv
+
+# Optional: Static file handling for production
+whitenoise==6.6.0
