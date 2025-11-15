@@ -108,7 +108,7 @@ if ENVIRONMENT == 'production':
             'USER': os.getenv('DB_USER'),
             'PASSWORD': os.getenv('DB_PASSWORD'),
             'HOST': os.getenv('DB_HOST'),
-            'PORT': os.environ.getenv('DB_PORT', '1433'),
+            'PORT': os.getenv('DB_PORT', '1433'),
             'OPTIONS': {
                 'driver': 'ODBC Driver 18 for SQL Server',
                 'extra_params': 'TrustServerCertificate=yes;'
@@ -119,11 +119,11 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
-            'NAME': os.environ.getenv('DBNAME'),
-            'USER': os.environ.getenv('DBUSER'),
-            'PASSWORD': os.environ.getenv('DBPASS'),
-            'HOST': os.environ.getenv('DBHOST', 'localhost'),
-            'PORT': os.environ.getenv('DBPORT', '1433'),
+            'NAME': os.getenv('DBNAME'),
+            'USER': os.getenv('DBUSER'),
+            'PASSWORD': os.getenv('DBPASS'),
+            'HOST': os.getenv('DBHOST', 'localhost'),
+            'PORT': os.getenv('DBPORT', '1433'),
             'OPTIONS': {
                 'driver': 'ODBC Driver 18 for SQL Server',
                 'extra_params': 'TrustServerCertificate=yes;'
