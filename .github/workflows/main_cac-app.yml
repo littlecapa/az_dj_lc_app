@@ -55,8 +55,7 @@ jobs:
         DB_HOST: ${{ secrets.DB_HOST }}
         DB_PORT: ${{ secrets.DB_PORT }}
       run: |
-        python -c "
-import pyodbc, os
+        python -c "import pyodbc, os
 try:
     conn = pyodbc.connect(
         f'DRIVER={{ODBC Driver 18 for SQL Server}};'
