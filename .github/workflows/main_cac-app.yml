@@ -14,12 +14,22 @@ jobs:
     - name: Debug DB connection settings
       run: |
         if [ "$DB_NAME" = "cac_db" ]; then
-          echo "✅ DB_NAME is ok"
+          echo "✅ DB_NAME is correct: $DB_NAME"
         else
-          echo "❌ DB_NAME is NOT correct: $DB_NAME"
+          echo "❌ DB_NAME is incorrect: $DB_NAME"
         fi
-        echo "DB_HOST=$DB_HOST"
-        echo "DB_USER=$DB_USER"
+
+        if [ "$DB_HOST" = "cacsqlserver.database.windows.net" ]; then
+          echo "✅ DB_HOST is correct: $DB_HOST"
+        else
+          echo "❌ DB_HOST is incorrect: $DB_HOST"
+        fi
+
+        if [ "$DB_USER" = "cac_db_admin@cacsqlserver" ]; then
+          echo "✅ DB_USER is correct: $DB_USER"
+        else
+          echo "❌ DB_USER is incorrect: $DB_USER"
+        fi
       env:
         DB_NAME: ${{ secrets.DB_NAME }}
         DB_HOST: ${{ secrets.DB_HOST }}
@@ -46,34 +56,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install --no-cache-dir -r requirements.txt
-
-    - name: Test DB connection
-      env:
-        DB_NAME: ${{ secrets.DB_NAME }}
-        DB_USER: ${{ secrets.DB_USER }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        DB_HOST: ${{ secrets.DB_HOST }}
-        DB_PORT: ${{ secrets.DB_PORT }}
-      run: |
-        cat <<EOF > test_connection.py
-import pyodbc, os
-try:
-    conn = pyodbc.connect(
-        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-        f"SERVER={os.getenv('DB_HOST')};"
-        f"DATABASE={os.getenv('DB_NAME')};"
-        f"UID={os.getenv('DB_USER')};"
-        f"PWD={os.getenv('DB_PASSWORD')};"
-        f"TrustServerCertificate=yes;",
-        timeout=5
-    )
-    print("✅ Connection successful")
-    conn.close()
-except Exception as e:
-    print("❌ Connection failed:", e)
-    exit(1)
-EOF
-        python test_connection.py
 
     - name: Run Django migrations
       timeout-minutes: 5
