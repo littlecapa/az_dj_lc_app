@@ -30,7 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY','SECRET_KEY')
 
-ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1'] if ENVIRONMENT == 'development' else [os.getenv('DJANGO_ALLOWED_HOST', '*')]
+ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1'] if ENVIRONMENT == 'development' else ["cac-app.azurewebsites.net", os.getenv('DJANGO_ALLOWED_HOST', '*')]
 # Or for quick testing:
 # ALLOWED_HOSTS = ['*']
 
@@ -108,8 +108,10 @@ if ENVIRONMENT == 'production':
             'USER': os.getenv('DB_USER'),
             'PASSWORD': os.getenv('DB_PASSWORD'),
             'HOST': os.getenv('DB_HOST'),
+            'PORT': os.environ.getenv('DB_PORT', '1433'),
             'OPTIONS': {
                 'driver': 'ODBC Driver 18 for SQL Server',
+                'extra_params': 'TrustServerCertificate=yes;'
             },
         }
     }
@@ -117,11 +119,11 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
-            'NAME': os.environ.get('DBNAME'),
-            'USER': os.environ.get('DBUSER'),
-            'PASSWORD': os.environ.get('DBPASS'),
-            'HOST': os.environ.get('DBHOST', 'localhost'),
-            'PORT': os.environ.get('DBPORT', '1433'),
+            'NAME': os.environ.getenv('DBNAME'),
+            'USER': os.environ.getenv('DBUSER'),
+            'PASSWORD': os.environ.getenv('DBPASS'),
+            'HOST': os.environ.getenv('DBHOST', 'localhost'),
+            'PORT': os.environ.getenv('DBPORT', '1433'),
             'OPTIONS': {
                 'driver': 'ODBC Driver 18 for SQL Server',
                 'extra_params': 'TrustServerCertificate=yes;'
