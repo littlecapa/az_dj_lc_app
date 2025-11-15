@@ -111,7 +111,7 @@ if ENVIRONMENT == 'production':
             'PORT': os.getenv('DB_PORT', '1433'),
             'OPTIONS': {
                 'driver': 'ODBC Driver 18 for SQL Server',
-                'extra_params': 'Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30',
+                'extra_params': 'Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=60',
             },
         }
     }

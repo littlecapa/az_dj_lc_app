@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    
+    - name: DNS Test
+      run: nslookup cacsqlserver.database.windows.net
     - name: Debug DB connection settings
       run: |
         if [ "$DB_NAME" = "cac_db" ]; then
