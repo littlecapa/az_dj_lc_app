@@ -11,6 +11,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Print simple Python message
+      run: |
+        python -c "print('Hallo Roger 👋')"
+        python -c "import os; print(os.environ.get(DB_HOST)=='')"
+        python -c "import os; print(os.environ.get(DB_HOST))"
+      env:
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+
     - name: DNS Test
       run: nslookup cacsqlserver.database.windows.net
     - name: Debug DB connection settings
