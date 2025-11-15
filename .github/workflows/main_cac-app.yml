@@ -6,30 +6,39 @@ name: 'Build and deploy Python app to Azure Web App: cac-app'
 on:
   push:
     branches:
-    - main
+      - main
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
     - name: Set up Python version
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: '3.11.14'
-    
-    - name: Build using AppService-Build
-      uses: azure/appservice-build@v2
-      with:
-        platform: python
-        platform-version: '3.8.12'
-    
-    - name: 'Deploy to Azure Web App'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Django migrations
+      run: |
+        python manage.py migrate
+
+    - name: Collect static files
+      run: |
+        python manage.py collectstatic --noinput
+
+    - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
-      with: 
+      with:
         app-name: 'cac-app'
         slot-name: 'production'
         publish-profile: ${{ secrets.AzureAppService_PublishProfile_8fe69e4d5cc64a699fb541acedc197d5 }}
+        package: .
