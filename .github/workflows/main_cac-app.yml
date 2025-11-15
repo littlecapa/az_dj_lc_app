@@ -72,9 +72,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install --no-cache-dir -r requirements.txt
 
-    - name: Test raw ODBC connection
-      run: |
-        isql -v "DRIVER={ODBC Driver 18 for SQL Server};SERVER=${DB_HOST};DATABASE=${DB_NAME};UID=${DB_USER};PWD=${DB_PASSWORD};TrustServerCertificate=yes;"
+    - name: Test Database Connection
+      run: python azure_iaac/test_connection.py
       env:
         DB_NAME: ${{ secrets.DB_NAME }}
         DB_USER: ${{ secrets.DB_USER }}
