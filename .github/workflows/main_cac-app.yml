@@ -57,7 +57,8 @@ jobs:
         DB_PORT: ${{ secrets.DB_PORT }}
       run: |
         cat << 'EOF' > test_connection.py
-import pyodbc, os
+import pyodbc
+import os
 
 try:
     conn = pyodbc.connect(
@@ -99,9 +100,4 @@ EOF
         python manage.py collectstatic --noinput --check
 
     - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: 'cac-app'
-        slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_8fe69e4d5cc64a699fb541acedc197d5 }}
-        package: .
+      uses
