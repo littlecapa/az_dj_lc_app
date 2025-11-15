@@ -55,23 +55,25 @@ jobs:
         DB_HOST: ${{ secrets.DB_HOST }}
         DB_PORT: ${{ secrets.DB_PORT }}
       run: |
-        python -c "import pyodbc, os
+        cat <<EOF > test_connection.py
+import pyodbc, os
 try:
     conn = pyodbc.connect(
-        f'DRIVER={{ODBC Driver 18 for SQL Server}};'
-        f'SERVER={os.getenv(\"DB_HOST\")};'
-        f'DATABASE={os.getenv(\"DB_NAME\")};'
-        f'UID={os.getenv(\"DB_USER\")};'
-        f'PWD={os.getenv(\"DB_PASSWORD\")};'
-        f'TrustServerCertificate=yes;',
+        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"SERVER={os.getenv('DB_HOST')};"
+        f"DATABASE={os.getenv('DB_NAME')};"
+        f"UID={os.getenv('DB_USER')};"
+        f"PWD={os.getenv('DB_PASSWORD')};"
+        f"TrustServerCertificate=yes;",
         timeout=5
     )
-    print('✅ Connection successful')
+    print("✅ Connection successful")
     conn.close()
 except Exception as e:
-    print('❌ Connection failed:', e)
+    print("❌ Connection failed:", e)
     exit(1)
-"
+EOF
+        python test_connection.py
 
     - name: Run Django migrations
       timeout-minutes: 5
