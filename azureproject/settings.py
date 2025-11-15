@@ -16,6 +16,7 @@ load_dotenv()
 import os
 ENVIRONMENT = os.getenv('DJANGO_ENV', 'development')  # default to 'development'
 DEBUG = ENVIRONMENT != 'production'
+printf("ENV: {ENVIRONMENT}")
 
 from pathlib import Path
 from django.contrib.auth import get_user_model
