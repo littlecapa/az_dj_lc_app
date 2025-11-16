@@ -17,6 +17,8 @@ jobs:
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
       DJANGO_ENV: ${{ secrets.DJANGO_ENV }}
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+      APP_NAME: ${{ secrets.APP_NAME }}
 
     steps:
     - name: Print simple Python message
@@ -71,4 +73,4 @@ jobs:
       run: zip -r app.zip . -x "*.git*" "tests/*" "__pycache__/*"
 
     - name: Deploy to Azure Web App
-      run: az webapp deploy --name cac-app --resource-group RG_CAC --src-path app.zip --type zip
+      run: az webapp deploy --name $APP_NAME --resource-group $RESOURCE_GROUP --src-path app.zip --type zip

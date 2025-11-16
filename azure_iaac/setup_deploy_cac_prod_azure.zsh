@@ -131,6 +131,8 @@ az webapp config appsettings set \
     DB_PASSWORD="$SQL_ADMIN_PASS" \
     DB_HOST="$SQL_SERVER_NAME.database.windows.net" \
     DB_PORT="1433" \
+    RESOURCE_GROUP="RG_LC" \
+    APP_NAME="lc-app" \
     DJANGO_ENV="production" \
     DJANGO_SETTINGS_MODULE="azureproject.production" \
     STARTUP_COMMAND="/home/site/wwwroot/startup.sh" \
