@@ -28,6 +28,8 @@ jobs:
         python -c "import os; print(os.environ.get('DB_USER')=='lc_db_admin@lcsqlserver')"
         python -c "import os; print(os.environ.get('DB_HOST')=='lcsqlserver.database.windows.net')"
         python -c "import os; print(os.environ.get('DB_PORT')=='1433')"
+        python -c "import os; print(os.environ.get('RESOURCE_GROUP')=='RG_LC')"
+        python -c "import os; print(os.environ.get('APP_NAME')=='lc-app')"
 
     - name: DNS Test
       run: nslookup lcsqlserver.database.windows.net

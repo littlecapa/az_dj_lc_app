@@ -4,16 +4,17 @@ import sys
 
 def test_connection():
     try:
-        conn_str = (
-            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-            f"SERVER={os.environ['DB_HOST']};"
-            f"DATABASE={os.environ['DB_NAME']};"
-            f"UID={os.environ['DB_USER']};"
-            f"PWD={os.environ['DB_PASSWORD']};"
-            f"Encrypt=yes;"
-            f"TrustServerCertificate=yes;"
-            f"Connection Timeout=30"
-        )
+        conn_str = r"""
+            DRIVER={ODBC Driver 18 for SQL Server};
+            SERVER=lcsqlserver.database.windows.net;
+            DATABASE=lc_db;
+            UID=lc_db_admin@lcsqlserver;
+            PWD=xxx;
+            Encrypt=yes;
+            TrustServerCertificate=yes;
+            Connection Timeout=30;
+            """
+        conn = pyodbc.connect(conn_str)
         
         print("Testing database connection...")
         conn = pyodbc.connect(conn_str)
