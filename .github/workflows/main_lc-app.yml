@@ -1,4 +1,4 @@
-name: 'Build and deploy Python app to Azure Web App: cac-app'
+name: 'Build and deploy Python app to Azure Web App: lc-app'
 
 on:
   push:
@@ -25,11 +25,11 @@ jobs:
       run: |
         python -c "print('Hallo Roger 👋')"
         python -c "import os; print(os.environ.get('DB_NAME')=='lc_db')"
-        python -c "import os; print(os.environ.get('DB_USER')=='lc_db_admin@cacsqlserver')"
+        python -c "import os; print(os.environ.get('DB_USER')=='lc_db_admin@lcsqlserver')"
         python -c "import os; print(os.environ.get('DB_HOST')=='lcsqlserver.database.windows.net')"
 
     - name: DNS Test
-      run: nslookup cacsqlserver.database.windows.net
+      run: nslookup lcsqlserver.database.windows.net
 
     - name: Checkout code
       uses: actions/checkout@v3
