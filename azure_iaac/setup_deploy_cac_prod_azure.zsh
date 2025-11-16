@@ -1,19 +1,28 @@
 #!/bin/zsh
+az version | grep '"azure-cli"' || az upgrade
 
 # ============================
 # 🔧 Parameter Definitions
 # ============================
-RESOURCE_GROUP="RG_CAC"
+RESOURCE_GROUP="RG_LC"
 LOCATION="westeurope"
-APP_PLAN="cac_plan"
-WEB_APP_NAME="cac-app"  # Must be globally unique
+APP_PLAN="lc_plan"
+WEB_APP_NAME="lc-app"  # Must be globally unique
 RUNTIME="PYTHON|3.11"
-SQL_SERVER_NAME="cacsqlserver"
-SQL_DB_NAME="cac_db"
-SQL_ADMIN_USER="cac_db_admin"
-SQL_ADMIN_PASS="LC_G7q!mP4zR@t2"
-GITHUB_REPO="littlecapa/chess_ai_coach"
+SQL_SERVER_NAME="lcsqlserver"
+SQL_DB_NAME="lc_db"
+SQL_ADMIN_USER="lc_db_admin"
+GITHUB_REPO="littlecapa/az_dj_lc_app"
 GITHUB_BRANCH="main"
+
+echo -n "Enter SQL admin password: "
+read -s SQL_ADMIN_PASS
+echo
+export SQL_ADMIN_PASS
+if [ -z "$SQL_ADMIN_PASS" ]; then
+  echo "❌ SQL admin password cannot be empty. Exiting."
+  exit 1
+fi
 
 # ============================
 # 🚀 Create Resource Group
@@ -49,7 +58,7 @@ if ! az webapp show --name $WEB_APP_NAME --resource-group $RESOURCE_GROUP &>/dev
     --resource-group $RESOURCE_GROUP \
     --plan $APP_PLAN \
     --name $WEB_APP_NAME \
-    --runtime $RUNTIME
+    --runtime "$RUNTIME"
 else
   echo "Web App $WEB_APP_NAME already exists. Skipping."
 fi
@@ -112,3 +121,25 @@ az webapp deployment github-actions add \
 
 
 echo "✅ Deployment script completed."
+
+az webapp config appsettings set \
+  --name $WEB_APP_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    DB_NAME=$SQL_DB_NAME \
+    DB_USER=$SQL_ADMIN_USER \
+    DB_PASSWORD=$SQL_ADMIN_PASS \
+    DB_HOST=$SQL_SERVER_NAME.database.windows.net \
+    DB_PORT=1433 \
+    DJANGO_ENV=production \
+    DJANGO_SETTINGS_MODULE=azureproject.production \
+    STARTUP_COMMAND="/home/site/wwwroot/startup.sh" \
+    SCM_DO_BUILD_DURING_DEPLOYMENT=true 
+
+az webapp log config \
+  --name $WEB_APP_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --application-logging filesystem \
+  --level information --output table
+
+az webapp restart
