@@ -109,9 +109,11 @@ jobs:
       run: |
         python manage.py collectstatic --noinput
 
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
+    - name: Login to Azure
+      uses: azure/login@v1
       with:
-        app-name: 'cac-app'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_8fe69e4d5cc64a699fb541acedc197d5 }}
-        package: .
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy using Azure CLI
+      run: |
+        az webapp deploy --name cac-app --resource-group <RESOURCE_GROUP> --src-path .
