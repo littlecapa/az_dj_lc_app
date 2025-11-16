@@ -126,15 +126,15 @@ az webapp config appsettings set \
   --name $WEB_APP_NAME \
   --resource-group $RESOURCE_GROUP \
   --settings \
-    DB_NAME=$SQL_DB_NAME \
-    DB_USER=$SQL_ADMIN_USER \
-    DB_PASSWORD=$SQL_ADMIN_PASS \
-    DB_HOST=$SQL_SERVER_NAME.database.windows.net \
-    DB_PORT=1433 \
-    DJANGO_ENV=production \
-    DJANGO_SETTINGS_MODULE=azureproject.production \
+    DB_NAME="$SQL_DB_NAME" \
+    DB_USER="$SQL_ADMIN_USER" \
+    DB_PASSWORD="$SQL_ADMIN_PASS" \
+    DB_HOST="$SQL_SERVER_NAME.database.windows.net" \
+    DB_PORT="1433" \
+    DJANGO_ENV="production" \
+    DJANGO_SETTINGS_MODULE="azureproject.production" \
     STARTUP_COMMAND="/home/site/wwwroot/startup.sh" \
-    SCM_DO_BUILD_DURING_DEPLOYMENT=true 
+    SCM_DO_BUILD_DURING_DEPLOYMENT="true" 
 
 az webapp log config \
   --name $WEB_APP_NAME \
