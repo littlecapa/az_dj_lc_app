@@ -10,12 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
-from dotenv import load_dotenv
-load_dotenv()
-
 import os
 ENVIRONMENT = os.getenv('DJANGO_ENV', 'development')  # default to 'development'
 DEBUG = ENVIRONMENT != 'production'
+
+if os.getenv("ENVIRONMENT") != "production":
+    from dotenv import load_dotenv
+    load_dotenv()
 
 import logging
 logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
