@@ -1,35 +1,86 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: 'Build and deploy Python app to Azure Web App: lc-app'
+name: 'Build and deploy Python app to Azure Web App: cac-app'
 
 on:
   push:
     branches:
-    - main
+      - main
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
+    - name: Print simple Python message
+      run: |
+        python -c "print('Hallo Roger 👋')"
+        python -c "import os; print(os.environ.get('DB_NAME')=='cac_db')"
+        python -c "import os; print(os.environ.get('DB_USER')=='cac_db_admin@cacsqlserver')"
+        python -c "import os; print(os.environ.get('DB_HOST')=='cacsqlserver.database.windows.net')"
+      env:
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+
+    - name: DNS Test
+      run: nslookup cacsqlserver.database.windows.net
+
+    - name: Checkout code
+      uses: actions/checkout@v3
 
     - name: Set up Python version
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
-    
-    - name: Build using AppService-Build
-      uses: azure/appservice-build@v2
+        python-version: '3.11.14'
+
+    - name: Install ODBC Driver for SQL Server
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl gnupg
+        curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+        sudo apt-get update
+        sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+
+    - name: Install pyodbc and dependencies for test
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyodbc
+        pip install --no-cache-dir -r requirements.txt
+
+    - name: Test pyODBC driver
+      run: |
+        python -c "import pyodbc; print(pyodbc.drivers())"
+      env:
+        DB_HOST: ${{ secrets.DB_HOST }}
+        
+    - name: Run Django migrations
+      run: python manage.py migrate
+      env:
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DJANGO_ENV: production
+
+    - name: Collect static files
+      run: python manage.py collectstatic --noinput
+      env:
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        DJANGO_ENV: production
+
+    - name: Login to Azure
+      uses: azure/login@v1
       with:
-        platform: python
-        platform-version: '3.11'
-    
-    - name: 'Deploy to Azure Web App'
-      uses: azure/webapps-deploy@v2
-      with: 
-        app-name: 'lc-app'
-        slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_da9a690c8e444b7fb92a43e8f4cfa666 }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Zip application
+      run: zip -r app.zip . -x "*.git*" "tests/*" "__pycache__/*"
+
+    - name: Deploy to Azure Web App
+      run: az webapp deploy --name cac-app --resource-group RG_CAC --src-path app.zip --type zip
