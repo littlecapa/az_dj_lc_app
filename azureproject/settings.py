@@ -17,6 +17,9 @@ import os
 ENVIRONMENT = os.getenv('DJANGO_ENV', 'development')  # default to 'development'
 DEBUG = ENVIRONMENT != 'production'
 
+import logging
+logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
+
 from pathlib import Path
 from django.contrib.auth import get_user_model
 
@@ -30,7 +33,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY','SECRET_KEY')
 
-ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1'] if ENVIRONMENT == 'development' else ["cac-app.azurewebsites.net", os.getenv('DJANGO_ALLOWED_HOST', '*')]
+ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1'] if ENVIRONMENT == 'development' else ["lc-app.azurewebsites.net", os.getenv('DJANGO_ALLOWED_HOST', '*')]
 # Or for quick testing:
 # ALLOWED_HOSTS = ['*']
 
