@@ -27,6 +27,7 @@ jobs:
         python -c "import os; print(os.environ.get('DB_NAME')=='lc_db')"
         python -c "import os; print(os.environ.get('DB_USER')=='lc_db_admin@lcsqlserver')"
         python -c "import os; print(os.environ.get('DB_HOST')=='lcsqlserver.database.windows.net')"
+        python -c "import os; print(os.environ.get('DB_PORT')=='1433')"
 
     - name: DNS Test
       run: nslookup lcsqlserver.database.windows.net
@@ -73,4 +74,4 @@ jobs:
       run: zip -r app.zip . -x "*.git*" "tests/*" "__pycache__/*"
 
     - name: Deploy to Azure Web App
-      run: az webapp deploy --name $APP_NAME --resource-group $RESOURCE_GROUP --src-path app.zip --type zip
+      run: az webapp deploy --name ${{ env.APP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --src-path app.zip --type zip
