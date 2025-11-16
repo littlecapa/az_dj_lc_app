@@ -10,18 +10,21 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    env:
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DJANGO_ENV: ${{ secrets.DJANGO_ENV }}
+
     steps:
     - name: Print simple Python message
       run: |
         python -c "print('Hallo Roger 👋')"
-        python -c "import os; print(os.environ.get('DB_NAME')=='cac_db')"
-        python -c "import os; print(os.environ.get('DB_USER')=='cac_db_admin@cacsqlserver')"
-        python -c "import os; print(os.environ.get('DB_HOST')=='cacsqlserver.database.windows.net')"
-      env:
-        DB_NAME: ${{ secrets.DB_NAME }}
-        DB_USER: ${{ secrets.DB_USER }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        DB_HOST: ${{ secrets.DB_HOST }}
+        python -c "import os; print(os.environ.get('DB_NAME')=='lc_db')"
+        python -c "import os; print(os.environ.get('DB_USER')=='lc_db_admin@cacsqlserver')"
+        python -c "import os; print(os.environ.get('DB_HOST')=='lcsqlserver.database.windows.net')"
 
     - name: DNS Test
       run: nslookup cacsqlserver.database.windows.net
@@ -52,27 +55,12 @@ jobs:
     - name: Test pyODBC driver
       run: |
         python -c "import pyodbc; print(pyodbc.drivers())"
-      env:
-        DB_HOST: ${{ secrets.DB_HOST }}
         
     - name: Run Django migrations
       run: python manage.py migrate
-      env:
-        DB_NAME: ${{ secrets.DB_NAME }}
-        DB_USER: ${{ secrets.DB_USER }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        DB_HOST: ${{ secrets.DB_HOST }}
-        DJANGO_ENV: production
 
     - name: Collect static files
       run: python manage.py collectstatic --noinput
-      env:
-        DB_NAME: ${{ secrets.DB_NAME }}
-        DB_USER: ${{ secrets.DB_USER }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        DB_HOST: ${{ secrets.DB_HOST }}
-        DB_PORT: ${{ secrets.DB_PORT }}
-        DJANGO_ENV: production
 
     - name: Login to Azure
       uses: azure/login@v1
