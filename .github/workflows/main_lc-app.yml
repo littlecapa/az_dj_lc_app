@@ -63,7 +63,10 @@ jobs:
         python -c "import pyodbc; print(pyodbc.drivers())"
         
     - name: Run Django migrations
-      run: python manage.py migrate
+      run: |
+        echo "CURRENT DIR:"
+        pwd
+        python manage.py migrate
 
     - name: Collect static files
       run: |
