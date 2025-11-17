@@ -20,6 +20,9 @@ import os
 ENVIRONMENT = os.getenv('DJANGO_ENV', 'development')  # default to 'development'
 DEBUG = ENVIRONMENT == 'development'
 
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+
 #if os.getenv("ENVIRONMENT") != "production":
 #    from dotenv import load_dotenv
 #    load_dotenv()
@@ -46,7 +49,7 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'filename': os.path.join(LOG_DIR, 'django.log'),
             'formatter': 'verbose',
         },
     },
