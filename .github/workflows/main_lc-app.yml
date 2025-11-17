@@ -65,6 +65,7 @@ jobs:
       run: python manage.py migrate
 
     - name: Collect static files
+      working-directory: ./az_dj_lc_app
       run: python manage.py collectstatic --noinput
 
     - name: Login to Azure
@@ -76,4 +77,5 @@ jobs:
       run: zip -r app.zip . -x "*.git*" "tests/*" "__pycache__/*"
 
     - name: Deploy to Azure Web App
+      working-directory: ./az_dj_lc_app
       run: az webapp deploy --name ${{ env.APP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --src-path app.zip --type zip
