@@ -30,6 +30,7 @@ jobs:
         python -c "import os; print(os.environ.get('DB_PORT')=='1433')"
         python -c "import os; print(os.environ.get('RESOURCE_GROUP')=='RG_LC')"
         python -c "import os; print(os.environ.get('APP_NAME')=='lc-app')"
+        python -c "import os; print(os.environ.get('DJANGO_ENV')=='production')"
 
     - name: DNS Test
       run: nslookup lcsqlserver.database.windows.net

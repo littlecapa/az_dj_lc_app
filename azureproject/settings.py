@@ -21,6 +21,7 @@ if os.getenv("ENVIRONMENT") != "production":
 import logging
 logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
 logging.warning(f"ENV (Settings): {ENVIRONMENT}")
+logging.warning(f"DEBUG ON? (Settings): {DEBUG}")
 
 from pathlib import Path
 from django.contrib.auth import get_user_model
