@@ -19,6 +19,7 @@ jobs:
       DJANGO_ENV: production
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       APP_NAME: ${{ secrets.APP_NAME }}
+      DJANGO_SETTINGS_MODULE: azureproject.production
 
     steps:
     - name: Print simple Python message
