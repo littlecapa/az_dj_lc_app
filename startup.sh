@@ -1,22 +1,17 @@
 #!/bin/bash
-
-# Exit on any error
 set -e
 
-echo "=== Starting Django Application ==="
+echo "=== STARTUP SCRIPT STARTED ===" >> /tmp/startup.log 2>&1
 
-# Run database migrations
-echo "Running migrations..."
-python manage.py migrate --noinput
+echo "Running migrations..." >> /tmp/startup.log 2>&1
+python manage.py migrate --noinput >> /tmp/startup.log 2>&1 || echo "MIGRATE FAILED" >> /tmp/startup.log 2>&1
 
-# Collect static files
-echo "Collecting static files..."
-python manage.py collectstatic --noinput --clear
+echo "Collecting static files..." >> /tmp/startup.log 2>&1
+python manage.py collectstatic --noinput --clear >> /tmp/startup.log 2>&1 || echo "COLLECTSTATIC FAILED" >> /tmp/startup.log 2>&1
 
-# Start Gunicorn
-echo "Starting Gunicorn..."
+echo "Starting Gunicorn..." >> /tmp/startup.log 2>&1
 gunicorn --workers 2 --threads 4 --timeout 60 \
     --access-logfile '-' --error-logfile '-' \
     --bind=0.0.0.0:8000 \
     --chdir=/home/site/wwwroot \
-    azureproject.wsgi:application
+    azureproject.wsgi:application >> /tmp/startup.log 2>&1
