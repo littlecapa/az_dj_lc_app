@@ -184,6 +184,7 @@ STATIC_URL = '/static/'
 if ENVIRONMENT != 'development':
     # Azure expects static files to be collected into STATIC_ROOT
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    logging.warning(f"STATICROOT: {STATIC_ROOT}")
 else:
     # In development, serve static files from the 'static' folder
     STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
