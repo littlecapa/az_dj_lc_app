@@ -23,9 +23,9 @@ DEBUG = ENVIRONMENT == 'development'
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 
-#if os.getenv("ENVIRONMENT") != "production":
-#    from dotenv import load_dotenv
-#    load_dotenv()
+if os.getenv("ENVIRONMENT") == 'development':
+    from dotenv import load_dotenv
+    load_dotenv()
 
 import logging
 

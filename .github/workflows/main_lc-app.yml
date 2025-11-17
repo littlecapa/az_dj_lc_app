@@ -16,7 +16,7 @@ jobs:
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
-      DJANGO_ENV: ${{ secrets.DJANGO_ENV }}
+      DJANGO_ENV: production
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       APP_NAME: ${{ secrets.APP_NAME }}
 
