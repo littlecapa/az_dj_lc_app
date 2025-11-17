@@ -10,25 +10,55 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
-import os
-ENVIRONMENT = os.getenv('DJANGO_ENV', 'development')  # default to 'development'
-DEBUG = ENVIRONMENT != 'production'
-
-if os.getenv("ENVIRONMENT") != "production":
-    from dotenv import load_dotenv
-    load_dotenv()
-
-import logging
-logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
-logging.warning(f"ENV (Settings): {ENVIRONMENT}")
-logging.warning(f"DEBUG ON? (Settings): {DEBUG}")
-
 from pathlib import Path
 from django.contrib.auth import get_user_model
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+import os
+ENVIRONMENT = os.getenv('DJANGO_ENV', 'development')  # default to 'development'
+DEBUG = ENVIRONMENT == 'development'
+
+#if os.getenv("ENVIRONMENT") != "production":
+#    from dotenv import load_dotenv
+#    load_dotenv()
+
+import logging
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose' if ENVIRONMENT == 'production' else 'simple',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'] if ENVIRONMENT == 'development' else ['console'],
+        'level': 'INFO',
+    },
+}
+
+logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
+logging.warning(f"ENV (Settings): {ENVIRONMENT}")
+logging.warning(f"DEBUG ON? (Settings): {DEBUG}")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -180,14 +210,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+logging.warning(f"STATICROOT: {STATIC_ROOT}")
 
-if ENVIRONMENT != 'development':
-    # Azure expects static files to be collected into STATIC_ROOT
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-    logging.warning(f"STATICROOT: {STATIC_ROOT}")
-else:
+if ENVIRONMENT == 'development':
     # In development, serve static files from the 'static' folder
     STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+    logging.warning(f"STATICFILES_DIRS: {STATICFILES_DIRS}")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
