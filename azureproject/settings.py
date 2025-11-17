@@ -69,11 +69,7 @@ logging.warning(f"DEBUG ON? (Settings): {DEBUG}")
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY','SECRET_KEY')
 
-ALLOWED_HOSTS = (
-    ['192.168.178.139', 'localhost', '127.0.0.1']
-    if ENVIRONMENT == 'development'
-    else ['lc-app.azurewebsites.net', os.getenv('DJANGO_ALLOWED_HOST', '*')]
-)
+ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1']
 
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
@@ -93,7 +89,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # ← Add this line just after SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -124,53 +119,21 @@ TEMPLATES = [
 WSGI_APPLICATION = 'azureproject.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
-# To use sqllite as the database engine,
-#   uncomment the following block and comment out the Postgres section below
-
-# DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-# }
-
-
-# Configure Postgres database for local development
-#   Set these environment variables in the .env file for this project.
-
-if ENVIRONMENT == 'production':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'mssql',
-            'NAME': os.getenv('DB_NAME'),
-            'USER': os.getenv('DB_USER'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST'),
-            'PORT': os.getenv('DB_PORT', '1433'),
-            'OPTIONS': {
-                'driver': 'ODBC Driver 18 for SQL Server',
-                'extra_params': 'Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=60',
-            },
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': os.getenv('DBNAME'),
+        'USER': os.getenv('DBUSER'),
+        'PASSWORD': os.getenv('DBPASS'),
+        'HOST': os.getenv('DBHOST', 'localhost'),
+        'PORT': os.getenv('DBPORT', '1433'),
+        'OPTIONS': {
+            'driver': 'ODBC Driver 18 for SQL Server',
+            'extra_params': 'TrustServerCertificate=yes;'
+        },
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'mssql',
-            'NAME': os.getenv('DBNAME'),
-            'USER': os.getenv('DBUSER'),
-            'PASSWORD': os.getenv('DBPASS'),
-            'HOST': os.getenv('DBHOST', 'localhost'),
-            'PORT': os.getenv('DBPORT', '1433'),
-            'OPTIONS': {
-                'driver': 'ODBC Driver 18 for SQL Server',
-                'extra_params': 'TrustServerCertificate=yes;'
-            },
-        }
-    }
+}
 
 
 # Password validation
@@ -215,17 +178,9 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-logging.warning(f"STATICROOT: {STATIC_ROOT}")
-
-if ENVIRONMENT == 'development':
-    # In development, serve static files from the 'static' folder
-    STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-    logging.warning(f"STATICFILES_DIRS: {STATICFILES_DIRS}")
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
