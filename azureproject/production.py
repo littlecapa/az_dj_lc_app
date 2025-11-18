@@ -27,7 +27,6 @@ MIDDLEWARE = [
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
