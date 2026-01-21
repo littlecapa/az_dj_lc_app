@@ -1,0 +1,114 @@
+{% extends 'homepage/base_home.html' %}
+{% load static %}
+
+{% block title %}Contact - Littlecapa{% endblock %}
+
+{% block content %}
+<style>
+    /* Spezifische Styles für das Kontaktformular */
+    .contact-header-img {
+        width: 100%;
+        height: auto;
+        max-height: 400px;
+        object-fit: cover;
+        object-position: top; /* Fokus oben, damit man den Kopf sieht */
+        margin-bottom: 3rem;
+    }
+    
+    .contact-title {
+        font-family: 'Playfair Display', serif; /* Falls wir die Font noch nicht haben, nimmt er serif */
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        font-weight: 400;
+    }
+    
+    .separator-line {
+        border-top: 1px solid #ddd;
+        margin-bottom: 3rem;
+    }
+
+    .form-control {
+        background-color: #fff;
+        border: 1px solid #eee; /* Ganz heller Rahmen wie im Screenshot */
+        border-radius: 0; /* Eckige Kanten wirken cleaner */
+        padding: 1rem; /* Mehr Platz innen */
+    }
+    
+    .form-control:focus {
+        box-shadow: none;
+        border-color: #ccc;
+    }
+
+    .btn-send {
+        background-color: #666; /* Dunkelgrau */
+        color: white;
+        border: none;
+        padding: 12px 40px;
+        letter-spacing: 2px;
+        font-weight: bold;
+        text-transform: uppercase;
+        border-radius: 0;
+        transition: background-color 0.3s;
+    }
+    
+    .btn-send:hover {
+        background-color: #444;
+        color: white;
+    }
+</style>
+
+<div class="container" style="max-width: 900px;"> <!-- Etwas schmaler als Full-Width -->
+    
+    <!-- 1. Bild oben -->
+    <div class="row justify-content-center">
+        <div class="col-12 text-center">
+            <img src="{% static 'homepage/img/contact_header.png' %}" 
+                 alt="Sailing Littlecapa" 
+                 class="contact-header-img">
+        </div>
+    </div>
+
+    <!-- 2. Titel & Linie -->
+    <div class="row">
+        <div class="col-12">
+            <h1 class="contact-title">Contact me</h1>
+            <div class="separator-line"></div>
+        </div>
+    </div>
+
+    <!-- 3. Formular -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-8">
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-success text-center mb-4">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    {{ form.name }}
+                </div>
+
+                <div class="mb-4 position-relative">
+                    {{ form.email }}
+                    <!-- Kleines Schloss-Icon (optional, wenn wir es genau wollen) -->
+                    <!-- <i class="fa fa-lock position-absolute" style="right: 15px; top: 18px; color: #dc3545;"></i> -->
+                </div>
+                
+                <div class="mb-5">
+                    {{ form.message }}
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-send">Send</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

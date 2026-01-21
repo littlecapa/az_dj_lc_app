@@ -1,3 +1,17 @@
 from django.db import models
+from django.utils import timezone
 
-# Create your models here.
+class ContactMessage(models.Model):
+    name = models.CharField(max_length=100, blank=True)
+    email = models.EmailField()
+    message = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+    is_read = models.BooleanField(default=False, verbose_name="Gelesen")
+
+    class Meta:
+        ordering = ['-created_at'] # Neueste Nachrichten zuerst
+        verbose_name = "Kontakt-Nachricht"
+        verbose_name_plural = "Kontakt-Nachrichten"
+
+    def __str__(self):
+        return f"Nachricht von {self.name} ({self.created_at.strftime('%d.%m.%Y')})"

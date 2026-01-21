@@ -59,7 +59,8 @@
 
                     <!-- 3. CONTACT -->
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Contact</a>
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:contact' %}active fw-bold{% endif %}" 
+                        href="{% url 'homepage:contact' %}">Contact</a>
                     </li>
 
                     <!-- 4. HISTORICAL CHESS MAGS -->

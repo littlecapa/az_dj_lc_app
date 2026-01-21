@@ -56,6 +56,29 @@ jobs:
         python -m pip install --upgrade pip
         pip install --no-cache-dir -r requirements.txt
 
+          # ... nach 'Install Dependencies' ...
+
+    - name: Create Django Superuser
+      env:
+        # Das Passwort aus den GitHub Secrets holen
+        DJANGO_SUPERUSER_PASSWORD: ${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
+        
+        # WICHTIG: Damit manage.py zur Datenbank kommt, müssen diese Infos hier rein:
+        # (Passen Sie die Namen an Ihre bestehenden Secrets an)
+        DB_HOST: ${{ secrets.DB_HOST }} 
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        # Falls Sie andere Namen in settings.py nutzen, passen Sie das hier an
+        
+      run: |
+        # || true am Ende sorgt dafür, dass die Pipeline NICHT abbricht, 
+        # falls der User schon existiert (beim zweiten Durchlauf).
+        python manage.py createsuperuser \
+          --noinput \
+          --username littlecapa \
+          --email littlecapa@googlemail.com || true
+
     - name: Test pyODBC driver
       run: |
         python -c "import pyodbc; print('✅ pyODBC Treiber:', pyodbc.drivers())"
