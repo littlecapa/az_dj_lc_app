@@ -1,0 +1,111 @@
+{% extends 'homepage/base_home.html' %} 
+{# Wir erben von Ihrer existierenden Base, damit Navbar/Footer konsistent sind! #}
+{% load static %}
+
+{% block title %}Littlecapa - Home{% endblock %}
+
+{% block content %}
+<style>
+    /* Anpassungen für das neue Layout */
+    .hero-container {
+        padding: 4rem 0; /* Abstand oben/unten */
+        align-items: center; /* Vertikal zentrieren */
+    }
+    
+    .hero-img {
+        width: 100%;
+        border-radius: 8px; /* Leicht abgerundete Ecken wirken moderner */
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1); /* Sanfter Schatten */
+        max-height: 500px;
+        object-fit: cover;
+    }
+    
+    .intro-text-side {
+        padding-left: 2rem; /* Abstand zum Bild */
+    }
+
+    /* Damit es auf dem Handy gut aussieht (Bild oben, Text unten) */
+    @media (max-width: 768px) {
+        .intro-text-side {
+            padding-left: 0;
+            padding-top: 2rem;
+            text-align: center;
+        }
+    }
+
+    .about-circle {
+        width: 200px; /* Etwas kleiner als vorher, damit es harmonischer wirkt */
+        height: 200px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: transform 0.3s;
+    }
+    .about-circle:hover { transform: scale(1.05); }
+
+    .social-icons a {
+        font-size: 2rem;
+        margin: 0 10px;
+        text-decoration: none;
+    }
+    .social-icons .fa-facebook { color: #1877F2; }
+    .social-icons .fa-instagram { color: #E4405F; }
+</style>
+
+<div class="container">
+    
+    <!-- NEU: Hero Section als Row (Links Bild, Rechts Text) -->
+    <div class="row hero-container">
+        <!-- Spalte Links: Bild -->
+        <div class="col-md-6">
+            <img src="{% static 'homepage/img/littlecapa.png' %}" alt="Roger Littlecapa" class="hero-img">
+        </div>
+        
+        <!-- Spalte Rechts: Text -->
+        <div class="col-md-6 intro-text-side">
+            <h1 class="display-5 fw-bold mb-3">Hey there! I am Littlecapa aka Roger.</h1>
+            <p class="lead text-muted">On this page I will share my personal projects with you.</p>
+        </div>
+    </div>
+
+    <!-- About Me Header -->
+    <div class="text-center mt-5">
+        <h3 class="mb-5">About me</h3>
+    </div>
+    
+    <!-- Die 3 Kreise -->
+    <div class="row text-center mb-5">
+        <!-- Spalte 1: Background -->
+        <div class="col-md-4 mb-4">
+            <img src="{% static 'homepage/img/circle_background.png' %}" alt="My Background" class="about-circle">
+            <h4>My Background</h4>
+            <p class="text-muted small px-3">
+                I graduated from university having majored in computer science and minored in economics. 
+                After working as a senior project manager and consultant for many years, I am now retired.
+            </p>
+        </div>
+
+        <!-- Spalte 2: Interests -->
+        <div class="col-md-4 mb-4">
+            <img src="{% static 'homepage/img/circle_sailing.png' %}" alt="My Interests" class="about-circle">
+            <h4>My Interests</h4>
+            <p class="text-muted small px-3">
+                After retirement I now have more time for my personal interests, 
+                which include sailing, chess (history), traveling and artificial intelligence.
+            </p>
+        </div>
+
+        <!-- Spalte 3: Goals -->
+        <div class="col-md-4 mb-4">
+            <img src="{% static 'homepage/img/circle_goals.png' %}" alt="My Goals" class="about-circle">
+            <h4>My Goals</h4>
+            <p class="text-muted small px-3">
+                I am looking forward to improve my chess game, develop my own AI chess engine, 
+                sail the Mediterranean and travel the World.
+            </p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

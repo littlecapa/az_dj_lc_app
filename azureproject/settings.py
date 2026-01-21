@@ -69,7 +69,7 @@ logging.warning(f"DEBUG ON? (Settings): {DEBUG}")
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY','SECRET_KEY')
 
-ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini']
 
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']

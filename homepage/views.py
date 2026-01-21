@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse
 
 def index(request):
-    return HttpResponse("Hallo! Das ist die neue Homepage App auf Azure. 🚀")
+    # Rendert jetzt das echte Template statt nur Text
+    return render(request, 'homepage/index.html')

@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Littlecapa{% endblock %}</title>
+    
+    <!-- Bootstrap CSS (für das Layout) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome (für die Icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* Ein paar globale Styles für den modernen Look */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        footer {
+            margin-top: 5rem;
+            padding: 2rem 0;
+            background-color: #f8f9fa;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR (Das Menü oben) -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white py-3 shadow-sm">
+        <div class="container">
+            <!-- Ihr Logo / Name -->
+            <a class="navbar-brand" href="{% url 'homepage:index' %}">Littlecapa</a>
+            
+            <!-- Hamburger Button für Mobile -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Menüpunkte -->
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav">
+                    <!-- 1. HOME -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:index' %}active fw-bold{% endif %}" 
+                        href="{% url 'homepage:index' %}">Home</a>
+                    </li>
+                    
+                    <!-- 2. MY BLOG (NEU) -->
+                    <li class="nav-item">
+                        <!-- Verlinkt aktuell noch nirgendwo hin, außer wir haben schon eine Blog-URL -->
+                        <a class="nav-link" href="#">My Blog</a>
+                    </li>
+
+                    <!-- 3. CONTACT -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Contact</a>
+                    </li>
+
+                    <!-- 4. HISTORICAL CHESS MAGS -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Historical Chess Mags</a>
+                    </li>
+
+                    <!-- 5. AI CHESS ENGINE -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">AI Chess Engine</a>
+                    </li>
+
+                    <!-- 6. PUBLICATIONS -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Publications</a>
+                    </li>
+                    
+                    <!-- 7. MY CHESS CLUB -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">My Chess Club</a>
+                    </li>
+
+                </ul>
+            </div>
+
+        </div>
+    </nav>
+
+    <!-- HIER KOMMT DER INHALT DER UNTERSEITEN REIN -->
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="text-center text-muted small">
+        <div class="container">
+            <p class="mb-1">Copyright &copy; 2026 Littlecapa</p>
+            <p>Implemented with Django & Bootstrap</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS (wichtig für Mobile Menü) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
