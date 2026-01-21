@@ -32,7 +32,7 @@
         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addReviewModal">
             Add new review
         </button>
-        <!-- <a href="{% url 'create_restaurant' %}" class="btn btn-success px-4 gap-3">Add new review</a> -->
+        <!-- <a href="{% url 'restaurant_review:create_restaurant' %}" class="btn btn-success px-4 gap-3">Add new review</a> -->
     </p>
 
     <!-- Button trigger modal -->
@@ -69,7 +69,7 @@
             <h5 class="modal-title" id="addReviewModalLabel">Add Review</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-              <form method="POST" action="{% url 'add_review' restaurant.id %}">
+              <form method="POST" action="{% url 'restaurant_review:add_review' restaurant.id %}">
 
               <div class="modal-body">
 

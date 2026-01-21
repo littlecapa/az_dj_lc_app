@@ -1,17 +1,38 @@
 #!/bin/bash
 set -e
 
-echo "=== STARTUP SCRIPT STARTED ===" >> /tmp/startup.log 2>&1
+# Logging-Setup: Wir schreiben in eine Datei, aber WICHTIGES auch auf den Screen
+LOGFILE="/tmp/startup.log"
+echo "=== STARTUP SCRIPT STARTED at $(date) ===" | tee -a $LOGFILE
 
-echo "Running migrations..." >> /tmp/startup.log 2>&1
-python manage.py migrate --noinput >> /tmp/startup.log 2>&1 || echo "MIGRATE FAILED" >> /tmp/startup.log 2>&1
+# 1. Sicherstellen, dass wir im richtigen Verzeichnis sind
+cd /home/site/wwwroot
 
-echo "Collecting static files..." >> /tmp/startup.log 2>&1
-python manage.py collectstatic --noinput --clear >> /tmp/startup.log 2>&1 || echo "COLLECTSTATIC FAILED" >> /tmp/startup.log 2>&1
+# 2. Migrationen ausführen
+echo "🔄 Running migrations..." | tee -a $LOGFILE
+python manage.py migrate --noinput || {
+    echo "❌ CRITICAL: Migration failed!" | tee -a $LOGFILE
+    # Wir lassen den Container trotzdem starten, damit man debuggen kann,
+    # statt ihn in eine Crash-Loop zu schicken.
+}
 
-echo "Starting Gunicorn..." >> /tmp/startup.log 2>&1
-gunicorn --workers 2 --threads 4 --timeout 60 \
-    --access-logfile '-' --error-logfile '-' \
+# 3. Static Files einsammeln
+echo "📁 Collecting static files..." | tee -a $LOGFILE
+python manage.py collectstatic --noinput --clear || {
+    echo "⚠️ Collectstatic failed!" | tee -a $LOGFILE
+}
+
+# 4. Gunicorn Starten
+echo "🚀 Starting Gunicorn..." | tee -a $LOGFILE
+
+# WICHTIG:
+# - Kein '>> logfile' am Ende! Azure braucht den Output direkt.
+# - --chdir /home/site/wwwroot explizit setzen
+# - exec sorgt dafür, dass Gunicorn PID 1 übernimmt (wichtig für Signale)
+
+exec gunicorn --workers 2 --threads 4 --timeout 60 \
+    --access-logfile '-' \
+    --error-logfile '-' \
     --bind=0.0.0.0:8000 \
     --chdir=/home/site/wwwroot \
-    azureproject.wsgi:application >> /tmp/startup.log 2>&1
+    azureproject.wsgi:application

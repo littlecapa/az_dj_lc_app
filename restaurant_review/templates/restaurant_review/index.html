@@ -61,7 +61,7 @@
                   <tr>
                       <td>{{ restaurant.name }}</td>
                       <td>{% star_rating restaurant.avg_rating restaurant.review_count   %}   </td>
-                      <td class="text-end"><a href="{% url 'details' restaurant.id %}" class="btn btn-sm btn-primary">Details</a></td>
+                      <td class="text-end"><a href="{% url 'restaurant_review:details' restaurant.id %}" class="btn btn-sm btn-primary">Details</a></td>
                   </tr>
               {% endfor %}
           </tbody>
@@ -71,6 +71,6 @@
   {% endif %}
 
   <div class="d-flex justify-content-end">
-          <a href="{% url 'create_restaurant' %}" class="btn btn-success px-4 gap-3">Add new restaurant</a>
+          <a href="{% url 'restaurant_review:create_restaurant' %}" class="btn btn-success px-4 gap-3">Add new restaurant</a>
   </div>
 {% endblock %}
