@@ -28,7 +28,7 @@ jobs:
     - name: Set up Python version
       uses: actions/setup-python@v5  # v4 -> v5 (neuere Version)
       with:
-        python-version: '3.11'  # Nicht '3.11.14' - Azure nutzt intern 3.11.x
+        python-version: '3.9'  # Nicht '3.11.14' - Azure nutzt intern 3.11.x
 
     - name: Print debug information
       run: |
