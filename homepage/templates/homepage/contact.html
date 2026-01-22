@@ -61,10 +61,11 @@
     
     <!-- 1. Bild oben -->
     <div class="row justify-content-center">
-        <div class="col-12 text-center">
+        <!-- Hier ändern wir die Breite auf 10 von 12 Spalten (lässt links/rechts je 1 Spalte Platz) -->
+        <div class="col-10 col-md-8 text-center"> 
             <img src="{% static 'homepage/img/contact_header.png' %}" 
-                 alt="Sailing Littlecapa" 
-                 class="contact-header-img">
+                alt="Sailing Littlecapa" 
+                class="contact-header-img img-fluid"> <!-- img-fluid macht das Bild responsiv -->
         </div>
     </div>
 
