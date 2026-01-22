@@ -2,30 +2,18 @@ import os
 import sys
 from django.core.wsgi import get_wsgi_application
 
-# Settings setzen
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'azureproject.production')
+
+# --- NEU: Wir schreiben direkt in den Error Stream ---
+sys.stderr.write("\n\n🚑 STARTUP CHECK: Initializing...\n\n")
 
 application = get_wsgi_application()
 
-# --- NEU: Startup Database Check ---
-# Dieser Code läuft beim Starten von Gunicorn EINMAL.
 try:
-    print("🚑 STARTUP CHECK: Testing Database Connection...")
-    
-    # Modelle importieren (geht erst nach get_wsgi_application!)
     from homepage.models import ContactMessage
-    
-    # Versuchen, die Tabelle zu lesen
     count = ContactMessage.objects.count()
-    
-    print(f"✅ DB SUCCESS: Table 'ContactMessage' exists. Row count: {count}")
-
+    sys.stderr.write(f"\n✅ DB SUCCESS: Count is {count}\n")
 except Exception as e:
-    # Fehler formatieren und laut ausgeben
-    error_msg = f"❌ DB CRITICAL FAILURE: {str(e)}"
-    print("\n" + "="*60)
-    print(error_msg)
-    print("="*60 + "\n")
-    
-    # Wir lassen die App NICHT abstürzen (kein exit), damit Sie den Log sehen können.
-    # Aber wir loggen es als Error.
+    sys.stderr.write(f"\n❌ DB CRITICAL FAILURE: {e}\n")
+    # WIRF DEN FEHLER WEITER, damit Gunicorn crasht!
+    raise e 
