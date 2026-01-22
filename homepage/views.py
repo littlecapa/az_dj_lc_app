@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .forms import ContactForm
 from .models import ContactMessage
+from django.contrib.auth.decorators import user_passes_test
 
 def index(request):
     return render(request, 'homepage/index.html')
@@ -24,3 +25,19 @@ def contact(request):
         form = ContactForm()
 
     return render(request, 'homepage/contact.html', {'form': form})
+
+# Prüffunktion: Ist der User ein Admin?
+def is_admin(user):
+    return user.is_authenticated and user.is_superuser
+
+@user_passes_test(is_admin)
+def monitoring_view(request):
+    # Zähle alle ungelesenen Nachrichten
+    # Annahme: Ihr Model hat ein BooleanField 'is_read' oder ähnlich.
+    # Falls nicht, müssen wir das anpassen (z.B. status='new').
+    unread_count = ContactMessage.objects.filter(is_read=False).count()
+
+    context = {
+        'unread_count': unread_count,
+    }
+    return render(request, 'homepage/monitoring.html', context)

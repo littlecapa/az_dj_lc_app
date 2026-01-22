@@ -1,0 +1,40 @@
+{% extends 'homepage/base_home.html' %} 
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h3>Admin Monitoring</h3>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">Statusbericht</h5>
+                    
+                    <div class="my-4">
+                        <!-- Große Zahl für gute Sichtbarkeit -->
+                        <h1 class="display-1 {% if unread_count > 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ unread_count }}
+                        </h1>
+                        <p class="text-muted">Ungelesene Kontaktanfragen</p>
+                    </div>
+
+                    <!-- Button zum Django Admin mit Filter -->
+                    <!-- 'appname' und 'modelname' müssen kleingeschrieben werden -->
+                    <!-- ?is_read__exact=0 ist der GET-Parameter für den Filter im Admin -->
+                    <a href="{% url 'admin:homepage_contactmessage_changelist' %}?is_read__exact=0" 
+                       class="btn btn-primary btn-lg">
+                        <i class="bi bi-eye"></i> Details im Admin ansehen
+                    </a>
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary btn-sm">
+                            Zum Admin-Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
