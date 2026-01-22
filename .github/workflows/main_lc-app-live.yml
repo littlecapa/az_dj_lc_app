@@ -10,12 +10,14 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    # ALLE Environment-Variablen hier zentral definiert
     env:
       DB_NAME: ${{ secrets.DB_NAME }}
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
+      DJANGO_SUPERUSER_PASSWORD: ${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
       DJANGO_ENV: production
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       APP_NAME: ${{ secrets.APP_NAME }}
@@ -23,12 +25,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4  # v3 -> v4 (neuere Version)
+      uses: actions/checkout@v4
 
     - name: Set up Python version
-      uses: actions/setup-python@v5  # v4 -> v5 (neuere Version)
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'  # Nicht '3.11.14' - Azure nutzt intern 3.11.x
+        python-version: '3.9'
 
     - name: Print debug information
       run: |
@@ -39,7 +41,7 @@ jobs:
         python -c "import os; print(f'APP_NAME: {os.environ.get(\"APP_NAME\")}')"
 
     - name: DNS Test
-      run: nslookup lcsqlserver-live.database.windows.net  # Alter Name war falsch!
+      run: nslookup lcsqlserver-live.database.windows.net
 
     - name: Install ODBC Driver for SQL Server
       run: |
@@ -50,47 +52,29 @@ jobs:
         sudo apt-get update
         sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
 
-
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install --no-cache-dir -r requirements.txt
 
-          # ... nach 'Install Dependencies' ...
-
-    - name: Create Django Superuser
-      env:
-        # Das Passwort aus den GitHub Secrets holen
-        DJANGO_SUPERUSER_PASSWORD: ${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
-        
-        # WICHTIG: Damit manage.py zur Datenbank kommt, müssen diese Infos hier rein:
-        # (Passen Sie die Namen an Ihre bestehenden Secrets an)
-        DB_HOST: ${{ secrets.DB_HOST }} 
-        DB_NAME: ${{ secrets.DB_NAME }}
-        DB_USER: ${{ secrets.DB_USER }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        # Falls Sie andere Namen in settings.py nutzen, passen Sie das hier an
-        
-      run: |
-        # || true am Ende sorgt dafür, dass die Pipeline NICHT abbricht, 
-        # falls der User schon existiert (beim zweiten Durchlauf).
-        python manage.py createsuperuser \
-          --noinput \
-          --username littlecapa \
-          --email littlecapa@googlemail.com || true
-
     - name: Test pyODBC driver
       run: |
         python -c "import pyodbc; print('✅ pyODBC Treiber:', pyodbc.drivers())"
 
-    # WICHTIG: Migrations & Collectstatic NUR ausführen, wenn die DB erreichbar ist
-    # Falls Sie lokale GitHub Firewall-Probleme haben, kommentieren Sie diese Steps aus
-    # und lassen Sie sie Server-side laufen (siehe unten)
+    # Migrationen ZUERST (vor dem Superuser!)
     - name: Run Django migrations
       run: |
         echo "📦 Django Migrationen starten..."
         python manage.py migrate
-      continue-on-error: true  # Falls DB von GitHub aus nicht erreichbar
+      continue-on-error: true
+
+    # DANN Superuser anlegen (jetzt OHNE doppelte env-Deklaration)
+    - name: Create Django Superuser
+      run: |
+        python manage.py createsuperuser \
+          --noinput \
+          --username littlecapa \
+          --email littlecapa@googlemail.com || true
 
     - name: Collect static files
       run: |
@@ -98,14 +82,13 @@ jobs:
         python manage.py collectstatic --noinput
 
     - name: Login to Azure
-      uses: azure/login@v2  # v1 -> v2
+      uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Zip application for deployment
       run: |
         echo "📦 Erstelle Deployment-Package..."
-        # Wir zippen alles außer .git, tests, Cache, etc.
         zip -r app.zip . -x "*.git*" "tests/*" "*__pycache__*" "*.pyc" ".env"
 
     - name: Deploy to Azure Web App
@@ -114,9 +97,6 @@ jobs:
       with:
         app-name: ${{ env.APP_NAME }}
         package: app.zip
-        # WICHTIG: Das hier triggert den Oryx-Build auf dem Server korrekt
-        # publish-profile wird NICHT gebraucht, da wir 'azure/login' davor nutzen!
-
 
     - name: Restart Web App (sicherheitshalber)
       run: |
@@ -129,3 +109,9 @@ jobs:
       run: |
         echo "✅ Deployment erfolgreich!"
         echo "🌐 Ihre App läuft unter: https://${APP_NAME}.azurewebsites.net"
+
+    - name: Stream Azure Logs
+      run: |
+        az webapp log tail \
+          --name ${{ env.APP_NAME }} \
+          --resource-group ${{ env.RESOURCE_GROUP }}
