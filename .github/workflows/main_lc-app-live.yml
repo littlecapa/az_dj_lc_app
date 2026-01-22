@@ -109,9 +109,3 @@ jobs:
       run: |
         echo "✅ Deployment erfolgreich!"
         echo "🌐 Ihre App läuft unter: https://${APP_NAME}.azurewebsites.net"
-
-    - name: Stream Azure Logs
-      run: |
-        az webapp log tail \
-          --name ${{ env.APP_NAME }} \
-          --resource-group ${{ env.RESOURCE_GROUP }}
