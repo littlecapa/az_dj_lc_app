@@ -1,19 +1,31 @@
-"""
-WSGI config for azureproject project.
-
-It exposes the WSGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/4.0/howto/deployment/wsgi/
-"""
-
 import os
-
+import sys
 from django.core.wsgi import get_wsgi_application
 
-# Check for the WEBSITE_HOSTNAME environment variable to see if we are running in Azure Ap Service
-# If so, then load the settings from production.py
-settings_module = 'azureproject.production' if 'WEBSITE_HOSTNAME' in os.environ else 'azureproject.settings'
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', settings_module)
+# Settings setzen
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'azureproject.production')
 
 application = get_wsgi_application()
+
+# --- NEU: Startup Database Check ---
+# Dieser Code läuft beim Starten von Gunicorn EINMAL.
+try:
+    print("🚑 STARTUP CHECK: Testing Database Connection...")
+    
+    # Modelle importieren (geht erst nach get_wsgi_application!)
+    from homepage.models import ContactMessage
+    
+    # Versuchen, die Tabelle zu lesen
+    count = ContactMessage.objects.count()
+    
+    print(f"✅ DB SUCCESS: Table 'ContactMessage' exists. Row count: {count}")
+
+except Exception as e:
+    # Fehler formatieren und laut ausgeben
+    error_msg = f"❌ DB CRITICAL FAILURE: {str(e)}"
+    print("\n" + "="*60)
+    print(error_msg)
+    print("="*60 + "\n")
+    
+    # Wir lassen die App NICHT abstürzen (kein exit), damit Sie den Log sehen können.
+    # Aber wir loggen es als Error.
