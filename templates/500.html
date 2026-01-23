@@ -1,0 +1,37 @@
+{% load static %}
+
+{% block title %}Server Error (500){% endblock %}
+
+{% block content %}
+<div class="container text-center mt-5 pt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            
+            <!-- Die Überschrift -->
+            <h1 class="mb-4">Oops! Looks like we lost something.</h1>
+            
+            <p class="lead text-muted mb-5">
+                We've encountered an internal server error. Our team has been notified (hopefully they brought a map).
+            </p>
+
+            <!-- Die Karte ohne Neuseeland -->
+            <div class="map-container mb-4" style="max-width: 600px; margin: 0 auto;">
+                <!-- Stellen Sie sicher, dass Sie dieses Bild haben! -->
+                <img src="/static/images/no_nz.png" alt="Error"
+                     alt="Weltkarte ohne Neuseeland" 
+                     class="img-fluid border rounded shadow-sm">
+            </div>
+
+            <!-- Der Witz -->
+            <div class="alert alert-warning d-inline-block px-5 py-3 mt-2" role="alert">
+                <i class="bi bi-geo-alt-fill"></i> <strong>New Zealand not found!</strong>
+            </div>
+
+            <div class="mt-5">
+                <a href="/" class="btn btn-primary">Back to secure Homepage</a>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
