@@ -1,11 +1,13 @@
 from django import forms
+from django_recaptcha.fields import ReCaptchaField
+from django_recaptcha.widgets import ReCaptchaV2Checkbox
 
 class ContactForm(forms.Form):
     name = forms.CharField(
         label='Name',
         required=False,
         widget=forms.TextInput(attrs={
-            'class': 'form-control border-light shadow-sm py-3', # border-light macht den Rahmen dünn/hell
+            'class': 'form-control border-light shadow-sm py-3',
             'placeholder': 'Name'
         })
     )
@@ -26,3 +28,7 @@ class ContactForm(forms.Form):
         }),
         required=False
     )
+    # Das neue Captcha Feld
+    captcha = ReCaptchaField(widget=ReCaptchaV2Checkbox(attrs={
+        'data-theme': 'light',  # Passt gut zu deinem hellen Design
+    }))

@@ -65,7 +65,8 @@
 
                     <!-- 4. HISTORICAL CHESS MAGS -->
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Historical Chess Mags</a>
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:historical-chess-mags' %}active fw-bold{% endif %}" 
+                        href="{% url 'homepage:historical-chess-mags' %}">Historical Chess Mags</a>
                     </li>
 
                     <!-- 5. AI CHESS ENGINE -->
@@ -80,9 +81,8 @@
                     
                     <!-- 7. MY CHESS CLUB -->
                     <li class="nav-item">
-                        <a class="nav-link" href="#">My Chess Club</a>
+                        <a class="nav-link" href="https://scbb.de" target="_blank">My Chess Club</a>
                     </li>
-
                 </ul>
             </div>
 

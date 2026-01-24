@@ -12,3 +12,5 @@ gunicorn==21.2.0
 
 # Optional: Static file handling for production
 whitenoise==6.6.0
+
+django-recaptcha>=3.0.0
