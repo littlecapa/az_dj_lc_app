@@ -53,8 +53,8 @@
                     
                     <!-- 2. MY BLOG (NEU) -->
                     <li class="nav-item">
-                        <!-- Verlinkt aktuell noch nirgendwo hin, außer wir haben schon eine Blog-URL -->
-                        <a class="nav-link" href="#">My Blog</a>
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:blog' %}active fw-bold{% endif %}" 
+                        href="{% url 'homepage:blog' %}">My Blog</a>
                     </li>
 
                     <!-- 3. CONTACT -->

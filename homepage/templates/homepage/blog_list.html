@@ -1,0 +1,107 @@
+{% extends "homepage/base_home.html" %}
+
+{% block content %}
+<style>
+    /* Styling direkt hier für Übersicht, besser später in style.css auslagern */
+    .blog-container {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 0 20px;
+        font-family: 'Georgia', serif;
+    }
+
+    .blog-header {
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 40px;
+        padding-bottom: 10px;
+    }
+
+    .blog-header h1 {
+        font-size: 2rem;
+        color: #333;
+        margin: 0;
+    }
+
+    /* Das Grid: Startet 1-spaltig, wird ab 768px 2-spaltig */
+    .blog-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+
+    @media (min-width: 768px) {
+        .blog-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    /* Load More Button Styling */
+    .load-more-container {
+        text-align: center;
+        margin-top: 50px;
+        margin-bottom: 50px;
+    }
+
+    .btn-load-more {
+        background-color: transparent;
+        border: 1px solid #333;
+        padding: 10px 30px;
+        cursor: pointer;
+        font-family: sans-serif;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+
+    .btn-load-more:hover {
+        background-color: #333;
+        color: #fff;
+    }
+</style>
+
+<div class="blog-container">
+    <div class="blog-header">
+        <h1>My Blog</h1>
+    </div>
+
+    <div class="blog-grid" id="blog-grid">
+        <!-- Hier werden die Posts eingefügt -->
+        {% include "homepage/post_list.html" %}
+    </div>
+
+    <!-- Lazy Load Button -->
+    <div class="load-more-container">
+        {% if page_obj.has_next %}
+            <button id="load-more-btn" class="btn-load-more" data-page="2">Load more posts</button>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.getElementById('load-more-btn')?.addEventListener('click', function() {
+        const btn = this;
+        const page = btn.getAttribute('data-page');
+        
+        // Button Text ändern während des Ladens
+        btn.innerText = 'Loading...';
+        
+        fetch(`?page=${page}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Neue Posts anhängen
+            const grid = document.getElementById('blog-grid');
+            grid.insertAdjacentHTML('beforeend', data.html);
+
+            // Button updaten oder entfernen
+            if (data.has_next) {
+                btn.setAttribute('data-page', parseInt(page) + 1);
+                btn.innerText = 'Load more posts';
+            } else {
+                btn.remove(); // Keine weiteren Posts -> Button weg
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    });
+</script>
+{% endblock %}

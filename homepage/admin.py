@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ContactMessage, HistChessMagazine
+from .models import ContactMessage, HistChessMagazine, BlogPost
 
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
@@ -13,3 +13,9 @@ class HistChessMagazineAdmin(admin.ModelAdmin):
     list_display = ('language', 'name') # Übersichtstabelle
     list_filter = ('is_active', 'language') # Filter rechts
     search_fields = ('name', 'language') # Suchleiste oben
+
+@admin.register(BlogPost)
+class BlogPostAdmin(admin.ModelAdmin):
+    list_display = ('date', 'headline') # Übersichtstabelle
+    list_filter = ('date', 'headline','is_active') # Filter rechts
+    search_fields = ('date', 'headline') # Suchleiste oben

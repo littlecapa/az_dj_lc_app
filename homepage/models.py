@@ -1,5 +1,34 @@
 from django.db import models
 from django.utils import timezone
+from django.db import models
+from django.utils.text import slugify
+
+class BlogPost(models.Model):
+    # Datum
+    date = models.DateField()
+    
+    # Überschrift (char(32) wie gewünscht - das ist recht kurz, passt aber für deine Beispiele)
+    headline = models.CharField(max_length=64)
+    
+    # Summary (Text)
+    summary = models.TextField()
+    image_name = models.CharField(max_length=32)
+
+    external_url = models.URLField(blank=True, null=True, help_text="Wenn gesetzt, führt 'Read more' direkt hierhin statt auf die Detailseite.")
+    
+    # Link (wird automatisch generiert, wenn leer)
+    slug = models.SlugField(max_length=50, unique=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        # Wenn kein Link (Slug) gesetzt ist, generiere ihn aus der Headline
+        if not self.slug:
+            self.slug = slugify(self.headline)[:50].rstrip('-')
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.headline
+
 
 class ContactMessage(models.Model):
     name = models.CharField(max_length=100, blank=True)

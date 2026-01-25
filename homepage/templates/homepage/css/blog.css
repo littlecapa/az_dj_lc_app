@@ -1,0 +1,91 @@
+/* static/homepage/css/blog.css */
+
+/* Schriftart importieren */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');
+
+.blog-article-wrapper {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 20px;
+    font-family: 'Playfair Display', serif;
+    color: #333;
+}
+
+/* Zurück Link */
+.nav-back {
+    display: inline-flex;
+    align-items: center;
+    color: #444;
+    text-decoration: none;
+    font-family: sans-serif;
+    font-size: 0.9rem;
+    margin-bottom: 25px;
+}
+.nav-back:hover { text-decoration: underline; color: #000; }
+.nav-back svg { margin-right: 8px; fill: currentColor; }
+
+/* Überschriften */
+.article-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+    line-height: 1.2;
+}
+
+.article-date {
+    font-family: sans-serif;
+    font-size: 0.9rem;
+    color: #666;
+    display: block;
+    margin-bottom: 30px;
+}
+
+/* Bild */
+.article-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-bottom: 30px;
+}
+
+/* Textkörper */
+.article-body {
+    font-size: 1.125rem;
+    line-height: 1.7;
+}
+
+.article-body p {
+    margin-bottom: 1.5em;
+}
+
+.article-body ul {
+    margin-bottom: 1.5em;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.article-body li {
+    margin-bottom: 0.5em;
+}
+
+/* Links im Text */
+.article-body a {
+    color: #444;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+.article-body a:hover {
+    color: #000;
+}
+
+/* "Additional Links" Bereich */
+.additional-links {
+    margin-top: 2em;
+}
+
+/* Zitat am Ende */
+.quote-footer {
+    font-style: italic; 
+    margin-top: 40px; 
+    color: #666;
+}

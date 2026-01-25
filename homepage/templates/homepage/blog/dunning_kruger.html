@@ -1,0 +1,34 @@
+{% extends "homepage/templates/homepage/base_home.html" %}
+{% load static %}
+
+{% block content %}
+<!-- Hier laden wir die neue externe CSS-Datei -->
+<link rel="stylesheet" href="{% static 'homepage/css/blog.css' %}">
+
+<div class="blog-article-wrapper">
+    
+    <a href="{% url 'homepage:blog' %}" class="nav-back">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill-rule="evenodd" d="M15.804 19.544a.774.774 0 0 1-1.061-.03L7 11.63l7.742-7.42a.773.773 0 0 1 1.061 0 .697.697 0 0 1 0 1.017L9.09 11.66l6.745 6.867a.698.698 0 0 1-.031 1.016"></path></svg>
+        Alle Beiträge
+    </a>
+
+    <h1 class="article-title">The Dunning-Kruger Effect</h1>
+    
+    <span class="article-date">25. September 2025</span>
+
+    <!-- Bildname anpassen -->
+    <img src="{% static 'homepage/img/dunning-kruger.jpg' %}" alt="The Dunning-Kruger Effect" class="article-image">
+
+    <div class="article-body">
+        <p>
+            The Dunning-Kruger effect is a cognitive bias in which individuals with low ability or limited knowledge in a certain area tend to overestimate their own competence...
+        </p>
+
+        <!-- (Hier kommt der restliche Content wie zuvor) -->
+        
+        <p class="quote-footer">
+            The last word belongs to William Shakespeare (in "As You Like It"): „The fool doth think he is wise, but the wise man knows himself to be a fool.“
+        </p>
+    </div>
+</div>
+{% endblock %}
