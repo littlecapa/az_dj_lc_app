@@ -1,0 +1,128 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* Scoped styles for the blog post to match the clean design */
+    .blog-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+        font-family: sans-serif;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .nav-back {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 30px;
+        transition: color 0.2s;
+    }
+
+    .nav-back:hover {
+        color: #000;
+    }
+
+    .nav-back svg {
+        margin-right: 5px;
+        fill: currentColor;
+    }
+
+    .blog-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        color: #111;
+    }
+
+    .blog-date {
+        color: #888;
+        font-size: 0.9rem;
+        margin-bottom: 30px;
+        display: block;
+    }
+
+    .blog-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        margin-bottom: 40px;
+        border-radius: 4px;
+        border: 1px solid #ddd; /* Thin border for the document scan */
+    }
+
+    .blog-text p {
+        margin-bottom: 1.5em;
+        font-size: 1.05rem;
+    }
+
+    .blog-text a {
+        color: #0066cc;
+        text-decoration: none;
+    }
+
+    .blog-text a:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="blog-container">
+    
+    <!-- Navigation Back -->
+    <a href="{% url 'homepage:blog' %}" class="nav-back">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+            <path fill-rule="evenodd" d="M15.804 19.544a.774.774 0 0 1-1.061-.03L7 11.63l7.742-7.42a.773.773 0 0 1 1.061 0 .697.697 0 0 1 0 1.017L9.09 11.66l6.745 6.867a.698.698 0 0 1-.031 1.016"></path>
+        </svg>
+        All Blog Entries
+    </a>
+
+    <!-- Header -->
+    <div class="blog-header">
+        <h1>The Great Chess Murder Challenge</h1>
+        <span class="blog-date">22 September 2023</span>
+    </div>
+
+    <!-- Main Image (Document Scan) -->
+    <img src="{% static 'homepage/img/chess_murder_challenge.png' %}" alt="Handwritten notes and diagrams" class="blog-image">
+
+    <!-- Content -->
+    <div class="blog-text">
+        <p>
+            Imagine you are at home one evening and the phone is ringing. You answer the phone and
+            the person on the other side of the line introduces himself as an inspector from the
+            homicide squad, who has a few questions for you. This will hopefully never happen
+            to most of us. But I am pretty sure, that in such a case most of us will shocked
+            and speechless.
+        </p>
+
+        <p>
+            Apparently it had happened to English grandmaster Raymond Keene thirty years ago. I
+            recently found an <a href="https://www.thearticle.com/the-great-chess-murder-challenge" target="_blank">article</a>, where he shared that story. It is a fantastic read with a lot of
+            twists and turns.
+        </p>
+
+        <p>
+            The English police had arrested a man, who was the main suspect in the disappearance
+            (and suspected murder) of his girl friend. In his prison cell he had written cryptic messages
+            on the wall, which the inspector described as chess diagrams and chess notation. As
+            Raymond Keene was well known because of his chess column in the Times, the inspector
+            asked for his support.
+        </p>
+
+        <p>
+            Raymon Keene agreed and received shortly afterwards the above mentioned diagrams
+            and notation. These proved not to be classical chess diagrams and notations (look at the
+            image), but nevertheless Keene's was already hooked to the case and started working on
+            the problem. In the best Sherlock Holmes approach he was able to work out most the
+            mystery, but not all. So there is still some mysteries to be solved in this story.
+        </p>
+    </div>
+
+    <!-- Secondary Image (Newspaper Clipping) -->
+    <img src="{% static 'homepage/img/lady.png' %}" alt="Mystery of the vanishing lady newspaper clipping" class="blog-image">
+
+</div>
+{% endblock %}

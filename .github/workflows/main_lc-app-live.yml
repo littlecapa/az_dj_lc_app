@@ -68,6 +68,14 @@ jobs:
         python manage.py migrate
       continue-on-error: true
 
+    # --- Datenmigration ---
+    - name: Import Blog Posts
+      run: |
+        echo "📝 Importiere Blog Posts..."
+        # Ruft das Management Command auf, das wir eben erstellt haben
+        # Voraussetzung: Datei 'blogposts_backup.json' ist im Repo committed!
+        python manage.py sync_blogposts --import --file blogposts_backup.json || true
+
     # DANN Superuser anlegen (jetzt OHNE doppelte env-Deklaration)
     - name: Create Django Superuser
       run: |

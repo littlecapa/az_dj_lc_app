@@ -1,0 +1,89 @@
+{% extends 'homepage/base_home.html' %}
+{% load static %}
+
+{% block content %}
+    <style>
+        /* CSS is now inside the block so it renders */
+        .chess-section {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            margin: 40px auto;
+            font-family: 'Georgia', serif;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .chess-image {
+            flex: 1 1 500px;
+        }
+
+        .chess-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 2px;
+        }
+
+        .chess-content {
+            flex: 1 1 400px;
+            color: #333;
+            padding: 20px;
+        }
+
+        .chess-icon {
+            font-size: 24px;
+            color: #ccc;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .chess-text {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .chess-button {
+            display: inline-block;
+            background-color: #666;
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            font-family: sans-serif;
+            font-weight: bold;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .chess-button:hover {
+            background-color: #444;
+        }
+    </style>
+
+    <div class="chess-section">
+        <!-- Left: Image -->
+        <div class="chess-image">
+            <img src="{% static 'homepage/img/sc_bonn_beuel.png' %}" alt="Chess Board at SC Bonn Beuel"> 
+        </div>
+
+        <!-- Right: Text Content -->
+        <div class="chess-content">
+            <span class="chess-icon">&#128161;</span> 
+
+            <p class="chess-text">
+                For the last 30+ years I have been playing for the chess club SC Bonn Beuel. 
+                Every first Tuesday of a month we organize a strong Blitz tournament. 
+                Please visit us.
+            </p>
+
+            <a href="https://scbb.de" target="_blank" class="chess-button">
+                Visit SC Bonn Beuel
+            </a>
+        </div>
+    </div>
+{% endblock %}

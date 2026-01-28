@@ -1,0 +1,138 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* Scoped styles for the blog post to match the clean design */
+    .blog-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+        font-family: sans-serif;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .nav-back {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 30px;
+        transition: color 0.2s;
+    }
+
+    .nav-back:hover {
+        color: #000;
+    }
+
+    .nav-back svg {
+        margin-right: 5px;
+        fill: currentColor;
+    }
+
+    .blog-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        color: #111;
+        line-height: 1.2;
+    }
+
+    .blog-date {
+        color: #888;
+        font-size: 0.9rem;
+        margin-bottom: 30px;
+        display: block;
+    }
+
+    .blog-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        margin-bottom: 40px;
+        border-radius: 4px;
+    }
+
+    .blog-text h2 {
+        font-size: 1.5rem;
+        margin-top: 2em;
+        margin-bottom: 0.5em;
+        color: #111;
+    }
+
+    .blog-text h3 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #555;
+        margin-bottom: 1em;
+    }
+
+    .blog-text p {
+        margin-bottom: 1.5em;
+        font-size: 1.05rem;
+    }
+
+    .blog-text a {
+        color: #0066cc;
+        text-decoration: none;
+        text-decoration: underline;
+    }
+
+    .blog-text a:hover {
+        color: #003366;
+    }
+</style>
+
+<div class="blog-container">
+    
+    <!-- Navigation Back -->
+    <a href="{% url 'homepage:blog' %}" class="nav-back">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+            <path fill-rule="evenodd" d="M15.804 19.544a.774.774 0 0 1-1.061-.03L7 11.63l7.742-7.42a.773.773 0 0 1 1.061 0 .697.697 0 0 1 0 1.017L9.09 11.66l6.745 6.867a.698.698 0 0 1-.031 1.016"></path>
+        </svg>
+        All Blog Entries
+    </a>
+
+    <!-- Header -->
+    <div class="blog-header">
+        <h1>A chess trip down memory lane in the shadow of Mount Whitney</h1>
+        <span class="blog-date">13. Juli 2025</span>
+    </div>
+
+    <!-- Main Image (Church/Building) -->
+    <img src="{% static 'homepage/img/whitney.png' %}" alt="Building in Lone Pine with mountains in background" class="blog-image">
+
+    <!-- Content -->
+    <div class="blog-text">
+        <h2>In Whitney's shadow</h2>
+        <h3>From Yosemite National Park to Death Valley – and right through chess history</h3>
+
+        <p>
+            This June, I had the pleasure of enjoying a wonderful holiday in the southwest of the
+            United States with my wife. From San Francisco, we visited the major national parks in
+            California, Nevada, Utah and Arizona, gaining unforgettable impressions along the way.
+            Such a trip involves long drives, as the parks are far apart. It's easy to end up passing many
+            interesting places on the way from one park to the next. That almost happened to me as
+            we were driving along Highway 395 from Yosemite National Park to Death Valley and
+            passed the following town sign.
+        </p>
+
+        <!-- Secondary Image (Town Sign) -->
+        <img src="{% static 'homepage/img/lone_pine.png' %}" alt="Lone Pine Town Sign" class="blog-image">
+
+        <p>
+            When I saw the sign, something clicked. There was something familiar! Weren't there
+            chess tournaments held in a place called Lone Pine? But were they held here or in another
+            town with the same name?
+        </p>
+
+        <p>
+            But a quick look at <a href="https://en.wikipedia.org/wiki/Lone_Pine_International" target="_blank">Wikipedia</a> confirmed that I was indeed in the right place. So I began
+            to follow the traces of chess history. The results of my research I published in this
+            <a href="https://en.chessbase.com/post/chess-tournaments-lone-pine" target="_blank">chessbase article</a>.
+        </p>
+    </div>
+
+</div>
+{% endblock %}

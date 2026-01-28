@@ -1,0 +1,160 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* Scoped styles for the blog post to match the clean design */
+    .blog-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+        font-family: sans-serif;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .nav-back {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 30px;
+        transition: color 0.2s;
+    }
+
+    .nav-back:hover {
+        color: #000;
+    }
+
+    .nav-back svg {
+        margin-right: 5px;
+        fill: currentColor;
+    }
+
+    .blog-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        color: #111;
+    }
+
+    .blog-date {
+        color: #888;
+        font-size: 0.9rem;
+        margin-bottom: 30px;
+        display: block;
+    }
+
+    .blog-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        margin-bottom: 40px;
+        border-radius: 4px;
+    }
+
+    .blog-text p {
+        margin-bottom: 1.5em;
+        font-size: 1.05rem;
+    }
+
+    .blog-text ul {
+        margin-bottom: 1.5em;
+        padding-left: 20px;
+    }
+
+    .blog-text li {
+        margin-bottom: 0.5em;
+    }
+
+    .blog-text a {
+        color: #0066cc;
+        text-decoration: none;
+    }
+
+    .blog-text a:hover {
+        text-decoration: underline;
+    }
+
+    .blog-links {
+        margin-top: 30px;
+        word-break: break-all; /* Ensures long URLs don't break layout */
+    }
+</style>
+
+<div class="blog-container">
+    
+    <!-- Navigation Back -->
+    <a href="{% url 'homepage:blog' %}" class="nav-back">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+            <path fill-rule="evenodd" d="M15.804 19.544a.774.774 0 0 1-1.061-.03L7 11.63l7.742-7.42a.773.773 0 0 1 1.061 0 .697.697 0 0 1 0 1.017L9.09 11.66l6.745 6.867a.698.698 0 0 1-.031 1.016"></path>
+        </svg>
+        All Blog Entries
+    </a>
+
+    <!-- Header -->
+    <div class="blog-header">
+        <h1>The Dunning-Kruger Effect</h1>
+        <span class="blog-date">25 September 2025</span>
+    </div>
+
+    <!-- Main Image -->
+    <img src="{% static 'homepage/img/dunning_kruger.png' %}" alt="Know Your Skill Level Illustration" class="blog-image">
+
+    <!-- Content -->
+    <div class="blog-text">
+        <p>
+            The Dunning-Kruger effect is a cognitive bias in which individuals with low ability or
+            limited knowledge in a certain area tend to overestimate their own competence, while
+            those with higher expertise are often more aware of the complexity of the subject and may
+            underestimate themselves. This effect highlights the mismatch between actual skill levels
+            and self-perceived ability, showing that lack of awareness can lead to misplaced
+            confidence. It plays an important role in everyday decision-making, education, and
+            workplace dynamics, where overconfident but underqualified individuals may misjudge
+            their performance and resist feedback.
+        </p>
+
+        <p>
+            Today I found several articles and an video, where this effect was also studied in relation
+            to chess ratings. Here they are:
+        </p>
+
+        <ul>
+            <!-- 1. Link: UCLA Article -->
+            <li>
+                <a href="https://anderson-review.ucla.edu/unflattering-facts-dont-dent-positive-self-assessments/" target="_blank">
+                    People rate selves better than average, even faced with objective data to the contrary
+                </a>
+            </li>
+
+            <!-- 2. Link: OSF Preprint -->
+            <li>
+                <a href="https://osf.io/preprints/psyarxiv/yd5he_v2" target="_blank">
+                    Overconfidence persists despite years of accurate, precise, public, and continuous feedback: Two studies of tournament chess players
+                </a>
+            </li>
+
+            <!-- 3. Link: YouTube Video -->
+            <li>
+                <a href="https://www.youtube.com/watch?v=bocV6i94ZDA" target="_blank">
+                    Dunning-Kruger Effect in Chess: A Guide to Self-Assessment
+                </a>
+            </li>
+        </ul>
+
+        <p>Additional Links:</p>
+
+        <ul class="blog-links">
+            <li><a href="https://www.welt.de/gesundheit/article251254474/Selbstueberschaetzung-Warum-sie-nervt-und-dennoch-Erfolg-hat.html" target="_blank">https://www.welt.de/gesundheit/article251254474/Selbstueberschaetzung-Warum-sie-nervt-und-dennoch-Erfolg-hat.html</a></li>
+            <li><a href="https://www.welt.de/wissenschaft/plus68c1761be94fcb47b9cd3bbe/Psychologie-Ueberschaetzte-Faehigkeiten-Viele-Menschen-wissen-schlicht-nicht-wie-viel-sie-nicht-wissen.html" target="_blank">https://www.welt.de/wissenschaft/plus68c1761be94fcb47b9cd3bbe/Psychologie-Ueberschaetzte-Faehigkeiten-Viele-Menschen-wissen-schlicht-nicht-wie-viel-sie-nicht-wissen.html</a></li>
+            <li><a href="https://pubmed.ncbi.nlm.nih.gov/10626367/" target="_blank">https://pubmed.ncbi.nlm.nih.gov/10626367/</a></li>
+        </ul>
+
+        <p>
+            The last word belongs to William Shakespeare (in "As You Like It"): „The fool doth think he
+            is wise, but the wise man knows himself to be a fool.“
+        </p>
+    </div>
+
+</div>
+{% endblock %}

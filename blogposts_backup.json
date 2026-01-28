@@ -1,0 +1,200 @@
+[
+  {
+    "date": "2025-09-25",
+    "headline": "The Dunning-Kruger Effect",
+    "summary": "The Dunning-Kruger effect is a cognitive bias in which individuals with low ability or limited knowledge in a certain area tend to overestimate their own competence, while those with higher expertise are often more aware...",
+    "image_name": "dunning_kruger.png",
+    "external_url": null,
+    "slug": "the-dunning-kruger-effect",
+    "is_active": true
+  },
+  {
+    "date": "2025-09-24",
+    "headline": "Did Nakamura cheat?",
+    "summary": "Impressive article from Monica Brown. Never heared of prosecutor’s fallacy or Cromwell's rule before. But it is all well explained.",
+    "image_name": "nakamura_cheat.png",
+    "external_url": "https://en.chessbase.com/post/did-a-us-chess-champion-cheat",
+    "slug": "did-nakamura-cheat",
+    "is_active": true
+  },
+  {
+    "date": "2025-09-23",
+    "headline": "Torre & Cavallo – an Italian crash course for chess players",
+    "summary": "How to learn Italian with a chess magazine.",
+    "image_name": "torre.png",
+    "external_url": "https://en.chessbase.com/post/torre-cavallo-crash-course-italian",
+    "slug": "torre-cavallo-an-italian-cra",
+    "is_active": true
+  },
+  {
+    "date": "2025-07-13",
+    "headline": "A chess trip down memory lane in the shadow of Mount Whitney",
+    "summary": "Chess Tournaments in Whitney's shadow",
+    "image_name": "whitney.png",
+    "external_url": null,
+    "slug": "a-chess-trip-down-memory-lane-in-the-shadow-of-mou",
+    "is_active": true
+  },
+  {
+    "date": "2026-01-06",
+    "headline": "Dit jibt et nuur in Berlin...",
+    "summary": "The former Berlin Tempelhof Airport gained legendary fame in 1948/49, when 'Raisin Bombers' landed every 90 seconds to supply the population. Today, the Tempelhofer Feld is used for something entirely different—for example, for chess.",
+    "image_name": "tempelhof.png",
+    "external_url": "https://de.chessbase.com/post/dit-jibt-et-nuur-in-berlin",
+    "slug": "dit-jibt-et-nuur-in-berlin",
+    "is_active": true
+  },
+  {
+    "date": "2023-09-22",
+    "headline": "The Great Chess Murder Challenge",
+    "summary": "Imagine you are at home one evening and the phone is ringing. You answer the phone and the person on the other side of the line introduces himself as an inspector from the homicide squad, who has a few questions for you. This will hopefully never happen to most of us. But I am pretty sure, that in such a case most of us will shocked and speechless.\r\n\r\nApparently it had happened to English grandmaster Raymond Keene thirty years ago.You are interested in his story?",
+    "image_name": "chess_murder_challenge.png",
+    "external_url": null,
+    "slug": "the-great-chess-murder-challenge",
+    "is_active": true
+  },
+  {
+    "date": "2024-04-27",
+    "headline": "The Game has changed",
+    "summary": "I recently came across the book Hoop Atlas: Mapping the Remarkable Transformation of the Modern NBA, which will be published in May 2024. The author advertises the book on X with the illustration above. It shows the changes in shot selection in the NBA from the 2003/2004 season to the 2023/2024 season.\r\n\r\nI have the impression that we are seeing a similar development in chess. We chess players don't throw a ball at a basket. But we choose our openings carefully. And I think that we see much less diversity of openings in top-level chess these days than we used to.",
+    "image_name": "nba.png",
+    "external_url": "https://en.chessbase.com/post/data-changes-nba-top-level-chess",
+    "slug": "the-game-has-changed",
+    "is_active": true
+  },
+  {
+    "date": "2024-04-14",
+    "headline": "Remembering Igors Rausis",
+    "summary": "Sadly Igors Rausis died on March 28th 2024. He became famous in 2019 when he was caught analysing his game on a mobile phone in the toilet at a tournament in Strasbourg. But there was another, very likeable side to him, which in my opinion should not be forgotten. That is why I have recorded my personal encounter with him in an article.",
+    "image_name": "rausis.png",
+    "external_url": "https://en.chessbase.com/post/remembering-igors-rausis",
+    "slug": "remembering-igors-rausis",
+    "is_active": true
+  },
+  {
+    "date": "2025-04-02",
+    "headline": "EICC 2025",
+    "summary": "I just returned from Romania, where I played in the European Chess Championship. From a sporting perspective, the tournament was a disaster for me—I’ve never played such a bad tournament. But despite that, I still enjoyed participating. I also had the opportunity to explore Romania a bit. I’ve summarized my impressions in an article.",
+    "image_name": "eicc2025.png",
+    "external_url": "https://de.chessbase.com/post/bericht-von-der-europameisterschaft-in-eforie-nord-rumaenien",
+    "slug": "eicc-2025",
+    "is_active": true
+  },
+  {
+    "date": "2024-11-17",
+    "headline": "EICC 2024",
+    "summary": "After playing in the European Singles Championships in Serbia last year, I quickly decided to take part again this year. So I traveled to Montenegro at the beginning of November, checked out the country's tourist highlights and then traveled to the tournament venue in Petrovac. I have published an article about my impressions of Montenegro and the tournament.",
+    "image_name": "petrovac.png",
+    "external_url": "https://en.chessbase.com/post/eindruecke-aus-petrovac",
+    "slug": "eicc-2024",
+    "is_active": true
+  },
+  {
+    "date": "2024-10-17",
+    "headline": "Is there actually a home-field advantage in chess team matches?",
+    "summary": "To answer this question I collected data from the chess site Schachbundesliga Ergebnisdienst and saved it to a Kaggle file. Later  I analyzed and found out that there is a slight home filed advantage, but much lower them in other sport competitions. For details check an article on Chessbase.",
+    "image_name": "homefiled.png",
+    "external_url": "https://de.chessbase.com/post/gibt-es-eigentlich-bei-schachmannschaftskaempfen-einen-heimvorteil",
+    "slug": "is-there-actually-a-home-field-advantage-in-chess",
+    "is_active": true
+  },
+  {
+    "date": "2024-12-05",
+    "headline": "The Tricky Rook & Bishop vs. Rook Endgame",
+    "summary": "The rook and bishop vs. rook endgame is, with few exceptions, a draw. So much for the theory. The defensive methods are actually well known, yet they don't always work in practice, as could be observed at the last European Championship.",
+    "image_name": "rb_r.png",
+    "external_url": "https://de.chessbase.com/post/das-trickreiche-endspiel-turm-laeufer-gegen-turm",
+    "slug": "the-tricky-rook-bishop-vs-rook-endgame",
+    "is_active": true
+  },
+  {
+    "date": "2025-01-31",
+    "headline": "State Secretary Honors Beuel Veteran for 60th Club Anniversary",
+    "summary": "A special anniversary was on the agenda this year at the Schachclub Bonn Beuel. Our long-standing member Hans-Bernd von der Lippe is celebrating his 60th club anniversary. He joined one of our predecessor clubs, the Dollendorfer Schachklub von 1946, as an eight-year-old in 1965 and has remained loyal to our club to this day.\r\n\r\nSuch an occasion must, of course, be duly celebrated. Fortunately, we received support in doing so. Andrea Milz is the State Secretary for Sport and Volunteering in North Rhine-Westphalia and, by virtue of this office, predestined to perform such honors. However, she also has a special connection to the sport of chess and our club. As a teenager, she also joined the Dollendorfer Schachklub and was coached back then by the youth warden at the time, Hans-Bernd von der Lippe. That is why she spontaneously agreed when we asked her about conducting the ceremony.",
+    "image_name": "milz.png",
+    "external_url": "https://de.chessbase.com/post/staatssekretaerin-ehrt-beueler-urgestein-fuer-60-jaehriges-vereinsjubilaeum",
+    "slug": "state-secretary-honors-beuel-veteran-for-60th-club",
+    "is_active": true
+  },
+  {
+    "date": "2024-10-10",
+    "headline": "With the Ferry to the away Match",
+    "summary": "Last Sunday my team SC Bonn Beuel had to play a team match at our local rival's venue in Niederkassel. The advantage for me was that I could travel there on foot. I crossed the Rhine on the Mondorf ferry. The result was also good. We won 5:3.",
+    "image_name": "ferry.png",
+    "external_url": null,
+    "slug": "with-the-ferry-to-the-away-match",
+    "is_active": true
+  },
+  {
+    "date": "2024-03-13",
+    "headline": "How to train a Neural Netwerk for Chess",
+    "summary": "I just published an article on Chessbase explaining how neural network work and how you can train them for evaluating chess positions.",
+    "image_name": "chess_programming.png",
+    "external_url": "https://de.chessbase.com/post/neuronale-netze-in-der-schachprogrammierung",
+    "slug": "how-to-train-a-neural-netwerk-for-chess",
+    "is_active": true
+  },
+  {
+    "date": "2023-12-16",
+    "headline": "Article about the Development of my first Chess Engine",
+    "summary": "This week Chessbase published my article describing how I developed my first Chess Engine.",
+    "image_name": "lazy_chess_engine.png",
+    "external_url": "https://en.chessbase.com/post/developing-an-ai-chess-engine-on-a-weekend-a-guide-for-the-lazy-ones",
+    "slug": "article-about-the-development-of-my-first-chess-en",
+    "is_active": true
+  },
+  {
+    "date": "2023-10-04",
+    "headline": "Interesting Article about the Max Euwe Centre Amsterdam",
+    "summary": "Today Chessbase.com published an interesting article about the Max Euwe Center. If you can't make it to Amsterdam, Sagar Shah will take you on a virtual tour.",
+    "image_name": "euwe.png",
+    "external_url": "https://en.chessbase.com/post/the-max-euwe-centre-amsterdam",
+    "slug": "interesting-article-about-the-max-euwe-centre-amst",
+    "is_active": true
+  },
+  {
+    "date": "2023-03-25",
+    "headline": "Chess in the Media in the 1970s",
+    "summary": "Leafing through old chess magazines can provide information, stir up memories, and raise questions. That’s what happened to me when, in the 1971 issue of the German Chess Magazine, I came across an article about the German team’s poor performance at the Clare Benedict Cup. My curiosity was aroused, and I searched for more information—learning quite a lot in the process about chess in the media in the early 1970s.",
+    "image_name": "newspaper1970.png",
+    "external_url": "https://de.chessbase.com/post/schach-in-den-medien-1970",
+    "slug": "chess-in-the-media-in-the-1970s",
+    "is_active": true
+  },
+  {
+    "date": "2023-03-16",
+    "headline": "As an Amateur at the European Championship",
+    "summary": "The 2023 European Championship in Vrnjačka Banja, Serbia, was part of the World Championship cycle. The top 23 players qualified for the World Cup, where one can qualify for the Candidates Tournament. Nevertheless, the European Championship was open to everyone. I took the opportunity to participate in this top-level tournament. With 5 points out of 11, I finished just below 50%, but enjoyed the tournament and the atmosphere there nonetheless.",
+    "image_name": "euro2.png",
+    "external_url": "https://de.chessbase.com/post/als-amateur-bei-der-europameisters",
+    "slug": "as-an-amateur-at-the-european-championship",
+    "is_active": true
+  },
+  {
+    "date": "2022-10-05",
+    "headline": "Fischer-Petrosian, 1971: The Story Behind the 1st Match Game",
+    "summary": "Every game has its story; this is especially true for World Championship games and Candidates matches. In the first game of the match between Tigran Petrosian and Bobby Fischer, Petrosian played a novelty, but it didn't particularly surprise Fischer, nor did it bring the 9th World Champion any success. In my article, I shed light on the background of the game and Black's 11th move.",
+    "image_name": "fischer2.png",
+    "external_url": "https://de.chessbase.com/post/fischer-petrosian-1971-geschichte-hinter-der-1-matchpartie",
+    "slug": "fischer-petrosian-1971-the-story-behind-the-1st-ma",
+    "is_active": true
+  },
+  {
+    "date": "2022-07-28",
+    "headline": "Fischer-Petrosian 1971: Why did Petrosian switch his openings?",
+    "summary": "July marked the 50th anniversary of the legendary World Championship match between Fischer and Spassky. On the way to the final, Fischer brushed Larsen and Taimanov aside with ease. In the Candidates Final against Petrosian, however, it was a different story. Why did Petrosian switch his openings after a good start? I examined the match.",
+    "image_name": "fischer1.png",
+    "external_url": "https://de.chessbase.com/post/fischer-petrosian-1971-warum-wechselte-petrosian-seine-eroeffnungen",
+    "slug": "fischer-petrosian-1971-why-did-petrosian-switch-hi",
+    "is_active": true
+  },
+  {
+    "date": "2020-10-20",
+    "headline": "One Night in Bangkok, one Day in Meran",
+    "summary": "Every chess player knows the \"Meran Variation\", even if they would never play it themselves. But how did this line of the Semi-Slav Defence actually get its name? I dug up the original games and also know where they were played – naturally in the South Tyrolean spa town of Meran. The photo taken in the Meran spa park proves it: I conducted research right there on site just this past summer!",
+    "image_name": "meran2.png",
+    "external_url": "https://de.chessbase.com/post/one-night-in-bangkok-one-day-in-meran",
+    "slug": "one-night-in-bangkok-one-day-in-meran",
+    "is_active": true
+  }
+]

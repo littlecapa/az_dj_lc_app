@@ -81,7 +81,8 @@
                     
                     <!-- 7. MY CHESS CLUB -->
                     <li class="nav-item">
-                        <a class="nav-link" href="https://scbb.de" target="_blank">My Chess Club</a>
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:my-chess-club' %}active fw-bold{% endif %}" 
+                        href="{% url 'homepage:my_chess_club' %}">My Chess Club</a>
                     </li>
                 </ul>
             </div>

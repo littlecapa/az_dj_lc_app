@@ -14,21 +14,20 @@ class BlogPost(models.Model):
     summary = models.TextField()
     image_name = models.CharField(max_length=32)
 
-    external_url = models.URLField(blank=True, null=True, help_text="Wenn gesetzt, führt 'Read more' direkt hierhin statt auf die Detailseite.")
+    external_url = models.URLField(blank=True, null=True, help_text="If set, 'Read more' leads here (External). If empty, it loads the template based on the slug.")
     
-    # Link (wird automatisch generiert, wenn leer)
+    # Logic: This must match the filename in templates/homepage/blog/ (without .html)
     slug = models.SlugField(max_length=50, unique=True, blank=True)
     is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
-        # Wenn kein Link (Slug) gesetzt ist, generiere ihn aus der Headline
-        if not self.slug:
+        # Wenn kein Link (Slug oder externe URL) gesetzt ist, generiere ihn aus der Headline
+        if not self.slug and not self.external_url:
             self.slug = slugify(self.headline)[:50].rstrip('-')
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.headline
-
 
 class ContactMessage(models.Model):
     name = models.CharField(max_length=100, blank=True)
