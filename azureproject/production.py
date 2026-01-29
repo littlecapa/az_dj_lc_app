@@ -48,3 +48,11 @@ CACHES = {
         "LOCATION": "unique-sample"
     }
 }
+
+# settings.py
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://lc-app-live.azurewebsites.net',
+    'https://littlecapa.com',
+    'https://www.littlecapa.com',
+]

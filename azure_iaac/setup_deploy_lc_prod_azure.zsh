@@ -100,7 +100,7 @@ if ! az appservice plan show --name $APP_PLAN --resource-group $RESOURCE_GROUP &
   az appservice plan create \
     --name $APP_PLAN \
     --resource-group $RESOURCE_GROUP \
-    --sku F1 \
+    --sku B1 \
     --is-linux \
     --location $LOCATION
 else
