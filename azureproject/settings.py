@@ -77,7 +77,6 @@ if 'CODESPACE_NAME' in os.environ:
 # Application definition
 
 INSTALLED_APPS = [
-    'restaurant_review.apps.RestaurantReviewConfig',
     'homepage',
     'django.contrib.admin',
     'django.contrib.auth',

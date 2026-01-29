@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Littlecapa{% endblock %}</title>
@@ -11,23 +12,6 @@
     <!-- FontAwesome (für die Icons) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-    <style>
-        /* Ein paar globale Styles für den modernen Look */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #333;
-        }
-        .navbar-brand {
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-        footer {
-            margin-top: 5rem;
-            padding: 2rem 0;
-            background-color: #f8f9fa;
-            border-top: 1px solid #eee;
-        }
-    </style>
 </head>
 <body>
 
