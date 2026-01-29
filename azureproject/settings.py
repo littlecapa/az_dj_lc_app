@@ -200,6 +200,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SESSION_COOKIE_DOMAIN = None 
 CSRF_COOKIE_DOMAIN = None
 
+# Sagt Django: "Wenn der Header X-Forwarded-Proto auf https steht, behandle den Request als sicher"
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Da Sie jetzt HTTPS nutzen, muss das zwingend True sein:
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
