@@ -78,6 +78,7 @@ if 'CODESPACE_NAME' in os.environ:
 
 INSTALLED_APPS = [
     'homepage',
+    'fintech',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

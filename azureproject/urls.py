@@ -20,6 +20,7 @@ from django.views.static import serve
 
 urlpatterns = [
     path('', include('homepage.urls')),
+    path('fintech/', include('fintech.urls')),
     path('admin/', admin.site.urls),
 ]
 
