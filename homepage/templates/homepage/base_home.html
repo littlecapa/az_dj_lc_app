@@ -52,18 +52,8 @@
                         <a class="nav-link {% if request.resolver_match.view_name == 'homepage:historical-chess-mags' %}active fw-bold{% endif %}" 
                         href="{% url 'homepage:historical-chess-mags' %}">Historical Chess Mags</a>
                     </li>
-
-                    <!-- 5. AI CHESS ENGINE -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">AI Chess Engine</a>
-                    </li>
-
-                    <!-- 6. PUBLICATIONS -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Publications</a>
-                    </li>
                     
-                    <!-- 7. MY CHESS CLUB -->
+                    <!-- 5. MY CHESS CLUB -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.view_name == 'homepage:my-chess-club' %}active fw-bold{% endif %}" 
                         href="{% url 'homepage:my_chess_club' %}">My Chess Club</a>
