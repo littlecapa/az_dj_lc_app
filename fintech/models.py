@@ -194,11 +194,11 @@ class Price(models.Model):
     timestamp = models.DateTimeField(
         help_text="Zeitpunkt der Kursfeststellung"
     )
-    amount = models.DecimalField(
+    current_price = models.DecimalField(
         max_digits=12,
         decimal_places=4,
         validators=[MinValueValidator(Decimal('0.0001'))],
-        help_text="Kurs in Währung des Assets"
+        help_text="Kurs in Währung des Assets zum Zeitpunkt ..."
     )
 
     def save(self, *args, **kwargs):
@@ -209,7 +209,7 @@ class Price(models.Model):
             self.asset.current_price_timestamp is None or 
             latest_price.timestamp >= self.asset.current_price_timestamp
         ):
-            self.asset.current_price = latest_price.amount
+            self.asset.current_price = latest_price.current_price
             self.asset.current_price_timestamp = latest_price.timestamp
             self.asset.save(update_fields=['current_price', 'current_price_timestamp'])
 
@@ -225,5 +225,5 @@ class Price(models.Model):
 
     
     def __str__(self):
-        return f"{self.asset.symbol}: {self.amount} ({self.timestamp:%Y-%m-%d %H:%M})"
+        return f"{self.asset.symbol}: {self.current_price} ({self.timestamp:%Y-%m-%d %H:%M})"
 

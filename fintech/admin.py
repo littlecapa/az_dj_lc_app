@@ -17,7 +17,7 @@ class PriceInline(admin.TabularInline):
 
 @admin.register(Price)
 class PriceAdmin(admin.ModelAdmin):
-    list_display = ('asset', 'amount', 'timestamp')
+    list_display = ('asset', 'current_price', 'timestamp')
     list_filter = (
         'timestamp',         # Fügt Filter für Heute, Letzte 7 Tage etc. hinzu
         'asset__asset_class'
