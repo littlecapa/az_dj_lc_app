@@ -65,4 +65,3 @@ class HistChessMagazine(models.Model):
     class Meta:
         verbose_name = "Historical Chess Magazine"
         ordering = ['name']
-

@@ -1,19 +1,18 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from .forms import ContactForm
-from .models import ContactMessage, BlogPost
+from .models import ContactMessage, BlogPost, HistChessMagazine
 from django.contrib.auth.decorators import user_passes_test
-from .models import HistChessMagazine
 from django.views.generic import ListView, DetailView
 from django.http import JsonResponse
 from django.template.loader import render_to_string 
+from azure.monitor.query import LogsQueryClient
+from azure.identity import DefaultAzureCredential
+from azure.core.exceptions import HttpResponseError
+from datetime import timedelta
+import os, logging
 
-# views.py
-
-from django.views.generic import ListView, DetailView
-from django.http import JsonResponse
-from django.template.loader import render_to_string
-from .models import BlogPost
+logger = logging.getLogger(__name__)
 
 class blog(ListView):
     model = BlogPost
@@ -105,3 +104,57 @@ def monitoring_view(request):
         'unread_count': unread_count,
     }
     return render(request, 'homepage/monitoring.html', context)
+
+@user_passes_test(lambda u: u.is_superuser)
+def dashboard_view(request):
+    # 1. Workspace ID securely from Environment (Application Settings)
+    workspace_id = os.environ.get('AZURE_LOG_WORKSPACE_ID')
+    
+    url_stats = []
+    total_requests = 0
+    error_message = None
+
+    if not workspace_id:
+        error_message = "Configuration Error: AZURE_LOG_WORKSPACE_ID not found in App Settings."
+    else:
+        try:
+            # 2. Authenticate via Managed Identity (Prod) or Azure CLI (Local)
+            credential = DefaultAzureCredential()
+            client = LogsQueryClient(credential)
+            
+            # 3. Kusto Query (KQL) - Get top 50 URLs by request count in last 30 days
+            query = """
+            requests
+            | where timestamp > ago(30d)
+            | summarize count() by url
+            | order by count_ desc
+            | take 50
+            """
+            
+            response = client.query_workspace(
+                workspace_id=workspace_id,
+                query=query,
+                timespan=timedelta(days=30)
+            )
+            
+            if response.tables:
+                for row in response.tables[0].rows:
+                    url_stats.append({
+                        'path': row[0],
+                        'count': row[1]
+                    })
+                total_requests = sum(item['count'] for item in url_stats)
+                
+        except HttpResponseError as e:
+            logger.error(f"Azure Monitor Error: {e}")
+            error_message = "Could not fetch data from Azure. Check permissions (Log Analytics Reader)."
+        except Exception as e:
+            logger.error(f"Unexpected Error: {e}")
+            error_message = f"An error occurred: {str(e)}"
+
+    context = {
+        'url_stats': url_stats,
+        'total_requests': total_requests,
+        'error': error_message
+    }
+    return render(request, 'dashboard.html', context)
