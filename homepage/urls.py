@@ -1,5 +1,5 @@
-from django.urls import path
-from django.views.defaults import server_error
+from django.urls import path, include
+from django.contrib import admin
 from . import views
 
 app_name = 'homepage'
@@ -17,4 +17,6 @@ urlpatterns = [
     path('post/<slug:slug>/', views.BlogDetailView.as_view(), name='blog_detail'),
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('admin/', admin.site.urls),
+    path('accounts/', include('django.contrib.auth.urls')), 
 ]
