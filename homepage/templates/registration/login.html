@@ -1,8 +1,5 @@
-{% extends 'homepage/base_home.html' %}
-{% block content %}
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Login</button>
-</form>
+{% extends "admin/login.html" %}  <!-- Perfect Django admin form! -->
+{% block title %}Superuser Login{% endblock %}
+{% block branding %}
+  <h1 id="site-name"><a href="/">Littlecapa Dashboard</a></h1>
 {% endblock %}
