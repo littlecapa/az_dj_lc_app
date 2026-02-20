@@ -107,6 +107,7 @@ def monitoring_view(request):
 
 @user_passes_test(lambda u: u.is_superuser)
 def dashboard_view(request):
+    logger.info("DASHBOARD VIEW ENTERED")
     # 1. Workspace ID securely from Environment (Application Settings)
     workspace_id = os.environ.get('AZURE_LOG_WORKSPACE_ID')
     
@@ -116,6 +117,7 @@ def dashboard_view(request):
 
     if not workspace_id:
         error_message = "Configuration Error: AZURE_LOG_WORKSPACE_ID not found in App Settings."
+        logger.error(error_message)
     else:
         try:
             # 2. Authenticate via Managed Identity (Prod) or Azure CLI (Local)
@@ -138,6 +140,7 @@ def dashboard_view(request):
             )
             
             if response.tables:
+                logger.info("GOT Responses")
                 for row in response.tables[0].rows:
                     url_stats.append({
                         'path': row[0],

@@ -57,7 +57,26 @@ LOGGING = {
         'handlers': ['console', 'file'] if ENVIRONMENT == 'development' else ['console'],
         'level': 'INFO',
     },
+    # Add to LOGGING['loggers']:
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'homepage': {  # Your app
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'azure': {  # SDK verbose
+            'level': 'INFO',
+        },
+    },
+
 }
+
+
 
 logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
 logging.warning(f"ENV (Settings): {ENVIRONMENT}")
