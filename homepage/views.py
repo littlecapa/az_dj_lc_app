@@ -160,4 +160,4 @@ def dashboard_view(request):
         'total_requests': total_requests,
         'error': error_message
     }
-    return render(request, 'dashboard.html', context)
+    return render(request, 'homepage/dashboard.html', context)
