@@ -81,6 +81,7 @@ LOGGING = {
 logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
 logging.warning(f"ENV (Settings): {ENVIRONMENT}")
 logging.warning(f"DEBUG ON? (Settings): {DEBUG}")
+logging.info("App started")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
