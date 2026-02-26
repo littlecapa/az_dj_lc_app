@@ -108,7 +108,7 @@ def monitoring_view(request):
 @user_passes_test(lambda u: u.is_superuser)
 def dashboard_view(request):
     logger.info("DASHBOARD VIEW ENTERED")
-    # 1. Workspace ID securely from Environment (Application Settings)
+    
     workspace_id = os.environ.get('AZURE_LOG_WORKSPACE_ID')
     
     url_stats = []
@@ -116,20 +116,39 @@ def dashboard_view(request):
     error_message = None
 
     if not workspace_id:
-        error_message = "Configuration Error: AZURE_LOG_WORKSPACE_ID not found in App Settings."
-        logger.error(error_message)
+        error_message = "AZURE_LOG_WORKSPACE_ID not found."
     else:
         try:
-            # 2. Authenticate via Managed Identity (Prod) or Azure CLI (Local)
             credential = DefaultAzureCredential()
             client = LogsQueryClient(credential)
             
-            # 3. Kusto Query (KQL) - Get top 50 URLs by request count in last 30 days
-            # Fix the query in dashboard_view():
+            logger.info(f"🔍 Querying workspace {workspace_id[:8]}...")
+            
+            # DEBUG 1: Welche Tabellen gibt's? (letzte 24h)
+            table_query = """
+            union withsource=TableName *
+            | where TimeGenerated > ago(1d)
+            | summarize Count=count() by TableName
+            | order by Count desc
+            | take 10
+            """
+            
+            table_response = client.query_workspace(
+                workspace_id=workspace_id,
+                query=table_query,
+                timespan=timedelta(hours=24)
+            )
+            
+            available_tables = []
+            if table_response.tables:
+                available_tables = [row[0] for row in table_response.tables[0].rows]
+                logger.info(f"✅ Available tables (top 10): {available_tables}")
+            
+            # DEBUG 2: Haupt-Query (angepasst)
             query = """
-            AppRequests  # ← Not 'requests'
-            | where timestamp > ago(30d)
-            | summarize requestCount = count() by url
+            requests
+            | where timestamp > ago(7d)
+            | summarize requestCount=count() by url
             | order by requestCount desc
             | take 50
             """
@@ -137,24 +156,24 @@ def dashboard_view(request):
             response = client.query_workspace(
                 workspace_id=workspace_id,
                 query=query,
-                timespan=timedelta(days=30)
+                timespan=timedelta(days=7)
             )
             
-            if response.tables:
-                logger.info("GOT Responses")
+            if response.tables and len(response.tables[0].rows) > 0:
+                logger.info(f"✅ GOT {len(response.tables[0].rows)} URL stats!")
                 for row in response.tables[0].rows:
                     url_stats.append({
-                        'path': row[0],
-                        'count': row[1]
+                        'path': str(row[0])[:100],  # URL
+                        'count': int(row[1])         # Count
                     })
                 total_requests = sum(item['count'] for item in url_stats)
+            else:
+                logger.warning("❌ No data in 'requests' table. Check tables above.")
+                error_message = f"No requests data. Available tables: {available_tables[:3]}"
                 
-        except HttpResponseError as e:
-            logger.error(f"Azure Monitor Error: {e}")
-            error_message = "Could not fetch data from Azure. Check permissions (Log Analytics Reader)."
         except Exception as e:
-            logger.error(f"Unexpected Error: {e}")
-            error_message = f"An error occurred: {str(e)}"
+            logger.error(f"❌ Azure Error: {type(e).__name__}: {str(e)}")
+            error_message = f"Query failed: {type(e).__name__}"
 
     context = {
         'url_stats': url_stats,
