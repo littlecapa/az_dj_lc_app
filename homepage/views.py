@@ -110,13 +110,13 @@ def dashboard_view(request):
     logger.info("DASHBOARD VIEW ENTERED")
     
     workspace_id = os.environ.get('AZURE_LOG_WORKSPACE_ID')
-    
     url_stats = []
     total_requests = 0
     error_message = None
 
     if not workspace_id:
-        error_message = "AZURE_LOG_WORKSPACE_ID not found."
+        error_message = "AZURE_LOG_WORKSPACE_ID not found in App Settings."
+        logger.error(error_message)
     else:
         try:
             credential = DefaultAzureCredential()
@@ -124,57 +124,62 @@ def dashboard_view(request):
             
             logger.info(f"🔍 Querying workspace {workspace_id[:8]}...")
             
-            # DEBUG 1: Welche Tabellen gibt's? (letzte 24h)
-            table_query = """
-            search "*"
-            | where TimeGenerated > ago(1d)
-            | extend TableName = tostring(source_table)
-            | summarize Count=count() by TableName
-            | order by Count desc
-            | take 10
-            """
-            
-            table_response = client.query_workspace(
-                workspace_id=workspace_id,
-                query=table_query,
-                timespan=timedelta(hours=24)
-            )
-            
-            available_tables = []
-            if table_response.tables:
-                available_tables = [row[0] for row in table_response.tables[0].rows]
-                logger.info(f"✅ Available tables (top 10): {available_tables}")
-            
-            # DEBUG 2: Haupt-Query (angepasst)
-            query = """
-            requests
-            | where timestamp > ago(7d)
-            | summarize requestCount=count() by url
+            # Test 1: AppRequests (häufigste Tabelle)
+            app_req_query = """
+            AppRequests
+            | where TimeGenerated > ago(7d)
+            | summarize requestCount=count() by Url
             | order by requestCount desc
             | take 50
             """
             
             response = client.query_workspace(
                 workspace_id=workspace_id,
-                query=query,
+                query=app_req_query,
                 timespan=timedelta(days=7)
             )
             
             if response.tables and len(response.tables[0].rows) > 0:
-                logger.info(f"✅ GOT {len(response.tables[0].rows)} URL stats!")
+                logger.info(f"✅ AppRequests: {len(response.tables[0].rows)} URLs gefunden!")
                 for row in response.tables[0].rows:
                     url_stats.append({
-                        'path': str(row[0])[:100],  # URL
-                        'count': int(row[1])         # Count
+                        'path': str(row[0])[:100] if row[0] else 'unknown',
+                        'count': int(row[1])
                     })
                 total_requests = sum(item['count'] for item in url_stats)
-            else:
-                logger.warning("❌ No data in 'requests' table. Check tables above.")
-                error_message = f"No requests data. Available tables: {available_tables[:3]}"
                 
+            else:
+                # Test 2: requests (klassisch)
+                logger.info("AppRequests leer → Teste 'requests'...")
+                req_query = """
+                requests
+                | where timestamp > ago(7d)
+                | summarize requestCount=count() by url
+                | order by requestCount desc
+                | take 50
+                """
+                
+                response = client.query_workspace(
+                    workspace_id=workspace_id,
+                    query=req_query,
+                    timespan=timedelta(days=7)
+                )
+                
+                if response.tables and len(response.tables[0].rows) > 0:
+                    logger.info(f"✅ requests: {len(response.tables[0].rows)} URLs gefunden!")
+                    for row in response.tables[0].rows:
+                        url_stats.append({
+                            'path': str(row[0])[:100] if row[0] else 'unknown',
+                            'count': int(row[1])
+                        })
+                    total_requests = sum(item['count'] for item in url_stats)
+                else:
+                    logger.warning("❌ Keine Request-Daten gefunden")
+                    error_message = "Keine Web-Request-Daten in den letzten 7 Tagen."
+            
         except Exception as e:
             logger.error(f"❌ Azure Error: {type(e).__name__}: {str(e)}")
-            error_message = f"Query failed: {type(e).__name__}"
+            error_message = f"Query fehlgeschlagen: {type(e).__name__}"
 
     context = {
         'url_stats': url_stats,
