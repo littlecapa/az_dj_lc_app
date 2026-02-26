@@ -46,37 +46,41 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose' if ENVIRONMENT == 'production' else 'simple',
+            'level': 'INFO',
         },
         'file': {
             'class': 'logging.FileHandler',
             'filename': os.path.join(LOG_DIR, 'django.log'),
             'formatter': 'verbose',
+            'level': 'INFO',
         },
     },
-    'root': {
-        'handlers': ['console', 'file'] if ENVIRONMENT == 'development' else ['console'],
-        'level': 'INFO',
-    },
-    # Add to LOGGING['loggers']:
     'loggers': {
+        '': {  # ← Root logger (was 'root')
+            'handlers': ['console', 'file'] if ENVIRONMENT == 'development' else ['console'],
+            'level': 'INFO',
+        },
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'INFO',  # ← Removed duplicate
             'propagate': False,
         },
-        'homepage': {  # Your app
+        'homepage': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'INFO',  # ← Removed duplicate
             'propagate': False,
         },
-        'azure': {  # SDK verbose
+        'azure': {
+            'handlers': ['console'],  # ← Added for explicitness
             'level': 'INFO',
+            'propagate': False,  # ← Good to add to avoid root duplication
         },
     },
-
 }
 
 
+import logging.config
+logging.config.dictConfig(LOGGING)
 
 logging.warning(f"DB_NAME (Settings): {os.getenv('DB_NAME')}")
 logging.warning(f"ENV (Settings): {ENVIRONMENT}")
@@ -121,17 +125,18 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'opencensus.ext.django.middleware.OpencensusMiddleware',
 ]
 
 OPENCENSUS = {
     'TRACE': {
         'SAMPLER': 'opencensus.trace.samplers.ProbabilitySampler(rate=1)',
-        'EXPORTER': '''opencensus.ext.azure.trace_exporter.AzureExporter(
-            connection_string="YOUR_CONNECTION_STRING"
-        )''',
+        'EXPORTER': 'opencensus.ext.azure.trace_exporter.AzureExporter',
+        'EXPORTER_ARGS': {
+            'connection_string': os.getenv('APPINSIGHTS_CONNECTION_STRING')
+        },
     }
 }
+
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 ROOT_URLCONF = 'azureproject.urls'
