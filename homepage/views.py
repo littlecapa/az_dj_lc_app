@@ -125,11 +125,12 @@ def dashboard_view(request):
             client = LogsQueryClient(credential)
             
             # 3. Kusto Query (KQL) - Get top 50 URLs by request count in last 30 days
+            # Fix the query in dashboard_view():
             query = """
-            requests
+            AppRequests  # ← Not 'requests'
             | where timestamp > ago(30d)
-            | summarize count() by url
-            | order by count_ desc
+            | summarize requestCount = count() by url
+            | order by requestCount desc
             | take 50
             """
             
