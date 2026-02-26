@@ -126,8 +126,9 @@ def dashboard_view(request):
             
             # DEBUG 1: Welche Tabellen gibt's? (letzte 24h)
             table_query = """
-            union withsource=TableName *
+            search "*"
             | where TimeGenerated > ago(1d)
+            | extend TableName = tostring(source_table)
             | summarize Count=count() by TableName
             | order by Count desc
             | take 10
