@@ -28,6 +28,7 @@ if os.getenv("ENVIRONMENT") == 'development':
     load_dotenv()
 
 import logging
+DEFAULT_LOG_LEVEL = 'INFO'
 
 LOGGING = {
     'version': 1,
@@ -46,34 +47,35 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose' if ENVIRONMENT == 'production' else 'simple',
-            'level': 'INFO',
+            'level': DEFAULT_LOG_LEVEL,
         },
         'file': {
             'class': 'logging.FileHandler',
             'filename': os.path.join(LOG_DIR, 'django.log'),
             'formatter': 'verbose',
-            'level': 'INFO',
+            'level': DEFAULT_LOG_LEVEL,
         },
     },
     'loggers': {
         '': {  # ← Root logger (was 'root')
             'handlers': ['console', 'file'] if ENVIRONMENT == 'development' else ['console'],
-            'level': 'INFO',
+            'level': DEFAULT_LOG_LEVEL,
         },
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',  # ← Removed duplicate
+            'level': DEFAULT_LOG_LEVEL,
+            
             'propagate': False,
         },
         'homepage': {
             'handlers': ['console'],
-            'level': 'INFO',  # ← Removed duplicate
+            'level': DEFAULT_LOG_LEVEL,
             'propagate': False,
         },
         'azure': {
-            'handlers': ['console'],  # ← Added for explicitness
-            'level': 'INFO',
-            'propagate': False,  # ← Good to add to avoid root duplication
+            'handlers': ['console'],
+            'level': DEFAULT_LOG_LEVEL,
+            'propagate': False,
         },
     },
 }
