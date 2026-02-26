@@ -22,6 +22,10 @@ urlpatterns = [
              <urlset><url><loc>https://littlecapa.com/</loc></url></urlset>''',
              content_type='application/xml'
          )),
+    path(r'\.php$', 
+        lambda request: HttpResponse(status=410)  # "Gone forever"
+    ),
+    path(r'\.(env|bak|config|git)$', lambda request: HttpResponse(status=410)),
 ]
 
 # Standard-Weg für Development (DEBUG=True)

@@ -181,6 +181,10 @@ def dashboard_view(request):
             logger.error(f"❌ Azure Error: {type(e).__name__}: {str(e)}")
             error_message = f"Query fehlgeschlagen: {type(e).__name__}"
 
+    url_stats = [stat for stat in url_stats 
+             if not stat['path'].endswith(('.php', 'robots.txt', 'api', 'api/', 'ectoplasm')) 
+             and stat['count'] > 10]
+    
     context = {
         'url_stats': url_stats,
         'total_requests': total_requests,
