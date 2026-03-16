@@ -7,6 +7,7 @@ from django.http import HttpResponse
 urlpatterns = [
     path('', include('homepage.urls')),
     path('fintech/', include('fintech.urls')),
+    path('health/', include('health.urls')),
     path('admin/', admin.site.urls),
     path('robots.txt', 
          lambda request: HttpResponse(

@@ -99,12 +99,21 @@ ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 
 if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
+else:
+    CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8864',
+    'http://127.0.0.1:8864',
+    'http://0.0.0.0:8864',
+    ]
+
+logging.warning(f"CSRF_TRUSTED_ORIGINS: {CSRF_TRUSTED_ORIGINS}")
 
 # Application definition
 
 INSTALLED_APPS = [
     'homepage',
     'fintech',
+    'health',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

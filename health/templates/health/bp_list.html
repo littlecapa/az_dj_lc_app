@@ -1,0 +1,13 @@
+<h2>Blutdruckmessungen</h2>
+<table>
+    <tr><th>Datum</th><th>Syst./Diast.</th><th>Herzschlag</th><th>Info</th></tr>
+    {% for messung in messungen %}
+    <tr>
+        <td>{{ messung.datum }}</td>
+        <td>{{ messung.systolisch }}/{{ messung.diastolisch }}</td>
+        <td>{{ messung.herzschlag }}</td>
+        <td>{% if messung.info %}Ja{% endif %}</td>
+    </tr>
+    {% endfor %}
+</table>
+<a href="{% url 'bp_export' %}">Als CSV exportieren</a>
