@@ -1,9 +1,10 @@
 from django.db import models
 from decimal import Decimal
 
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
-# Create your models here.
+from django.utils import timezone
+from django.contrib.auth.models import User
 
 class Asset(models.Model):
     """
@@ -227,3 +228,83 @@ class Price(models.Model):
     def __str__(self):
         return f"{self.asset.symbol}: {self.current_price} ({self.timestamp:%Y-%m-%d %H:%M})"
 
+class Watchlist(models.Model):
+    """
+    Benutzer-Watchlist für Assets
+    """
+    name = models.CharField(
+        max_length=100,
+        help_text="Name der Watchlist (z.B. 'US Tech Favoriten')"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='watchlists',
+        help_text="Besitzer der Watchlist"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Watchlist"
+        verbose_name_plural = "Watchlists"
+        unique_together = ['name', 'user']  # User kann keine Dupe-Namen haben
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.user.username})"
+
+    @property
+    def asset_count(self):
+        return self.entries.count()
+
+
+class WatchlistEntry(models.Model):
+    """
+    Asset-Eintrag in Watchlist mit Add-Datum + damaligem Kurs
+    """
+    watchlist = models.ForeignKey(
+        Watchlist,
+        on_delete=models.CASCADE,
+        related_name='entries'
+    )
+    asset = models.ForeignKey(
+        'Asset',
+        on_delete=models.CASCADE,
+        help_text="Beobachtetes Asset"
+    )
+    added_at = models.DateTimeField(
+        default=timezone.now,
+        help_text="Zeitpunkt der Aufnahme in Watchlist"
+    )
+    price_at_add = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        validators=[MinValueValidator(Decimal('0.0001'))],
+        help_text="Kurs zum Zeitpunkt der Aufnahme"
+    )
+    notes = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Grund für Watchlist-Aufnahme (optional)"
+    )
+
+    class Meta:
+        verbose_name = "Watchlist-Eintrag"
+        verbose_name_plural = "Watchlist-Einträge"
+        unique_together = ['watchlist', 'asset']  # Keine Duplikate pro List
+        indexes = [
+            models.Index(fields=['watchlist', 'added_at']),
+            models.Index(fields=['asset']),
+        ]
+        ordering = ['added_at']  # Neueste zuerst
+
+    def __str__(self):
+        return f"{self.asset.symbol} in {self.watchlist.name} ({self.price_at_add})"
+
+    @property
+    def current_profit_percent(self):
+        """Performance seit Aufnahme (%)"""
+        if self.asset.current_price and self.price_at_add:
+            return ((self.asset.current_price / self.price_at_add) - 1) * 100
+        return None
