@@ -1,7 +1,8 @@
 from django.db import models
+from django.utils import timezone
 
 class BloodPressure(models.Model):
-    datum_zeit = models.DateTimeField('Datum & Uhrzeit', help_text='Morgen/Abend + Uhrzeit')
+    datum_zeit = models.DateTimeField('Datum & Uhrzeit', help_text='Morgen/Abend + Uhrzeit', default=timezone.now)
     systolisch = models.PositiveIntegerField('Systolisch (oberer Wert)')
     diastolisch = models.PositiveIntegerField('Diastolisch (unterer Wert)')
     herzschlag = models.PositiveIntegerField('Herzschlag (bpm)')
