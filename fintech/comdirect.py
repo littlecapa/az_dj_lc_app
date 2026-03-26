@@ -17,7 +17,7 @@ def run_import():
         logger.error("ABBRUCH: Es existieren bereits Holdings in der Datenbank. Import wird nicht durchgeführt.")
         return
 
-    print("Starte Import der Comdirect-Depotdaten...")
+    logger.info("Starte Import der Comdirect-Depotdaten...")
 
     # Rohe Daten aus Ihrer CSV extrahiert
     portfolio_data = [
@@ -52,7 +52,7 @@ def run_import():
     assets_created = 0
     holdings_created = 0
 
-    for item in portfolio_data
+    for item in portfolio_data:
         # Typ-Mapping für das Model
         asset_class = Asset.AssetClass.ETF if item['typ'] == 'ETF' else Asset.AssetClass.STOCK
 

@@ -1,16 +1,20 @@
-# fintech/apps.py
 import os
 import sys
 from django.apps import AppConfig
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 class FintechConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'fintech'
-
+    verbose_name = 'Fintech'
+    
     def ready(self):
         # Verhindert, dass das Skript bei manage.py Befehlen (wie makemigrations) 
         # oder mehrfach durch den Auto-Reloader läuft.
         # In Produktion (Azure/gunicorn) oder im MAIN-Thread von runserver:
+        logger.info("Fintech App ready - prüfe, ob Comdirect-Import ausgeführt werden soll.")
         
         is_manage_command = len(sys.argv) > 1 and sys.argv[1] in ['makemigrations', 'migrate', 'collectstatic']
         
@@ -23,4 +27,4 @@ class FintechConfig(AppConfig):
                     from . import comdirect
                     comdirect.run_import()
                 except Exception as e:
-                    print(f"Fehler beim initialen Comdirect-Import: {e}")
+                    logger.error(f"Fehler beim initialen Comdirect-Import: {e}")
