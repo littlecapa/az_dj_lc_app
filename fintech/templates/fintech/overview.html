@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Portfolio Overview</title>
+    <style>
+        table { border-collapse: collapse; width: 100%; font-family: Arial; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: right; }
+        th { background-color: #f2f2f2; font-weight: bold; text-align: left; }
+        .category-sum { background-color: #e8f4f8; font-weight: bold; }
+        .grand-total { background-color: #d4edda; font-weight: bolder; font-size: 1.1em; }
+        .positive { color: green; }
+        .negative { color: red; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Portfolio Overview (Preise aktualisiert)</h1>
+    <p>Stand: {{ timestamp }}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Kategorie</th>
+                <th>Menge</th>
+                <th>Einkaufswert (€)</th>
+                <th>Aktueller Wert (€)</th>
+                <th>Gewinn/Verlust (€)</th>
+                <th>Gewinn (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in holdings %}
+                <tr {% if row.is_subtotal %}class="category-sum"{% elif row.is_grand_total %}class="grand-total"{% endif %}>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.category }}</td>
+                    <td>{{ row.quantity|default:"–" }}</td>
+                    <td>{{ row.total_purchase_price|floatformat:2|default:"–" }}</td>
+                    <td>{{ row.total_current_value|floatformat:2|default:"–" }}</td>
+                    <td class="{% if row.profit_loss > 0 %}positive{% else %}negative{% endif %}">
+                        {{ row.profit_loss|floatformat:2|default:"–" }}
+                    </td>
+                    <td class="{% if row.profit_pct > 0 %}positive{% else %}negative{% endif %}">
+                        {{ row.profit_pct|floatformat:1|default:"–" }}%
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

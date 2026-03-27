@@ -95,6 +95,10 @@ logging.info("App started")
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY','SECRET_KEY')
 
+# FMP-Key (aus vorherigem Service)
+FMP_API_KEY = os.getenv('FMP_API_KEY')
+
+
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 
 if 'CODESPACE_NAME' in os.environ:
@@ -123,6 +127,12 @@ INSTALLED_APPS = [
 #    'django_recaptcha',
     'core'
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ]
+}
 
 # Google reCAPTCHA Test-Keys (für Development sicher)
 #RECAPTCHA_PUBLIC_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
@@ -230,7 +240,12 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',           # Projekt-weit static/
+    BASE_DIR / 'homepage' / 'static',  # App-spezifisch: homepage/static/     
+    BASE_DIR / 'fintech' / 'static',  # App-spezifisch: admin/js/, admin/css/
+    # Füge weitere Apps hinzu: BASE_DIR / 'core' / 'static',
+]
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 LOGIN_URL = '/accounts/login/'

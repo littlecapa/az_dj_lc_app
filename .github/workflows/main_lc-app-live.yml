@@ -22,6 +22,7 @@ jobs:
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       APP_NAME: ${{ secrets.APP_NAME }}
       DJANGO_SETTINGS_MODULE: azureproject.production
+      FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
 
     steps:
     - name: Checkout code

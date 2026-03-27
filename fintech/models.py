@@ -108,6 +108,13 @@ class Holdings(models.Model):
         US_TECH = 4, 'US Tech'
         WORLD_TECH = 5, 'World Tech'
         COMPOUNDER = 6, 'Compounder'
+        DEFENCE = 7, 'Defence'
+        ROBOTICS = 8, 'Robotics'
+        CYBERSECURITY = 9, 'Cybersecurity'
+        SOFTWARE = 10, 'Software'
+        HEALTHCARE = 11, 'Healthcare'
+        AI_INPUT = 12, 'AI Input'
+        BANkING = 13, 'Banking'
         SONSTIGES = 99, 'Sonstiges'
     
     asset = models.ForeignKey(

@@ -4,6 +4,6 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.fintech_home, name='fintech_home'),
-    path('dashboard/', views.fintech_dashboard, name='fintech_dashboard'),
+    path('api/asset-price/', views.AssetPriceView.as_view(), name='asset_price'),
+    path('overview/', views.OverviewView.as_view(), name='overview'),
 ]
