@@ -1,0 +1,167 @@
+{% extends "admin/base_site.html" %}
+{% load i18n de_format %}
+
+{% block content %}
+<div id="content-main">
+
+  <h1>Portfolio Übersicht</h1>
+
+  {% if portfolio %}
+  <table id="portfolio-table">
+    <thead>
+      <tr>
+        <th data-col="0">Name <span class="sort-icon"></span></th>
+        <th data-col="1">ISIN <span class="sort-icon"></span></th>
+        <th data-col="2">Klasse <span class="sort-icon"></span></th>
+        <th data-col="3" class="num">Anzahl <span class="sort-icon"></span></th>
+        <th data-col="4" class="num">Einstand (€) <span class="sort-icon"></span></th>
+        <th data-col="5" class="num">Marktwert (€) <span class="sort-icon"></span></th>
+        <th data-col="6" class="num">Δ abs (€) <span class="sort-icon"></span></th>
+        <th data-col="7" class="num">Δ % <span class="sort-icon"></span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in portfolio %}
+      <tr class="{% if row.delta_abs >= 0 %}positive{% else %}negative{% endif %}">
+        <td>{{ row.name }}</td>
+        <td><code>{{ row.isin }}</code></td>
+        <td>{{ row.asset_class }}</td>
+        <td class="num">{{ row.total_quantity|de_decimal:2 }}</td>
+        <td class="num">{{ row.purchase_price|de_currency:2 }}</td>
+        <td class="num">{{ row.current_value|de_currency:2 }}</td>
+        <td class="num">{{ row.delta_abs|de_currency:2 }}</td>
+        <td class="num">
+          {{ row.delta_perc|de_percent:1 }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4"><strong>Gesamt</strong></td>
+        <td class="num"><strong id="total-purchase">—</strong></td>
+        <td class="num"><strong id="total-value">—</strong></td>
+        <td class="num"><strong id="total-delta-abs">—</strong></td>
+        <td class="num"><strong id="total-delta-perc">—</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  {% else %}
+  <p>Keine Portfolio-Daten vorhanden.</p>
+  {% endif %}
+
+</div>
+
+<style>
+  #portfolio-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+  #portfolio-table th,
+  #portfolio-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: left;
+  }
+  #portfolio-table th {
+    background: #f8f8f8;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  #portfolio-table th:hover { background: #ececec; }
+  #portfolio-table th.sort-asc  .sort-icon::after { content: " ▲"; font-size: 0.75em; }
+  #portfolio-table th.sort-desc .sort-icon::after { content: " ▼"; font-size: 0.75em; }
+  #portfolio-table th .sort-icon::after { content: " ⇅"; font-size: 0.7em; color: #aaa; }
+  #portfolio-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  #portfolio-table tr.positive .num { color: #2e7d32; }
+  #portfolio-table tr.negative .num { color: #c62828; }
+  #portfolio-table tfoot td {
+    border-top: 2px solid #ccc;
+    border-bottom: none;
+  }
+  code { font-size: 0.85em; color: #555; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const table  = document.getElementById('portfolio-table');
+  const tbody  = table.querySelector('tbody');
+  const ths    = table.querySelectorAll('thead th');
+
+  // --- Gesamtzeile berechnen ---
+  function updateTotals() {
+    const rows = tbody.querySelectorAll('tr');
+    let totalPurchase = 0, totalValue = 0, totalDeltaAbs = 0;
+    rows.forEach(function (row) {
+      const cells = row.querySelectorAll('td');
+      totalPurchase  += parseFloat(cells[4].textContent.replace(',', '.')) || 0;
+      totalValue     += parseFloat(cells[5].textContent.replace(',', '.')) || 0;
+      totalDeltaAbs  += parseFloat(cells[6].textContent.replace(',', '.')) || 0;
+    });
+    const fmt = (n, sign) => (sign && n >= 0 ? '+' : '') + n.toFixed(2);
+    const pct = totalPurchase ? ((totalValue / totalPurchase - 1) * 100) : null;
+    document.getElementById('total-purchase').textContent    = fmt(totalPurchase, false);
+    document.getElementById('total-value').textContent       = fmt(totalValue, false);
+    document.getElementById('total-delta-abs').textContent   = fmt(totalDeltaAbs, true);
+    document.getElementById('total-delta-perc').textContent  = pct !== null ? (pct >= 0 ? '+' : '') + pct.toFixed(1) + ' %' : '—';
+  }
+
+  // --- Sortierstatus ---
+  let sortCol = null, sortAsc = true;
+
+  // --- Zellwert als sortierbaren Wert lesen ---
+  function cellValue(row, col) {
+    const text = row.querySelectorAll('td')[col].textContent.trim();
+    // Zahlen: +/- entfernen, % entfernen, Komma→Punkt, dann parseFloat
+    const num = parseFloat(text.replace(/[+%\s]/g, '').replace(',', '.'));
+    return isNaN(num) ? text.toLowerCase() : num;
+  }
+
+  // --- Sortieren ---
+  function sortBy(col) {
+    if (sortCol === col) {
+      sortAsc = !sortAsc;        // gleiche Spalte → Richtung umkehren
+    } else {
+      sortCol = col;
+      sortAsc = true;
+    }
+
+    // Header-Klassen aktualisieren
+    ths.forEach(function (th) {
+      th.classList.remove('sort-asc', 'sort-desc');
+    });
+    ths[col].classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+
+    // Zeilen sortieren
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort(function (a, b) {
+      const av = cellValue(a, col);
+      const bv = cellValue(b, col);
+      if (av < bv) return sortAsc ? -1 : 1;
+      if (av > bv) return sortAsc ?  1 : -1;
+      return 0;
+    });
+    rows.forEach(function (row) { tbody.appendChild(row); });
+
+    updateTotals();  // Gesamtzeile bleibt immer korrekt
+  }
+
+  // --- Klick-Handler auf jeden Header ---
+  ths.forEach(function (th) {
+    th.addEventListener('click', function () {
+      sortBy(parseInt(th.dataset.col));
+    });
+  });
+
+  // --- Initial: Gesamtzeile befüllen ---
+  updateTotals();
+});
+</script>
+{% endblock %}

@@ -133,7 +133,7 @@ class Holdings(models.Model):
         SOFTWARE = 10, 'Software'
         HEALTHCARE = 11, 'Healthcare'
         AI_INPUT = 12, 'AI Input'
-        BANkING = 13, 'Banking'
+        FINANCE = 13, 'Finance'
         SONSTIGES = 99, 'Sonstiges'
     
     asset = models.ForeignKey(
@@ -154,7 +154,7 @@ class Holdings(models.Model):
         decimal_places=4,
         null=True,
         blank=True,
-        validators=[MinValueValidator(Decimal('0.01'))],
+        validators=[MinValueValidator(Decimal('0.00'))],
         help_text="Durchschnittlicher Einkaufspreis"
     )
     

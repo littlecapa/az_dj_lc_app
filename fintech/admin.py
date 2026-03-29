@@ -3,6 +3,9 @@ from django.db.models import Sum
 from django.utils.html import format_html
 from decimal import Decimal
 from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist
+from .model_views import PortfolioSummary
+from django.template.response import TemplateResponse
+from django.core.management import call_command
 
 class PriceInline(admin.TabularInline):
     model = Price
@@ -24,7 +27,7 @@ class PriceAdmin(admin.ModelAdmin):
         """Formatierter Preis mit Währung"""
         if obj.current_price:
             price_str = f"{obj.current_price:.4f}"
-            return format_html('{} {}', price_str, obj.currency or 'EUR')
+            return format_html('{} {}', price_str, 'EUR')
         return format_html('<span style="color: #999;">–</span>')
 
     current_price_display.short_description = 'Aktueller Preis'
@@ -144,3 +147,35 @@ class WatchlistAdmin(admin.ModelAdmin):  # WatchEntryAdmin → WatchlistAdmin (F
         """Anzahl Assets in Watchlist"""
         return obj.entries.count()
     asset_count.short_description = "Assets"
+
+@admin.register(PortfolioSummary)
+class PortfolioSummaryAdmin(admin.ModelAdmin):
+    readonly_fields = [
+        'name',
+        'isin',
+        'asset_class',        # war category_display — existiert nicht im Model
+        'total_quantity',
+        'purchase_price',
+        'current_value',
+        'delta_abs',
+        'delta_perc',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        call_command('update_prices')  # Preise vor Anzeige aktualisieren
+        context = dict(extra_context or {})
+        context['portfolio'] = list(PortfolioSummary.objects.portfolio())
+        return TemplateResponse(
+            request,
+            'admin/fintech/portfolio_summary_changelist.html',
+            context,
+        )

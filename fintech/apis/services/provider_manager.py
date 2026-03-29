@@ -44,7 +44,6 @@ class ProviderManager:
             try:
                 if attempt == 0:
                     return self.com_requester[type].isin2wkn(isin)
-                # Fallback provider
                 if type == "ETF":
                     return self.just_etf_request.isin2wkn(isin)
                 return self.alle_aktien_request.isin2wkn(isin)
@@ -58,11 +57,20 @@ class ProviderManager:
         return None
 
     def isin2price(self, isin: str, type: str) -> Decimal:
-        """Return current price in EUR or None on failure."""
+        """Return current price in EUR or None on failure.
+
+        Provider chain:
+          1. Comdirect  (alle Typen)
+          2. AlleAktien (Fallback — liefert auch ETF-Preise)
+        """
         self._validate_type(type)
         for attempt in range(MAX_PRICE_RETRIES):
             try:
-                price, currency = self.com_requester[type].isin2price(isin)
+                if attempt == 0:
+                    price, currency = self.com_requester[type].isin2price(isin)
+                else:
+                    logger.info(f"Trying AlleAktien as price fallback for {isin}/{type}")
+                    _, price, currency, _ = self.alle_aktien_request.get_infos(isin)
                 return self._convert_to_euro(price, currency)
             except KeyNotFoundWarning:
                 logger.warning(f"Price not found for {isin}/{type} attempt {attempt}")
@@ -77,7 +85,7 @@ class ProviderManager:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _validate_type(self, type: str):
+    def _validate_type(self, type: str) -> None:
         if type not in SUPPORTED_TYPES:
             raise ValueError(f"Unsupported security type '{type}'. Choose from {SUPPORTED_TYPES}.")
 
