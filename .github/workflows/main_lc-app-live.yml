@@ -23,6 +23,7 @@ jobs:
       APP_NAME: ${{ secrets.APP_NAME }}
       DJANGO_SETTINGS_MODULE: azureproject.production
       FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+      FINTECH_API_KEY: ${{ secrets.FINTECH_API_KEY }}
 
     steps:
     - name: Checkout code

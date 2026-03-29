@@ -1,12 +1,9 @@
 import requests
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from django.views.generic import TemplateView
 from django.conf import settings
 import logging
 from collections import defaultdict
-import time
+
 from django.utils import timezone
 from decimal import Decimal
 from .models import Holdings, Asset, Price
@@ -14,50 +11,6 @@ from django.core.cache import cache  # Füge Import hinzu
 
 logger = logging.getLogger(__name__)
 
-class AssetPriceView(APIView):
-    """Bestehende API-View (bleibt unverändert)"""
-    def get(self, request):
-        isin = request.query_params.get('isin')
-        currency = request.query_params.get('currency', 'EUR')
-        
-        if not isin:
-            return Response({'error': 'ISIN erforderlich'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Schritt 1: ISIN zu Symbol mappen
-        search_url = f"https://financialmodelingprep.com/api/v3/search/isin"
-        params = {'isin': isin, 'apikey': settings.FMP_API_KEY}
-        try:
-            search_resp = requests.get(search_url, params=params)
-            search_data = search_resp.json()
-            if not search_data:
-                return Response({'error': 'ISIN nicht gefunden'}, status=status.HTTP_404_NOT_FOUND)
-            symbol = search_data[0]['symbol']
-            logger.info(f"ISIN {isin} -> Symbol {symbol}")
-        except Exception as e:
-            logger.error(f"ISIN-Suche fehlgeschlagen: {e}")
-            return Response({'error': 'API-Fehler bei ISIN-Suche'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # Schritt 2: Kurs holen
-        quote_url = f"https://financialmodelingprep.com/api/v3/quote/{symbol}"
-        params = {'apikey': settings.FMP_API_KEY}
-        try:
-            quote_resp = requests.get(quote_url, params=params)
-            quote_data = quote_resp.json()
-            if not quote_data:
-                return Response({'error': 'Kurs nicht verfügbar'}, status=status.HTTP_404_NOT_FOUND)
-            
-            price_info = quote_data[0]
-            result = {
-                'isin': isin,
-                'symbol': symbol,
-                'price': price_info['price'],
-                'currency': currency,
-                'last_update': price_info['timestamp']
-            }
-            return Response(result)
-        except Exception as e:
-            logger.error(f"Kurs-Abfrage fehlgeschlagen: {e}")
-            return Response({'error': 'API-Fehler bei Kurs'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class OverviewView(TemplateView):
     """HTML-View mit automatischer Preis-Update + Tabelle"""

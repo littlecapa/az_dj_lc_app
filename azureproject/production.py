@@ -1,6 +1,7 @@
 import os
 import logging
 logging.warning(f"DB_NAME (production): {os.getenv('DB_NAME')}")
+print(f"DB_NAME (production): {os.getenv('DB_NAME')}")
 
 from .settings import *  # noqa
 from .settings import BASE_DIR

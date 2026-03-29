@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
-from .models import Asset, Holdings, Price  # Bleibt Holdings (dein Modellname)
+from decimal import Decimal
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist
 
 class PriceInline(admin.TabularInline):
     model = Price
@@ -12,17 +13,26 @@ class PriceInline(admin.TabularInline):
 
 @admin.register(Price)
 class PriceAdmin(admin.ModelAdmin):
-    list_display = ('asset', 'current_price', 'timestamp')
-    list_filter = ('timestamp', 'asset__asset_class')  # asset_class -> assetclass korrigiert?
+    list_display = ('asset', 'current_price_display', 'timestamp')
+    list_filter = ('timestamp', 'asset__asset_class')
     search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
     autocomplete_fields = ('asset',)
     date_hierarchy = 'timestamp'
     ordering = ('-timestamp',)
 
+    def current_price_display(self, obj):
+        """Formatierter Preis mit Währung"""
+        if obj.current_price:
+            price_str = f"{obj.current_price:.4f}"
+            return format_html('{} {}', price_str, obj.currency or 'EUR')
+        return format_html('<span style="color: #999;">–</span>')
+
+    current_price_display.short_description = 'Aktueller Preis'
+
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class']  # Quotes fix + extra Feld
-    list_filter = ['asset_class', 'currency', 'exchange']  # asset_class konsistent
+    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class']
+    list_filter = ['asset_class', 'currency', 'exchange']
     search_fields = ['isin', 'wkn', 'symbol', 'name']
     ordering = ('name',)
     inlines = [PriceInline]
@@ -42,7 +52,8 @@ class AssetAdmin(admin.ModelAdmin):
     def current_price_display(self, obj):
         """Formatierter Preis mit Währung"""
         if obj.current_price:
-            return format_html('{:.4f} {}', obj.current_price, obj.currency or 'EUR')
+            price_str = f"{obj.current_price:.4f}"
+            return format_html('{} {}', price_str, obj.currency or 'EUR')
         return format_html('<span style="color: #999;">–</span>')
 
     @admin.display(description='Preis-Update', ordering='current_price_timestamp')
@@ -58,7 +69,7 @@ class HoldingsAdmin(admin.ModelAdmin):
         'get_asset_name',
         'quantity',
         'get_current_value',
-        'average_purchase_price',
+        'average_purchase_price_display',
         'get_total_investment',
         'category',
     )
@@ -81,13 +92,55 @@ class HoldingsAdmin(admin.ModelAdmin):
 
     @admin.display(description='Gesamtwert (Invest)')
     def get_total_investment(self, obj):
-        if obj.total_investment:  # Property aus Model
-            return format_html('{:.2f} {}', obj.total_investment, obj.asset.currency)
+        if obj.total_investment:
+            value_str = f"{obj.total_investment:.2f}"
+            return format_html('{} {}', value_str, obj.asset.currency)
         return "–"
 
     @admin.display(description='Marktwert (Aktuell)')
     def get_current_value(self, obj):
         if obj.asset.current_price:
             value = obj.quantity * obj.asset.current_price
-            return format_html('{:.2f} {}', value, obj.asset.currency)
+            value_str = f"{value:.2f}"
+            return format_html('{} {}', value_str, obj.asset.currency)
         return "–"
+
+    @admin.display(description='Durchschnittspreis', ordering='average_purchase_price')
+    def average_purchase_price_display(self, obj):
+        if obj.average_purchase_price:
+            price_str = f"{obj.average_purchase_price:.4f}"
+            return format_html('{} {}', price_str, obj.asset.currency)
+        return "–"
+
+@admin.register(WatchlistEntry)
+class WatchlistEntryAdmin(admin.ModelAdmin):
+    list_display = ['asset', 'watchlist', 'formatted_price_at_add', 'current_profit_percent_formatted']
+    list_filter = ['watchlist']
+    autocomplete_fields = ('asset', 'watchlist')
+    list_select_related = ('asset', 'watchlist')
+
+    def formatted_price_at_add(self, obj):
+        """Preis bei Aufnahme formatiert"""
+        if obj.price_at_add:
+            return f"{obj.price_at_add:.2f}"
+        return "-"
+    formatted_price_at_add.short_description = "Preis bei Aufnahme"
+
+    def current_profit_percent_formatted(self, obj):
+        """Performance seit Aufnahme formatiert"""
+        profit = obj.current_profit_percent
+        if profit is not None:
+            return f"{profit:+.1f}%"
+        return "–"
+    current_profit_percent_formatted.short_description = "Performance"
+
+@admin.register(Watchlist)
+class WatchlistAdmin(admin.ModelAdmin):  # WatchEntryAdmin → WatchlistAdmin (Fix)
+    list_display = ['name', 'user', 'asset_count', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['name', 'user__username']
+    
+    def asset_count(self, obj):
+        """Anzahl Assets in Watchlist"""
+        return obj.entries.count()
+    asset_count.short_description = "Assets"

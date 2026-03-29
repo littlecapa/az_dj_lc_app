@@ -1,6 +1,6 @@
 from django.db import models
 from decimal import Decimal
-
+import re
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 from django.utils import timezone
@@ -52,10 +52,29 @@ class Asset(models.Model):
         default=AssetClass.STOCK,
         help_text="Art des Assets"
     )
+
+    CURRENCY_CHOICES = [
+        ("EUR", "EUR"),
+        ("USD", "USD"),
+        ("CHF", "CHF"),
+        ("GBP", "GBP"),
+        ("GBp", "GBp"),
+        ("JPY", "JPY"),
+        ("NOK", "NOK"),
+        ("CAD", "CAD"),
+        ("DKK", "DKK"),
+        ("SEK", "SEK"),
+        ("AUD", "AUD"),
+    ]
+
+    @classmethod
+    def get_currency_pattern(cls):
+        return r"(" + "|".join(re.escape(code) for code, _ in cls.CURRENCY_CHOICES) + r")"
     
     currency = models.CharField(
         max_length=3,
         default='EUR',
+        choices=CURRENCY_CHOICES,
         help_text="Währung als ISO-Code (EUR, USD, etc.)"
     )
     
