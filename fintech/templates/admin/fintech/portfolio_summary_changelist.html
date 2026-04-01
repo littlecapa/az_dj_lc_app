@@ -95,15 +95,24 @@ document.addEventListener('DOMContentLoaded', function () {
   const tbody  = table.querySelector('tbody');
   const ths    = table.querySelectorAll('thead th');
 
+  function parseDE(text) {
+    // "1.234,56" → 1234.56  |  "+1.234,56" → 1234.56  |  "-23,10" → -23.10
+    return parseFloat(
+      text.trim()
+          .replace(/[+%\s]/g, '')   // Vorzeichen + Sonderzeichen weg
+          .replace(/\./g, '')       // Tausenderpunkte weg
+          .replace(',', '.')        // Dezimalkomma → Punkt
+    ) || 0;
+  }
   // --- Gesamtzeile berechnen ---
   function updateTotals() {
     const rows = tbody.querySelectorAll('tr');
     let totalPurchase = 0, totalValue = 0, totalDeltaAbs = 0;
     rows.forEach(function (row) {
       const cells = row.querySelectorAll('td');
-      totalPurchase  += parseFloat(cells[4].textContent.replace(',', '.')) || 0;
-      totalValue     += parseFloat(cells[5].textContent.replace(',', '.')) || 0;
-      totalDeltaAbs  += parseFloat(cells[6].textContent.replace(',', '.')) || 0;
+      totalPurchase += parseDE(cells[4].textContent);
+      totalValue    += parseDE(cells[5].textContent);
+      totalDeltaAbs += parseDE(cells[6].textContent);
     });
     const fmt = (n, sign) => (sign && n >= 0 ? '+' : '') + n.toFixed(2);
     const pct = totalPurchase ? ((totalValue / totalPurchase - 1) * 100) : null;
@@ -119,8 +128,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // --- Zellwert als sortierbaren Wert lesen ---
   function cellValue(row, col) {
     const text = row.querySelectorAll('td')[col].textContent.trim();
-    // Zahlen: +/- entfernen, % entfernen, Komma→Punkt, dann parseFloat
-    const num = parseFloat(text.replace(/[+%\s]/g, '').replace(',', '.'));
+    const num  = parseDE(text);
     return isNaN(num) ? text.toLowerCase() : num;
   }
 
