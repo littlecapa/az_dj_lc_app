@@ -1,22 +1,18 @@
 from django.db import models
 from decimal import Decimal
 import re
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator
+from .models_helper.asset_class import AssetClass
+from .models_helper.currency_class import CurrencyClass
+from .models_helper.category_class import CategoryClass
 
 from django.utils import timezone
 from django.contrib.auth.models import User
-
+    
 class Asset(models.Model):
     """
     Grundsätzliche Informationen zu einem Asset (Aktie, ETF, etc.)
     """
-    
-    class AssetClass(models.TextChoices):
-        STOCK = 'STOCK', 'Aktie'
-        ETF = 'ETF', 'ETF'
-        ETC = 'ETC', 'ETC'
-        CRYPTO = 'CRYPTO', 'Kryptowährung'
-        DERIVATIVE = 'DERIVATIVE', 'Derivat'
     
     # ISIN als PK - international eindeutig
     isin = models.CharField(
@@ -53,28 +49,17 @@ class Asset(models.Model):
         help_text="Art des Assets"
     )
 
-    CURRENCY_CHOICES = [
-        ("EUR", "EUR"),
-        ("USD", "USD"),
-        ("CHF", "CHF"),
-        ("GBP", "GBP"),
-        ("GBp", "GBp"),
-        ("JPY", "JPY"),
-        ("NOK", "NOK"),
-        ("CAD", "CAD"),
-        ("DKK", "DKK"),
-        ("SEK", "SEK"),
-        ("AUD", "AUD"),
-    ]
-
-    @classmethod
-    def get_currency_pattern(cls):
-        return r"(" + "|".join(re.escape(code) for code, _ in cls.CURRENCY_CHOICES) + r")"
+    asset_class = models.CharField(
+        max_length=10,
+        choices=AssetClass.choices,
+        default=AssetClass.STOCK,
+        help_text="Art des Assets"
+    )
     
     currency = models.CharField(
         max_length=3,
         default='EUR',
-        choices=CURRENCY_CHOICES,
+        choices=CurrencyClass.choices,
         help_text="Währung als ISO-Code (EUR, USD, etc.)"
     )
     
@@ -120,22 +105,6 @@ class Holdings(models.Model):
     Bestand an Assets pro Benutzer
     """
     
-    class Category(models.IntegerChoices):
-        BASIS_INVESTMENT = 1, 'Basis Investment'
-        DIVIDENDE = 2, 'Dividende'
-        D_EU = 3, 'D/EU'
-        US_TECH = 4, 'US Tech'
-        WORLD_TECH = 5, 'World Tech'
-        COMPOUNDER = 6, 'Compounder'
-        DEFENCE = 7, 'Defence'
-        ROBOTICS = 8, 'Robotics'
-        CYBERSECURITY = 9, 'Cybersecurity'
-        SOFTWARE = 10, 'Software'
-        HEALTHCARE = 11, 'Healthcare'
-        AI_INPUT = 12, 'AI Input'
-        FINANCE = 13, 'Finance'
-        SONSTIGES = 99, 'Sonstiges'
-    
     asset = models.ForeignKey(
         Asset,
         on_delete=models.CASCADE,
@@ -159,8 +128,8 @@ class Holdings(models.Model):
     )
     
     category = models.IntegerField(
-        choices=Category.choices,
-        default=Category.SONSTIGES,
+        choices=CategoryClass.choices,
+        default=CategoryClass.BASIS_INVESTMENT,
         null=True,
         blank=True,
         help_text="Kategorie der Investment-Strategie"

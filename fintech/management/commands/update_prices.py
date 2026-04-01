@@ -15,19 +15,12 @@ from datetime import timedelta
 from decimal import Decimal
 
 from fintech.models import Asset, Price
+from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
 
 PRICE_MAX_AGE = timedelta(hours=1)
 
-# Mapping Asset.AssetClass → ProviderManager type-String
-ASSET_CLASS_TO_PROVIDER_TYPE = {
-    Asset.AssetClass.STOCK:      "Stock",
-    Asset.AssetClass.ETF:        "ETF",
-    Asset.AssetClass.ETC:        "ETF",        # ETC läuft über ETF-Provider
-    Asset.AssetClass.DERIVATIVE: "Certificate",
-    Asset.AssetClass.CRYPTO:     None,          # kein Provider vorhanden
-}
-
+# Asset-Klassen-Konfiguration kommt direkt aus AssetClass (models_helper/asset_class.py)
 
 class Command(BaseCommand):
     help = "Aktualisiert Kurse für alle Assets die fehlen oder älter als 1h sind."
@@ -60,6 +53,7 @@ class Command(BaseCommand):
         assets_to_update = [
             asset for asset in qs
             if self._needs_update(asset, cutoff)
+            and AssetClass.is_valid(asset.asset_class)
         ]
 
         if not assets_to_update:
@@ -71,21 +65,12 @@ class Command(BaseCommand):
         ok = errors = skipped = 0
 
         for asset in assets_to_update:
-            provider_type = ASSET_CLASS_TO_PROVIDER_TYPE.get(asset.asset_class)
-
-            if provider_type is None:
-                self.stdout.write(
-                    self.style.WARNING(f"  SKIP  {asset.isin} — kein Provider für {asset.asset_class}")
-                )
-                skipped += 1
-                continue
-
             if dry_run:
                 self.stdout.write(f"  DRY   {asset.isin} ({asset.asset_class}) würde aktualisiert")
                 continue
 
             try:
-                price: Decimal | None = pm.isin2price(asset.isin, provider_type)
+                price: Decimal | None = pm.isin2price(asset.isin, asset.asset_class)
 
                 if price is None:
                     self.stdout.write(

@@ -5,6 +5,7 @@ from django.http import Http404
 
 from .request_lib import StockRequest, KeyNotFoundWarning, KeyNotFoundError
 from ...models import Asset
+from ...models_helper.currency_class import CurrencyClass
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class ComdirectRequest(StockRequest):
         raise KeyNotFoundWarning(f"WKN not found on Comdirect for {isin}")
 
     def _extract_price(self, soup, isin: str) -> tuple[str, str]:
-        currency_pattern = Asset.get_currency_pattern()
+        currency_pattern = CurrencyClass.get_currency_pattern()
         price_pattern = (
             r"Kurs:\s*(?P<Kurs>\d{1,5},\d{1,4})\s*"
             rf"(?P<Waehrung>{currency_pattern}),?"

@@ -68,6 +68,12 @@ class AssetAdmin(admin.ModelAdmin):
 
 @admin.register(Holdings)
 class HoldingsAdmin(admin.ModelAdmin):
+
+    def changelist_view(self, request, extra_context=None):
+        # Bereinigung hier ausführen
+        call_command('clean_up')
+        return super().changelist_view(request, extra_context)
+    
     list_display = (
         'get_asset_name',
         'quantity',
@@ -171,6 +177,7 @@ class PortfolioSummaryAdmin(admin.ModelAdmin):
         return False
 
     def changelist_view(self, request, extra_context=None):
+        
         call_command('update_prices')  # Preise vor Anzeige aktualisieren
         context = dict(extra_context or {})
         context['portfolio'] = list(PortfolioSummary.objects.portfolio())

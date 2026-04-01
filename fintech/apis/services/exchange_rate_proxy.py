@@ -4,6 +4,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 
 from ...models import Asset
+from ...models_helper.currency_class import CurrencyClass
 from ...libs.general.converter import string2dec
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ class CurrencyProxy:
     ):
         self.api_url = api_url
         self.ttl = timedelta(minutes=ttl_minutes)
-        self.valid_currencies = {choice[0] for choice in Asset.CURRENCY_CHOICES}
+        self.valid_currencies = set(CurrencyClass.values)
         self._data: dict | None = None
         self._fetched_at: datetime | None = None
 

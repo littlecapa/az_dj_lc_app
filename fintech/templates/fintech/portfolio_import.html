@@ -1,0 +1,104 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+
+  <h1>Transaktionen importieren</h1>
+  <p style="color: var(--body-quiet-color, #666);">
+    Scalable Capital CSV-Export auswählen. Es werden nur Käufe, Sparpläne und Verkäufe von Wertpapieren verarbeitet.
+  </p>
+
+  {% if error %}
+  <p style="color: #c62828; background: #fff3f3; border: 1px solid #f5c6c6; border-radius: 4px; padding: 0.75rem 1rem;">
+    {{ error }}
+  </p>
+  {% endif %}
+
+  <div style="background:#f8f8f8; border:1px solid #ddd; border-radius:6px; padding:1.5rem; max-width:560px; margin-bottom:2rem;">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div style="margin-bottom:1.25rem;">
+        <label for="csv_file" style="display:block; font-weight:600; margin-bottom:0.4rem;">
+          CSV-Datei
+        </label>
+        <input
+          type="file"
+          id="csv_file"
+          name="csv_file"
+          accept=".csv"
+          required
+          style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"
+        >
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+          <input type="checkbox" name="dry_run" id="dry_run">
+          <span>
+            <strong>Dry-Run</strong> — nur simulieren, nichts speichern
+          </span>
+        </label>
+        <p style="margin:0.3rem 0 0 1.5rem; font-size:0.85rem; color:#666;">
+          Empfohlen beim ersten Mal: zeigt Ergebnis und Fehler ohne DB-Änderungen.
+        </p>
+      </div>
+
+      <div style="display:flex; gap:0.75rem;">
+        <button type="submit" class="button default" style="padding:8px 20px;">
+          Import
+        </button>
+        <a href="{% url 'admin:index' %}" style="padding:8px 20px; background:#ccc; color:#333; text-decoration:none; border-radius:4px; line-height:1.6;">
+          Abbrechen
+        </a>
+      </div>
+    </form>
+  </div>
+
+  {% if result %}
+  {% if result.dry_run %}
+  <div style="background:#fff8e1; border:1px solid #ffe082; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1rem;">
+    <strong>Dry-Run — keine Daten wurden gespeichert.</strong>
+    Entferne den Haken bei "Dry-Run" und importiere erneut um die Daten zu übernehmen.
+  </div>
+  {% endif %}
+
+  <h2>{% if result.dry_run %}Vorschau{% else %}Ergebnis{% endif %}</h2>
+  <table style="border-collapse:collapse; min-width:320px; margin-bottom:1.5rem;">
+    <tr>
+      <td style="padding:6px 16px 6px 0; color:#666;">Transaktionen gefunden</td>
+      <td style="padding:6px 0; font-weight:600;">{{ result.total }}</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 16px 6px 0; color:#666;">
+        {% if result.dry_run %}Würden importiert{% else %}Importiert{% endif %}
+      </td>
+      <td style="padding:6px 0; font-weight:600; color:#2e7d32;">{{ result.imported }}</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 16px 6px 0; color:#666;">Übersprungen</td>
+      <td style="padding:6px 0; font-weight:600; color:#e65100;">{{ result.skipped }}</td>
+    </tr>
+  </table>
+
+  {% if result.errors %}
+  <h3 style="color:#c62828;">Hinweise / Fehler</h3>
+  <ul style="background:#fff3f3; border:1px solid #f5c6c6; border-radius:4px; padding:1rem 1rem 1rem 2rem; max-width:680px;">
+    {% for err in result.errors %}
+    <li style="margin-bottom:0.25rem; font-size:0.9rem; font-family:monospace;">{{ err }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p style="color:#2e7d32; font-weight:600;">
+    {% if result.dry_run %}
+      Simulation erfolgreich — keine Fehler gefunden. Bereit für den echten Import.
+    {% else %}
+      Import erfolgreich — keine Fehler.
+    {% endif %}
+  </p>
+  {% endif %}
+  {% endif %}
+
+</div>
+{% endblock %}
