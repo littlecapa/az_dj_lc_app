@@ -86,11 +86,11 @@ class HoldingsAdmin(admin.ModelAdmin):
     search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
     autocomplete_fields = ('asset',)
     list_select_related = ('asset',)
-    readonly_fields = ('get_total_investment', 'created_at', 'updated_at')
+    readonly_fields = ('get_total_investment', 'get_current_value', 'created_at', 'updated_at')
 
     fieldsets = (
         (None, {'fields': ('asset', 'quantity', 'category')}),
-        ('Finanzen', {'fields': ('average_purchase_price', 'get_total_investment')}),
+        ('Finanzen', {'fields': ('average_purchase_price', 'get_total_investment', 'get_current_value')}),
         ('Notizen', {'fields': ('notes',), 'classes': ('collapse',)}),
         ('Metadaten', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
@@ -99,7 +99,7 @@ class HoldingsAdmin(admin.ModelAdmin):
     def get_asset_name(self, obj):
         return f"{obj.asset.name} ({obj.asset.symbol or obj.asset.isin})"
 
-    @admin.display(description='Gesamtwert (Invest)')
+    @admin.display(description='Gesamt Invest')
     def get_total_investment(self, obj):
         if obj.total_investment:
             value_str = f"{obj.total_investment:.2f}"
