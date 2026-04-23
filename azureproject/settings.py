@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib import Path
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured
 import os
 from dotenv import load_dotenv
 import logging
@@ -34,7 +34,7 @@ if ENVIRONMENT == 'development':
 RECAPTCHA_PUBLIC_KEY = os.environ.get("RECAPTCHA_PUBLIC_KEY")
 RECAPTCHA_PRIVATE_KEY = os.environ.get("RECAPTCHA_PRIVATE_KEY")
 if not RECAPTCHA_PRIVATE_KEY or not RECAPTCHA_PUBLIC_KEY:
-    raise ValidationError('reCAPTCHA‑Schlüssel müssen gesetzt sein.')
+    raise ImproperlyConfigured('reCAPTCHA‑Schlüssel müssen gesetzt sein.')
 
 LOGGING = {
     'version': 1,

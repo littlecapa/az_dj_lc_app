@@ -97,6 +97,7 @@ class Command(BaseCommand):
         )
 
     async def _process_asset(self, asset: Asset, timestamp, semaphore: asyncio.Semaphore):
+        price = None
         async with semaphore:
             try:
                 price = await asyncio.to_thread(
