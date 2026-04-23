@@ -11,24 +11,29 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib import Path
-from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+import os
+from dotenv import load_dotenv
+import logging
+DEFAULT_LOG_LEVEL = 'INFO'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-import os
 ENVIRONMENT = os.getenv('DJANGO_ENV', 'development')  # default to 'development'
 DEBUG = ENVIRONMENT == 'development'
 
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 
-if os.getenv("ENVIRONMENT") == 'development':
-    from dotenv import load_dotenv
+if ENVIRONMENT == 'development':
     load_dotenv()
+    logging.warning("Silencing reCAPTCHA test key warnings in development")
 
-import logging
-DEFAULT_LOG_LEVEL = 'INFO'
+RECAPTCHA_PUBLIC_KEY = os.environ.get("RECAPTCHA_PUBLIC_KEY")
+RECAPTCHA_PRIVATE_KEY = os.environ.get("RECAPTCHA_PRIVATE_KEY")
+if not RECAPTCHA_PRIVATE_KEY or not RECAPTCHA_PUBLIC_KEY:
+    raise ValidationError('reCAPTCHA‑Schlüssel müssen gesetzt sein.')
 
 LOGGING = {
     'version': 1,
@@ -124,7 +129,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-#    'django_recaptcha',
+    # recaptcha
+    'django_recaptcha',
     'core'
 ]
 

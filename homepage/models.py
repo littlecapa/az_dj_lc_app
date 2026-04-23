@@ -43,9 +43,7 @@ class ContactMessage(models.Model):
 
     def __str__(self):
         return f"Nachricht von {self.name} ({self.created_at.strftime('%d.%m.%Y')})"
-
-from django.db import models
-
+    
 class HistChessMagazine(models.Model):
     LANGUAGE_CHOICES = [
         ('German', 'German'),

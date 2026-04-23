@@ -9,8 +9,11 @@ from django.template.loader import render_to_string
 from azure.monitor.query import LogsQueryClient
 from azure.identity import DefaultAzureCredential
 from azure.core.exceptions import HttpResponseError
+from django.core.exceptions import ValidationError
 from datetime import timedelta
 import os, logging
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,19 +77,17 @@ def contact(request):
     if request.method == 'POST':
         form = ContactForm(request.POST)
         if form.is_valid():
-            # Daten speichern
-            ContactMessage.objects.create(
-                name=form.cleaned_data['name'],
-                email=form.cleaned_data['email'],
-                message=form.cleaned_data['message']
-            )
+            try:
+                form.clean_captcha()  # Trigger reCAPTCHA validation
+            except ValidationError as e:
+                messages.error(request, e)
+                return render(request, 'homepage/contact.html', {'form': form})
             
-            # Erfolgsmeldung
+            form.save()  # Speichere Daten
             messages.success(request, 'Vielen Dank! Ihre Nachricht wurde gespeichert.')
             return redirect('homepage:contact')
     else:
         form = ContactForm()
-
     return render(request, 'homepage/contact.html', {'form': form})
 
 # Prüffunktion: Ist der User ein Admin?
