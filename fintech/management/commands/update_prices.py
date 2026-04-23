@@ -11,6 +11,7 @@ python manage.py update_prices --isin DE0007164600
 
 import asyncio
 from datetime import timedelta
+from typing import Optional
 from decimal import Decimal
 
 from asgiref.sync import async_to_sync, sync_to_async
@@ -113,7 +114,7 @@ class Command(BaseCommand):
             except Exception as exc:
                 return ("error", f"ERR {asset.isin} — {exc}")
 
-    def _fetch_price(self, isin: str, asset_class: str) -> Decimal | None:
+    def _fetch_price(self, isin: str, asset_class: str) -> Optional[Decimal]:
         pm = ProviderManager()
         return pm.isin2price(isin, asset_class)
 

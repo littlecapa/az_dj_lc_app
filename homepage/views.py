@@ -76,18 +76,20 @@ def index(request):
 def contact(request):
     if request.method == 'POST':
         form = ContactForm(request.POST)
+
         if form.is_valid():
-            try:
-                form.clean_captcha()  # Trigger reCAPTCHA validation
-            except ValidationError as e:
-                messages.error(request, e)
-                return render(request, 'homepage/contact.html', {'form': form})
-            
-            form.save()  # Speichere Daten
+            ContactMessage.objects.create(
+                name=form.cleaned_data.get('name', ''),
+                email=form.cleaned_data['email'],
+                message=form.cleaned_data.get('message', '')
+            )
             messages.success(request, 'Vielen Dank! Ihre Nachricht wurde gespeichert.')
             return redirect('homepage:contact')
+
+        messages.error(request, 'Bitte korrigieren Sie die markierten Felder.')
     else:
         form = ContactForm()
+
     return render(request, 'homepage/contact.html', {'form': form})
 
 # Prüffunktion: Ist der User ein Admin?

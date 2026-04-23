@@ -24,6 +24,8 @@ jobs:
       DJANGO_SETTINGS_MODULE: azureproject.production
       FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
       FINTECH_API_KEY: ${{ secrets.FINTECH_API_KEY }}
+      RECAPTCHA_PUBLIC_KEY: ${{ secrets.RECAPTCHA_PUBLIC_KEY }}
+      RECAPTCHA_PRIVATE_KEY: ${{ secrets.RECAPTCHA_PRIVATE_KEY }}
 
     steps:
     - name: Checkout code
