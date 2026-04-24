@@ -29,12 +29,12 @@ os.makedirs(LOG_DIR, exist_ok=True)
 if ENVIRONMENT == 'development':
     load_dotenv()
     logging.warning("Silencing reCAPTCHA test key warnings in development")
-    SILENCED_SYSTEM_CHECKS = ['django_recaptcha.recaptcha_test_key_error']
+
+SILENCED_SYSTEM_CHECKS = ['django_recaptcha.recaptcha_test_key_error']
 
 RECAPTCHA_PUBLIC_KEY = os.environ.get("RECAPTCHA_PUBLIC_KEY")
 RECAPTCHA_PRIVATE_KEY = os.environ.get("RECAPTCHA_PRIVATE_KEY")
-if not RECAPTCHA_PRIVATE_KEY or not RECAPTCHA_PUBLIC_KEY:
-    pass
+#if not RECAPTCHA_PRIVATE_KEY or not RECAPTCHA_PUBLIC_KEY:
     #raise ImproperlyConfigured('reCAPTCHA‑Schlüssel müssen gesetzt sein.')
 
 LOGGING = {
