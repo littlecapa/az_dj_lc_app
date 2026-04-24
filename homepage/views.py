@@ -83,7 +83,7 @@ def contact(request):
                 email=form.cleaned_data['email'],
                 message=form.cleaned_data.get('message', '')
             )
-            messages.success(request, 'Vielen Dank! Ihre Nachricht wurde gespeichert.')
+            messages.success(request, 'Thank you very much! Your message has been saved.')
             return redirect('homepage:contact')
 
         messages.error(request, 'Bitte korrigieren Sie die markierten Felder.')

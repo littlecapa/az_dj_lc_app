@@ -73,17 +73,6 @@
         margin: 0.5rem 0 0 1.25rem;
         padding: 0;
     }
-
-    .captcha-wrapper {
-        margin-bottom: 2rem;
-    }
-
-    .captcha-wrapper img {
-        display: block;
-        margin-bottom: 1rem;
-        max-width: 100%;
-        height: auto;
-    }
 </style>
 
 <div class="container" style="max-width: 900px;">
@@ -161,17 +150,6 @@
                     {% if form.message.errors %}
                         <div class="field-error">
                             {% for error in form.message.errors %}
-                                <div>{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="captcha-wrapper">
-                    {{ form.captcha }}
-                    {% if form.captcha.errors %}
-                        <div class="field-error">
-                            {% for error in form.captcha.errors %}
                                 <div>{{ error }}</div>
                             {% endfor %}
                         </div>
