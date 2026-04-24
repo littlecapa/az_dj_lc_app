@@ -34,7 +34,8 @@ if ENVIRONMENT == 'development':
 RECAPTCHA_PUBLIC_KEY = os.environ.get("RECAPTCHA_PUBLIC_KEY")
 RECAPTCHA_PRIVATE_KEY = os.environ.get("RECAPTCHA_PRIVATE_KEY")
 if not RECAPTCHA_PRIVATE_KEY or not RECAPTCHA_PUBLIC_KEY:
-    raise ImproperlyConfigured('reCAPTCHA‑Schlüssel müssen gesetzt sein.')
+    pass
+    #raise ImproperlyConfigured('reCAPTCHA‑Schlüssel müssen gesetzt sein.')
 
 LOGGING = {
     'version': 1,
