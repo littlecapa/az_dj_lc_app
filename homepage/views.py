@@ -8,12 +8,10 @@ from django.http import JsonResponse
 from django.template.loader import render_to_string 
 from azure.monitor.query import LogsQueryClient
 from azure.identity import DefaultAzureCredential
-from azure.core.exceptions import HttpResponseError
-from django.core.exceptions import ValidationError
+from django.utils import timezone
+from django.db.models import Q
 from datetime import timedelta
-import os, logging
-
-
+import os, logging, time
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +36,6 @@ class blog(ListView):
             })
         
         return super().render_to_response(context)
-
 
 class BlogDetailView(DetailView):
     model = BlogPost
@@ -73,17 +70,47 @@ def historical_chess_mags(request):
 def index(request):
     return render(request, 'homepage/index.html')
 
+HARD_LIMIT = 20
+SOFT_LIMIT = 10
+
 def contact(request):
     if request.method == 'POST':
         form = ContactForm(request.POST)
 
         if form.is_valid():
+            email = form.cleaned_data['email']
+            name = form.cleaned_data.get('name', '')
+            message = form.cleaned_data.get('message', '')
+
+            # --- Prüfung 3: Blacklist ---
+            if ContactMessage.objects.filter(email=email, black_listed=True).exists():
+                messages.error(request, "Sorry, you are on the Blacklist.")
+                return redirect('homepage:contact')
+
+            # --- Tagesfilter ---
+            today = timezone.now().date()
+            todays_messages = ContactMessage.objects.filter(
+                created_at__date=today
+            ).count()
+
+            # --- Prüfung 2: Hard-Limit ---
+            if todays_messages >= HARD_LIMIT:
+                messages.error(request, "Daily message limit reached. Please try again tomorrow.")
+                return redirect('homepage:contact')
+
+            # --- Prüfung 1: Soft-Limit mit Pause ---
+            if todays_messages > SOFT_LIMIT:
+                delay = todays_messages * 2
+                time.sleep(delay)
+
+            # --- Speichern ---
             ContactMessage.objects.create(
-                name=form.cleaned_data.get('name', ''),
-                email=form.cleaned_data['email'],
-                message=form.cleaned_data.get('message', '')
+                name=name,
+                email=email,
+                message=message
             )
-            messages.success(request, 'Thank you very much! Your message has been saved.')
+
+            messages.success(request, f'Thank you very much! Your message has been saved. {todays_messages}')
             return redirect('homepage:contact')
 
         messages.error(request, 'Bitte korrigieren Sie die markierten Felder.')

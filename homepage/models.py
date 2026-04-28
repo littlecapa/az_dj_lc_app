@@ -1,6 +1,5 @@
 from django.db import models
 from django.utils import timezone
-from django.db import models
 from django.utils.text import slugify
 
 class BlogPost(models.Model):
@@ -35,6 +34,7 @@ class ContactMessage(models.Model):
     message = models.TextField()
     created_at = models.DateTimeField(default=timezone.now)
     is_read = models.BooleanField(default=False, verbose_name="Gelesen")
+    black_listed = models.BooleanField(default=False, verbose_name="Blacklist")
 
     class Meta:
         ordering = ['-created_at'] # Neueste Nachrichten zuerst
