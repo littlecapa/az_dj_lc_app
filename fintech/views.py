@@ -1,5 +1,7 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.conf import settings
 from .model_views import PortfolioSummary
 import json
 from decimal import Decimal
@@ -13,13 +15,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 def decimal_serializer(obj):
-    """JSON-Serializer für Decimal-Felder."""
     if isinstance(obj, Decimal):
         return str(obj)
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
- 
-@staff_member_required
+
+def _is_api_key_valid(request) -> bool:
+    api_key = getattr(settings, "FINTECH_API_KEY", None)
+    if not api_key:
+        return False
+    return request.headers.get("X-Api-Key", "") == api_key
+
 def portfolio_export(request):
+    if not (_is_api_key_valid(request) or (request.user.is_active and request.user.is_staff)):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
     data = list(PortfolioSummary.objects.portfolio())
     json_str = json.dumps(data, indent=2, ensure_ascii=False, default=decimal_serializer)
     return render(request, "fintech/portfolio_export.html", {"json_str": json_str})

@@ -97,6 +97,8 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY','SECRET_KEY')
 # FMP-Key (aus vorherigem Service)
 FMP_API_KEY = os.getenv('FMP_API_KEY')
 
+FINTECH_API_KEY = os.getenv('FINTECH_API_KEY')
+
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 
