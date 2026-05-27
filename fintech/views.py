@@ -125,6 +125,8 @@ _WATCHLIST_IMPORT_EXAMPLE = json.dumps([
     {
         "watchlist": "Tech Favoriten",
         "isin": "DE000SAP0011",
+        "name": "SAP SE",
+        "asset_class": "STOCK",
         "source": "",
         "notes": "Auf Einstiegsniveau beobachten"
     }
@@ -167,6 +169,8 @@ def watchlist_import(request):
         watchlist_name = str(item.get("watchlist", "")).strip()
         source         = str(item.get("source", "")).strip()
         notes          = str(item.get("notes", "")).strip()
+        asset_name     = str(item.get("name", "")).strip() or isin
+        asset_class    = str(item.get("asset_class", "STOCK")).strip().upper()
 
         # Pflichtfelder prüfen
         if not isin:
@@ -178,13 +182,18 @@ def watchlist_import(request):
             details.append({"isin": isin, "watchlist": "–", "status": "error", "price_at_add": None})
             continue
 
-        # Asset suchen
-        try:
-            asset = Asset.objects.get(isin=isin)
-        except Asset.DoesNotExist:
-            errors.append(f"Eintrag {idx}: Asset mit ISIN '{isin}' nicht gefunden.")
-            details.append({"isin": isin, "watchlist": watchlist_name, "status": "error", "price_at_add": None})
-            continue
+        # Asset suchen oder neu anlegen
+        if not dry_run:
+            asset, asset_created = Asset.objects.get_or_create(
+                isin=isin,
+                defaults={"name": asset_name, "asset_class": asset_class},
+            )
+            if asset_created:
+                logger.info(f"Watchlist-Import: neues Asset angelegt: {isin} ({asset_name})")
+        else:
+            # Dry-Run: nur prüfen ob Asset existiert
+            asset = Asset.objects.filter(isin=isin).first()
+            asset_created = asset is None
 
         if not dry_run:
             # Watchlist anlegen falls nicht vorhanden
@@ -211,14 +220,15 @@ def watchlist_import(request):
             wl_exists = Watchlist.objects.filter(name=watchlist_name, user=request.user).first()
             already_in = (
                 WatchlistEntry.objects.filter(watchlist=wl_exists, asset=asset).exists()
-                if wl_exists else False
+                if (wl_exists and asset) else False
             )
             status = "updated" if already_in else "created"
             if already_in:
                 updated += 1
             else:
                 created += 1
-            details.append({"isin": isin, "watchlist": watchlist_name, "status": status, "price_at_add": asset.current_price})
+            current_price = asset.current_price if asset else None
+            details.append({"isin": isin, "watchlist": watchlist_name, "status": status, "price_at_add": current_price})
 
     result = {
         "total":   total,
