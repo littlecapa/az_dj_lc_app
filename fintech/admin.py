@@ -81,15 +81,16 @@ class HoldingsAdmin(admin.ModelAdmin):
         'average_purchase_price_display',
         'get_total_investment',
         'category',
+        'not_for_sale',
     )
-    list_filter = ('category', 'asset__asset_class')
+    list_filter = ('category', 'asset__asset_class', 'not_for_sale')
     search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
     autocomplete_fields = ('asset',)
     list_select_related = ('asset',)
     readonly_fields = ('get_total_investment', 'get_current_value', 'created_at', 'updated_at')
 
     fieldsets = (
-        (None, {'fields': ('asset', 'quantity', 'category')}),
+        (None, {'fields': ('asset', 'quantity', 'category', 'not_for_sale')}),
         ('Finanzen', {'fields': ('average_purchase_price', 'get_total_investment', 'get_current_value')}),
         ('Notizen', {'fields': ('notes',), 'classes': ('collapse',)}),
         ('Metadaten', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),

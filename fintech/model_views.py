@@ -78,6 +78,7 @@ class PortfolioSummaryManager(models.Manager):
                 'total_quantity', 'purchase_price',
                 'current_value', 'delta_abs', 'delta_perc',
                 'delta_perc_yesterday',
+                'holdings__not_for_sale',
             )
         )
 

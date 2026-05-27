@@ -135,12 +135,20 @@ class Holdings(models.Model):
         help_text="Kategorie der Investment-Strategie"
     )
     
+    not_for_sale = models.BooleanField(
+        default=False,
+        help_text=(
+            "Position aktuell nicht zum Verkauf vorgesehen "
+            "(z. B. VL-Sperre, Unternehmensaktien, emotionale Gründe)"
+        ),
+    )
+
     notes = models.TextField(
         help_text="Persönliche Notizen zu dieser Position",
-        null=True, 
+        null=True,
         blank=True
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
