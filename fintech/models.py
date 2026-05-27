@@ -291,27 +291,42 @@ class WatchlistEntry(models.Model):
     price_at_add = models.DecimalField(
         max_digits=12,
         decimal_places=4,
+        null=True,
+        blank=True,
         validators=[MinValueValidator(Decimal('0.0001'))],
-        help_text="Kurs zum Zeitpunkt der Aufnahme"
+        help_text="Kurs zum Zeitpunkt der Aufnahme (wird automatisch befüllt)",
+    )
+    source = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="Quelle des Eintrags (z. B. URL, Analyst, Nachricht)",
     )
     notes = models.CharField(
-        max_length=200,
+        max_length=500,
         blank=True,
-        help_text="Grund für Watchlist-Aufnahme (optional)"
+        help_text="Grund für Watchlist-Aufnahme",
     )
 
     class Meta:
         verbose_name = "Watchlist-Eintrag"
         verbose_name_plural = "Watchlist-Einträge"
-        unique_together = ['watchlist', 'asset']  # Keine Duplikate pro List
+        unique_together = ['watchlist', 'asset']
         indexes = [
             models.Index(fields=['watchlist', 'added_at']),
             models.Index(fields=['asset']),
         ]
-        ordering = ['added_at']  # Neueste zuerst
+        ordering = ['-added_at']  # Neueste zuerst
+
+    def save(self, *args, **kwargs):
+        # Beim ersten Speichern: aktuellen Kurs als Einstiegskurs übernehmen
+        if self.pk is None and self.price_at_add is None:
+            if self.asset_id and hasattr(self, 'asset') and self.asset.current_price:
+                self.price_at_add = self.asset.current_price
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.asset.symbol} in {self.watchlist.name} ({self.price_at_add})"
+        price_str = f"{self.price_at_add}" if self.price_at_add else "kein Kurs"
+        return f"{self.asset.symbol or self.asset.isin} → {self.watchlist.name} ({price_str})"
 
     @property
     def current_profit_percent(self):

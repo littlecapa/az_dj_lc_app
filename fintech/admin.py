@@ -125,20 +125,27 @@ class HoldingsAdmin(admin.ModelAdmin):
 
 @admin.register(WatchlistEntry)
 class WatchlistEntryAdmin(admin.ModelAdmin):
-    list_display = ['asset', 'watchlist', 'formatted_price_at_add', 'current_profit_percent_formatted']
+    list_display = ['asset', 'watchlist', 'formatted_price_at_add', 'current_profit_percent_formatted', 'source', 'added_at']
     list_filter = ['watchlist']
+    search_fields = ('asset__name', 'asset__isin', 'asset__symbol', 'source', 'notes')
     autocomplete_fields = ('asset', 'watchlist')
     list_select_related = ('asset', 'watchlist')
+    readonly_fields = ('added_at', 'formatted_price_at_add', 'current_profit_percent_formatted')
+
+    fieldsets = (
+        (None, {'fields': ('watchlist', 'asset')}),
+        ('Kurs', {'fields': ('price_at_add', 'formatted_price_at_add', 'current_profit_percent_formatted')}),
+        ('Dokumentation', {'fields': ('source', 'notes')}),
+        ('Metadaten', {'fields': ('added_at',), 'classes': ('collapse',)}),
+    )
 
     def formatted_price_at_add(self, obj):
-        """Preis bei Aufnahme formatiert"""
         if obj.price_at_add:
             return f"{obj.price_at_add:.2f}"
-        return "-"
+        return "–"
     formatted_price_at_add.short_description = "Preis bei Aufnahme"
 
     def current_profit_percent_formatted(self, obj):
-        """Performance seit Aufnahme formatiert"""
         profit = obj.current_profit_percent
         if profit is not None:
             return f"{profit:+.1f}%"
