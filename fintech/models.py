@@ -143,6 +143,14 @@ class Holdings(models.Model):
         ),
     )
 
+    stake_recovered = models.BooleanField(
+        default=False,
+        help_text=(
+            "Original stake already recovered through profit-taking — "
+            "remaining position is essentially 'free'."
+        ),
+    )
+
     notes = models.TextField(
         help_text="Persönliche Notizen zu dieser Position",
         null=True,
