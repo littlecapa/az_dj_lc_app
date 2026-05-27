@@ -59,13 +59,22 @@ class ComdirectRequest(StockRequest):
             raise KeyNotFoundWarning(f"No meta description tag found for {isin}")
 
         content = meta_tag.get("content", "")
-        logger.info(f"Comdirect meta content: {content}")
+        logger.info(f"Comdirect meta content [{isin}]: {content}")
 
-        match = re.search(price_pattern, content)
-        if match:
+        # Alle Treffer sammeln — bei mehreren Kursen in der Meta-Description
+        # (verschiedene Börsen) wäre sonst nur der erste sichtbar.
+        all_matches = list(re.finditer(price_pattern, content))
+        if all_matches:
+            if len(all_matches) > 1:
+                logger.warning(
+                    f"Comdirect lieferte {len(all_matches)} Kurs-Treffer für {isin}: "
+                    + ", ".join(f"{m.group('Kurs')} {m.group('Waehrung')}" for m in all_matches)
+                    + " — nehme ersten Treffer"
+                )
+            match = all_matches[0]
             price = match.group("Kurs")
             currency = match.group("Waehrung")
-            logger.info(f"Price found: {price} {currency}")
+            logger.info(f"Price found [{isin}]: {price} {currency}")
             return price, currency
 
         raise KeyNotFoundWarning(f"Price not found in Comdirect meta for {isin}: '{content}'")

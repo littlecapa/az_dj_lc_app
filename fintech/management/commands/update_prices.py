@@ -12,6 +12,7 @@ python manage.py update_prices --asset-class ETF --asset-class ETC
 """
 
 import asyncio
+import logging
 from datetime import timedelta
 from typing import Optional
 from decimal import Decimal
@@ -24,8 +25,21 @@ from fintech.models import Asset, Price
 from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
 
+logger = logging.getLogger(__name__)
+
 PRICE_MAX_AGE = timedelta(hours=1)
 CONCURRENCY = 10
+
+# Maximale erlaubte Tagesveränderung pro Asset-Klasse (in %).
+# Preise die stärker abweichen werden als Scraping-Fehler gewertet und verworfen.
+MAX_CHANGE_PERC: dict[str, Decimal] = {
+    AssetClass.ETF:        Decimal("10"),
+    AssetClass.ETC:        Decimal("10"),
+    AssetClass.FOND:       Decimal("10"),
+    AssetClass.STOCK:      Decimal("25"),
+    AssetClass.DERIVATIVE: Decimal("40"),
+    AssetClass.CRYPTO:     Decimal("30"),
+}
 
 
 class Command(BaseCommand):
@@ -115,7 +129,6 @@ class Command(BaseCommand):
         )
 
     async def _process_asset(self, asset: Asset, timestamp, semaphore: asyncio.Semaphore):
-        price = None
         async with semaphore:
             try:
                 price = await asyncio.to_thread(
@@ -126,6 +139,19 @@ class Command(BaseCommand):
 
                 if price is None:
                     return ("skip", f"MISS {asset.isin} — Provider lieferte keinen Preis")
+
+                # Sanity-Check: zu starke Abweichung vom letzten bekannten Kurs?
+                if asset.current_price is not None:
+                    limit = MAX_CHANGE_PERC.get(asset.asset_class, Decimal("25"))
+                    change = abs(price - asset.current_price) / asset.current_price * Decimal("100")
+                    if change > limit:
+                        msg = (
+                            f"SUSPICIOUS {asset.isin} — "
+                            f"neuer Kurs {price:.4f} weicht {change:.1f}% vom letzten "
+                            f"({asset.current_price:.4f}) ab (Limit {limit}%) — nicht gespeichert"
+                        )
+                        logger.warning(msg)
+                        return ("skip", msg)
 
                 await self._save_price(asset, price, timestamp)
                 return ("ok", f"OK {asset.isin} — {price:.4f} EUR")
