@@ -1,0 +1,85 @@
+name: 'Daily: Update Asset Prices'
+
+on:
+  schedule:
+    - cron: '0 7 * * *'   # täglich 07:00 UTC (= 08:00 / 09:00 MEZ/MESZ)
+  workflow_dispatch:
+    inputs:
+      asset_class:
+        description: 'Einzelne Asset-Klasse (leer = alle)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - STOCK
+          - ETF
+          - ETC
+          - CRYPTO
+          - DERIVATIVE
+          - FOND
+
+jobs:
+  update-prices:
+    name: 'Kurse aktualisieren: ${{ matrix.asset_class }}'
+    runs-on: ubuntu-latest
+
+    # Bei workflow_dispatch mit gesetzter asset_class nur diese eine ausführen,
+    # sonst alle als parallele Jobs.
+    strategy:
+      fail-fast: false
+      matrix:
+        asset_class:
+          - STOCK
+          - ETF
+          - ETC
+          - CRYPTO
+          - DERIVATIVE
+          - FOND
+        exclude:
+          # Wenn manuell eine einzelne Klasse gewählt wurde, alle anderen ausschließen
+          - asset_class: ${{ github.event.inputs.asset_class != '' && github.event.inputs.asset_class != 'STOCK'     && 'STOCK'      || '' }}
+          - asset_class: ${{ github.event.inputs.asset_class != '' && github.event.inputs.asset_class != 'ETF'       && 'ETF'        || '' }}
+          - asset_class: ${{ github.event.inputs.asset_class != '' && github.event.inputs.asset_class != 'ETC'       && 'ETC'        || '' }}
+          - asset_class: ${{ github.event.inputs.asset_class != '' && github.event.inputs.asset_class != 'CRYPTO'    && 'CRYPTO'     || '' }}
+          - asset_class: ${{ github.event.inputs.asset_class != '' && github.event.inputs.asset_class != 'DERIVATIVE'&& 'DERIVATIVE' || '' }}
+          - asset_class: ${{ github.event.inputs.asset_class != '' && github.event.inputs.asset_class != 'FOND'      && 'FOND'       || '' }}
+
+    env:
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DJANGO_ENV: production
+      DJANGO_SETTINGS_MODULE: azureproject.production
+      FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+      FINTECH_API_KEY: ${{ secrets.FINTECH_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install ODBC Driver for SQL Server
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y curl gnupg
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list \
+            | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Update prices — ${{ matrix.asset_class }}
+        run: |
+          echo "Starte Kurs-Update für Asset-Klasse: ${{ matrix.asset_class }}"
+          python manage.py update_prices --asset-class ${{ matrix.asset_class }}

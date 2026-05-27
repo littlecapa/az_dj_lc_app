@@ -7,6 +7,8 @@ Aufruf:
 python manage.py update_prices
 python manage.py update_prices --dry-run
 python manage.py update_prices --isin DE0007164600
+python manage.py update_prices --asset-class STOCK
+python manage.py update_prices --asset-class ETF --asset-class ETC
 """
 
 import asyncio
@@ -40,6 +42,18 @@ class Command(BaseCommand):
             type=str,
             help="Nur ein bestimmtes Asset aktualisieren.",
         )
+        parser.add_argument(
+            "--asset-class",
+            type=str,
+            action="append",
+            dest="asset_classes",
+            choices=list(AssetClass.values),
+            metavar="CLASS",
+            help=(
+                f"Nur diese Asset-Klasse(n) aktualisieren. "
+                f"Mehrfach verwendbar. Gültige Werte: {', '.join(AssetClass.values)}"
+            ),
+        )
 
     def handle(self, *args, **options):
         async_to_sync(self.handle_async)(*args, **options)
@@ -47,11 +61,15 @@ class Command(BaseCommand):
     async def handle_async(self, *args, **options):
         dry_run = options["dry_run"]
         isin_filter = options.get("isin")
+        asset_classes = options.get("asset_classes")
 
         now = timezone.now()
         cutoff = now - PRICE_MAX_AGE
 
-        assets_to_update = await self._get_assets_to_update(isin_filter, cutoff)
+        assets_to_update = await self._get_assets_to_update(isin_filter, asset_classes, cutoff)
+
+        if asset_classes:
+            self.stdout.write(f"Filter: Asset-Klassen = {', '.join(asset_classes)}")
 
         if not assets_to_update:
             self.stdout.write(self.style.SUCCESS("Alle Kurse sind aktuell — nichts zu tun."))
@@ -120,10 +138,12 @@ class Command(BaseCommand):
         return pm.isin2price(isin, asset_class)
 
     @sync_to_async
-    def _get_assets_to_update(self, isin_filter, cutoff):
+    def _get_assets_to_update(self, isin_filter, asset_classes, cutoff):
         qs = Asset.objects.all()
         if isin_filter:
             qs = qs.filter(isin=isin_filter.upper())
+        if asset_classes:
+            qs = qs.filter(asset_class__in=asset_classes)
 
         return [
             asset for asset in qs
