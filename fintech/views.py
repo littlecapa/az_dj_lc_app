@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db.models import F, ExpressionWrapper, DecimalField
 from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
-from .models import WatchlistEntry
+from .models import WatchlistEntry, Watchlist, Asset
 import json
 from decimal import Decimal
 from .apis.services.csv_import import import_transactions
@@ -112,4 +112,125 @@ def portfolio_import(request):
     return render(request, "fintech/portfolio_import.html", {
         "result": result_data,
         "error":  error,
+    })
+
+
+_WATCHLIST_IMPORT_EXAMPLE = json.dumps([
+    {
+        "watchlist": "Tech Favoriten",
+        "isin": "US0378331005",
+        "source": "Handelsblatt 2026-05-27",
+        "notes": "Starkes Q1, KGV noch attraktiv"
+    },
+    {
+        "watchlist": "Tech Favoriten",
+        "isin": "DE000SAP0011",
+        "source": "",
+        "notes": "Auf Einstiegsniveau beobachten"
+    }
+], indent=2, ensure_ascii=False)
+
+
+@never_cache
+@staff_member_required
+def watchlist_import(request):
+    if request.method != "POST":
+        return render(request, "fintech/watchlist_import.html", {
+            "example_json": _WATCHLIST_IMPORT_EXAMPLE,
+            "submitted_json": "",
+            "dry_run": True,
+        })
+
+    raw = request.POST.get("json_data", "").strip()
+    dry_run = request.POST.get("dry_run") == "on"
+
+    # JSON parsen
+    try:
+        entries = json.loads(raw)
+        if not isinstance(entries, list):
+            raise ValueError("Erwartet wird ein JSON-Array [ ... ]")
+    except (json.JSONDecodeError, ValueError) as exc:
+        return render(request, "fintech/watchlist_import.html", {
+            "example_json": _WATCHLIST_IMPORT_EXAMPLE,
+            "submitted_json": raw,
+            "dry_run": dry_run,
+            "error": f"Ungültiges JSON: {exc}",
+        })
+
+    total = len(entries)
+    created = updated = 0
+    errors = []
+    details = []
+
+    for idx, item in enumerate(entries, start=1):
+        isin           = str(item.get("isin", "")).strip().upper()
+        watchlist_name = str(item.get("watchlist", "")).strip()
+        source         = str(item.get("source", "")).strip()
+        notes          = str(item.get("notes", "")).strip()
+
+        # Pflichtfelder prüfen
+        if not isin:
+            errors.append(f"Eintrag {idx}: 'isin' fehlt.")
+            details.append({"isin": "–", "watchlist": watchlist_name, "status": "error", "price_at_add": None})
+            continue
+        if not watchlist_name:
+            errors.append(f"Eintrag {idx} ({isin}): 'watchlist' fehlt.")
+            details.append({"isin": isin, "watchlist": "–", "status": "error", "price_at_add": None})
+            continue
+
+        # Asset suchen
+        try:
+            asset = Asset.objects.get(isin=isin)
+        except Asset.DoesNotExist:
+            errors.append(f"Eintrag {idx}: Asset mit ISIN '{isin}' nicht gefunden.")
+            details.append({"isin": isin, "watchlist": watchlist_name, "status": "error", "price_at_add": None})
+            continue
+
+        if not dry_run:
+            # Watchlist anlegen falls nicht vorhanden
+            watchlist, _ = Watchlist.objects.get_or_create(
+                name=watchlist_name,
+                user=request.user,
+            )
+
+            existing = WatchlistEntry.objects.filter(watchlist=watchlist, asset=asset).first()
+            if existing:
+                # Nur notes und source aktualisieren
+                existing.notes  = notes
+                existing.source = source
+                existing.save(update_fields=["notes", "source"])
+                updated += 1
+                details.append({"isin": isin, "watchlist": watchlist_name, "status": "updated", "price_at_add": existing.price_at_add})
+            else:
+                entry = WatchlistEntry(watchlist=watchlist, asset=asset, source=source, notes=notes)
+                entry.save()   # price_at_add wird in save() auto-befüllt
+                created += 1
+                details.append({"isin": isin, "watchlist": watchlist_name, "status": "created", "price_at_add": entry.price_at_add})
+        else:
+            # Dry-Run: nur prüfen ob Eintrag schon existiert
+            wl_exists = Watchlist.objects.filter(name=watchlist_name, user=request.user).first()
+            already_in = (
+                WatchlistEntry.objects.filter(watchlist=wl_exists, asset=asset).exists()
+                if wl_exists else False
+            )
+            status = "updated" if already_in else "created"
+            if already_in:
+                updated += 1
+            else:
+                created += 1
+            details.append({"isin": isin, "watchlist": watchlist_name, "status": status, "price_at_add": asset.current_price})
+
+    result = {
+        "total":   total,
+        "created": created,
+        "updated": updated,
+        "errors":  errors,
+        "details": details,
+        "dry_run": dry_run,
+    }
+    return render(request, "fintech/watchlist_import.html", {
+        "example_json":   _WATCHLIST_IMPORT_EXAMPLE,
+        "submitted_json": raw,
+        "dry_run":        dry_run,
+        "result":         result,
     })

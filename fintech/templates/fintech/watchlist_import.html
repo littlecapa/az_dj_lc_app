@@ -1,0 +1,142 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+
+  <h1>Watchlist importieren</h1>
+  <p style="color: var(--body-quiet-color, #666);">
+    JSON-Array mit Watchlist-Einträgen einfügen. Existierende Einträge (gleiche Watchlist + ISIN)
+    werden <strong>nicht neu angelegt</strong> — stattdessen werden nur <code>source</code>
+    und <code>notes</code> aktualisiert.
+  </p>
+
+  {% if error %}
+  <p style="color:#c62828; background:#fff3f3; border:1px solid #f5c6c6; border-radius:4px; padding:0.75rem 1rem;">
+    {{ error }}
+  </p>
+  {% endif %}
+
+  <div style="background:#f8f8f8; border:1px solid #ddd; border-radius:6px; padding:1.5rem; max-width:720px; margin-bottom:2rem;">
+
+    <details style="margin-bottom:1.25rem;">
+      <summary style="cursor:pointer; font-weight:600; color:#417690;">JSON-Format (Beispiel)</summary>
+      <pre style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:1rem; font-size:0.85rem; overflow-x:auto; margin-top:0.5rem;">{{ example_json }}</pre>
+    </details>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <div style="margin-bottom:1.25rem;">
+        <label for="json_data" style="display:block; font-weight:600; margin-bottom:0.4rem;">
+          JSON-Daten
+        </label>
+        <textarea
+          id="json_data"
+          name="json_data"
+          rows="14"
+          required
+          placeholder='[{"watchlist": "...", "isin": "...", "source": "...", "notes": "..."}]'
+          style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; font-family:monospace; font-size:0.85rem;"
+        >{{ submitted_json }}</textarea>
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+          <input type="checkbox" name="dry_run" id="dry_run" {% if dry_run %}checked{% endif %}>
+          <span><strong>Dry-Run</strong> — nur simulieren, nichts speichern</span>
+        </label>
+        <p style="margin:0.3rem 0 0 1.5rem; font-size:0.85rem; color:#666;">
+          Empfohlen beim ersten Mal: zeigt Ergebnis ohne DB-Änderungen.
+        </p>
+      </div>
+
+      <div style="display:flex; gap:0.75rem;">
+        <button type="submit" class="button default" style="padding:8px 20px;">Import</button>
+        <a href="{% url 'admin:index' %}" style="padding:8px 20px; background:#ccc; color:#333; text-decoration:none; border-radius:4px; line-height:1.6;">
+          Abbrechen
+        </a>
+      </div>
+    </form>
+  </div>
+
+  {% if result %}
+  {% if result.dry_run %}
+  <div style="background:#fff8e1; border:1px solid #ffe082; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1rem;">
+    <strong>Dry-Run — keine Daten wurden gespeichert.</strong>
+    Entferne den Haken und importiere erneut um die Daten zu übernehmen.
+  </div>
+  {% endif %}
+
+  <h2>{% if result.dry_run %}Vorschau{% else %}Ergebnis{% endif %}</h2>
+  <table style="border-collapse:collapse; min-width:320px; margin-bottom:1.5rem;">
+    <tr>
+      <td style="padding:6px 16px 6px 0; color:#666;">Einträge gesamt</td>
+      <td style="padding:6px 0; font-weight:600;">{{ result.total }}</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 16px 6px 0; color:#666;">
+        {% if result.dry_run %}Würden angelegt{% else %}Neu angelegt{% endif %}
+      </td>
+      <td style="padding:6px 0; font-weight:600; color:#2e7d32;">{{ result.created }}</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 16px 6px 0; color:#666;">
+        {% if result.dry_run %}Würden aktualisiert{% else %}Aktualisiert (notes/source){% endif %}
+      </td>
+      <td style="padding:6px 0; font-weight:600; color:#1565c0;">{{ result.updated }}</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 16px 6px 0; color:#666;">Fehler</td>
+      <td style="padding:6px 0; font-weight:600; color:#c62828;">{{ result.errors|length }}</td>
+    </tr>
+  </table>
+
+  {% if result.errors %}
+  <h3 style="color:#c62828;">Fehler</h3>
+  <ul style="background:#fff3f3; border:1px solid #f5c6c6; border-radius:4px; padding:1rem 1rem 1rem 2rem; max-width:680px;">
+    {% for err in result.errors %}
+    <li style="margin-bottom:0.25rem; font-size:0.9rem; font-family:monospace;">{{ err }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p style="color:#2e7d32; font-weight:600;">
+    {% if result.dry_run %}Simulation erfolgreich — keine Fehler.{% else %}Import erfolgreich — keine Fehler.{% endif %}
+  </p>
+  {% endif %}
+
+  {% if result.details %}
+  <h3>Details</h3>
+  <table style="border-collapse:collapse; width:100%; max-width:860px; font-size:0.88rem;">
+    <thead>
+      <tr style="background:#417690; color:#fff;">
+        <th style="padding:6px 10px; text-align:left;">ISIN</th>
+        <th style="padding:6px 10px; text-align:left;">Watchlist</th>
+        <th style="padding:6px 10px; text-align:left;">Status</th>
+        <th style="padding:6px 10px; text-align:left;">Preis bei Aufnahme</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in result.details %}
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:5px 10px; font-family:monospace;">{{ row.isin }}</td>
+        <td style="padding:5px 10px;">{{ row.watchlist }}</td>
+        <td style="padding:5px 10px;
+          {% if row.status == 'created' %}color:#2e7d32;
+          {% elif row.status == 'updated' %}color:#1565c0;
+          {% else %}color:#c62828;{% endif %}">
+          {{ row.status }}{% if result.dry_run %} (dry){% endif %}
+        </td>
+        <td style="padding:5px 10px; font-family:monospace;">
+          {% if row.price_at_add %}{{ row.price_at_add }}{% else %}–{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% endif %}
+
+</div>
+{% endblock %}

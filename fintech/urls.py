@@ -10,4 +10,5 @@ urlpatterns = [
     path("export", views.portfolio_export, name="portfolio-export"),
     path("export_watchlist", views.watchlist_export, name="watchlist-export"),
     path("import", views.portfolio_import, name="portfolio-import"),
+    path("import_watchlist", views.watchlist_import, name="watchlist-import"),
 ]
