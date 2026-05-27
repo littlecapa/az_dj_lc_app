@@ -1,4 +1,5 @@
 *.sh
+!trigger_price_update.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
