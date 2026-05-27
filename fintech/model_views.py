@@ -1,8 +1,9 @@
-from django.db.models import F, Sum, ExpressionWrapper, DecimalField, Value
+from django.db.models import F, Sum, ExpressionWrapper, DecimalField, Value, OuterRef, Subquery
 from django.db.models.functions import Coalesce, NullIf
 from django.db import models
+from django.utils import timezone
 from decimal import Decimal
-from .models import Asset, Holdings
+from .models import Asset, Holdings, Price
 
 D = DecimalField(max_digits=20, decimal_places=4)  # shorthand
 
@@ -49,11 +50,35 @@ class PortfolioSummaryManager(models.Manager):
         return PortfolioSummaryQuerySet(Asset, using=self._db)
 
     def portfolio(self):
-        return self.get_queryset().summary().values(
-            'name', 'isin',
-            'asset_class',
-            'total_quantity', 'purchase_price',
-            'current_value', 'delta_abs', 'delta_perc',
+        today = timezone.now().date()
+
+        yesterday_price_sq = Price.objects.filter(
+            asset=OuterRef('pk'),
+            timestamp__date__lt=today,
+        ).order_by('-timestamp').values('current_price')[:1]
+
+        return (
+            self.get_queryset()
+            .summary()
+            .annotate(
+                yesterday_price=Subquery(yesterday_price_sq, output_field=D),
+                delta_perc_yesterday=ExpressionWrapper(
+                    (
+                        F('current_price')
+                        / NullIf(F('yesterday_price'), Value(Decimal('0'), output_field=D))
+                        - Value(Decimal('1'), output_field=D)
+                    ) * Value(Decimal('100'), output_field=D),
+                    output_field=D,
+                ),
+            )
+            .order_by(F('delta_perc_yesterday').desc(nulls_last=True))
+            .values(
+                'name', 'isin',
+                'asset_class',
+                'total_quantity', 'purchase_price',
+                'current_value', 'delta_abs', 'delta_perc',
+                'delta_perc_yesterday',
+            )
         )
 
 
