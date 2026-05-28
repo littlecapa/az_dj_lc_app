@@ -2,7 +2,7 @@ name: 'Daily: Update Asset Prices'
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # täglich 07:00 UTC (= 09:00 MESZ)
+    - cron: '0 7,11,15,19 * * *'  # 07:00 / 11:00 / 15:00 / 19:00 UTC (= 09/13/17/21 Uhr MESZ)
   workflow_dispatch:
     inputs:
       asset_class:
