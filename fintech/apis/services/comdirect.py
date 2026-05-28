@@ -61,20 +61,30 @@ class ComdirectRequest(StockRequest):
         content = meta_tag.get("content", "")
         logger.info(f"Comdirect meta content [{isin}]: {content}")
 
-        # Alle Treffer sammeln — bei mehreren Kursen in der Meta-Description
-        # (verschiedene Börsen) wäre sonst nur der erste sichtbar.
+        # Alle Treffer sammeln — Comdirect listet manchmal mehrere Börsen
+        # (z.B. erst USD/NYSE, dann EUR/Frankfurt). EUR wird bevorzugt.
         all_matches = list(re.finditer(price_pattern, content))
-        if all_matches:
-            if len(all_matches) > 1:
-                logger.warning(
-                    f"Comdirect lieferte {len(all_matches)} Kurs-Treffer für {isin}: "
-                    + ", ".join(f"{m.group('Kurs')} {m.group('Waehrung')}" for m in all_matches)
-                    + " — nehme ersten Treffer"
-                )
-            match = all_matches[0]
-            price = match.group("Kurs")
-            currency = match.group("Waehrung")
-            logger.info(f"Price found [{isin}]: {price} {currency}")
-            return price, currency
+        if not all_matches:
+            raise KeyNotFoundWarning(f"Price not found in Comdirect meta for {isin}: '{content}'")
 
-        raise KeyNotFoundWarning(f"Price not found in Comdirect meta for {isin}: '{content}'")
+        if len(all_matches) > 1:
+            logger.warning(
+                f"Comdirect lieferte {len(all_matches)} Kurs-Treffer für {isin}: "
+                + ", ".join(f"{m.group('Kurs')} {m.group('Waehrung')}" for m in all_matches)
+            )
+
+        # EUR-Treffer bevorzugen; sonst ersten Treffer nehmen
+        eur_matches = [m for m in all_matches if m.group("Waehrung") == "EUR"]
+        match = eur_matches[0] if eur_matches else all_matches[0]
+
+        price    = match.group("Kurs")
+        currency = match.group("Waehrung")
+
+        if currency != "EUR":
+            logger.warning(
+                f"Comdirect liefert keinen EUR-Kurs für {isin} — "
+                f"nehme {price} {currency} (wird zu EUR konvertiert)"
+            )
+
+        logger.info(f"Price found [{isin}]: {price} {currency}")
+        return price, currency
