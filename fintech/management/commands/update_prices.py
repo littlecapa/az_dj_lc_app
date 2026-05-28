@@ -36,7 +36,7 @@ MAX_CHANGE_PERC: dict[str, Decimal] = {
     AssetClass.ETF:        Decimal("10"),
     AssetClass.ETC:        Decimal("10"),
     AssetClass.FOND:       Decimal("10"),
-    AssetClass.STOCK:      Decimal("25"),
+    AssetClass.STOCK:      Decimal("8"),   # enger: blockt ~7% Tokio/Frankfurt-Gap für JP-Aktien
     AssetClass.DERIVATIVE: Decimal("40"),
     AssetClass.CRYPTO:     Decimal("30"),
 }

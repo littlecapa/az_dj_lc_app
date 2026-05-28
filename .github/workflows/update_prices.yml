@@ -2,7 +2,7 @@ name: 'Daily: Update Asset Prices'
 
 on:
   schedule:
-    - cron: '0 7,11,15,19 * * *'  # 07:00 / 11:00 / 15:00 / 19:00 UTC (= 09/13/17/21 Uhr MESZ)
+    - cron: '0 8,11,14,17 * * 1-5'  # Mo-Fr: 08/11/14/17 UTC (= 10/13/16/19 Uhr MESZ, innerhalb XETRA-Handelszeit)
   workflow_dispatch:
     inputs:
       asset_class:
