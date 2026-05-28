@@ -44,6 +44,7 @@ jobs:
       DJANGO_SETTINGS_MODULE: azureproject.production
       FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
       FINTECH_API_KEY: ${{ secrets.FINTECH_API_KEY }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout code
@@ -94,6 +95,7 @@ jobs:
       DJANGO_SETTINGS_MODULE: azureproject.production
       FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
       FINTECH_API_KEY: ${{ secrets.FINTECH_API_KEY }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout code
