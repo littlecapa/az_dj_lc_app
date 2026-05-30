@@ -165,7 +165,7 @@ class Command(BaseCommand):
 
     @sync_to_async
     def _get_assets_to_update(self, isin_filter, asset_classes, cutoff):
-        qs = Asset.objects.all()
+        qs = Asset.objects.filter(holdings__quantity__gt=0)
         if isin_filter:
             qs = qs.filter(isin=isin_filter.upper())
         if asset_classes:
