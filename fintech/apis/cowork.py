@@ -20,6 +20,7 @@ GET /fintech/api/assets/<isin>/history?days=30
 import logging
 import re
 from decimal import Decimal
+from typing import Optional
 from django.conf import settings
 from django.http import JsonResponse
 from django.views import View
@@ -44,7 +45,7 @@ def _is_authorized(request) -> bool:
     return request.user.is_active and request.user.is_staff
 
 
-def _dec(value) -> str | None:
+def _dec(value) -> Optional[str]:
     """Serialize Decimal/float to string, None stays None."""
     if value is None:
         return None

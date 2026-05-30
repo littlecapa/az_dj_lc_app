@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+from typing import Optional
 
 from .comdirect import ComdirectRequest
 from .alleaktien import AlleaktienRequest
@@ -46,7 +47,7 @@ class ProviderManager:
     # Public API
     # ------------------------------------------------------------------
 
-    def isin2wkn(self, isin: str, type_: str) -> str | None:
+    def isin2wkn(self, isin: str, type_: str) -> Optional[str]:
         """Return WKN for *isin* or None if all providers fail."""
         self._validate_type(type_)
         for attempt in range(MAX_WKN_RETRIES):
@@ -66,7 +67,7 @@ class ProviderManager:
         logger.warning(f"WKN exhausted all providers for {isin}/{type_}")
         return None
 
-    def isin2price(self, isin: str, type_: str) -> Decimal | None:
+    def isin2price(self, isin: str, type_: str) -> Optional[Decimal]:
         """Return current price in EUR or None on failure.
 
         Provider strategy:
@@ -124,7 +125,7 @@ class ProviderManager:
     # Provider fetch helpers — each returns Decimal | None
     # ------------------------------------------------------------------
 
-    def _fetch_comdirect_price(self, isin: str, type_: str) -> Decimal | None:
+    def _fetch_comdirect_price(self, isin: str, type_: str) -> Optional[Decimal]:
         try:
             price, currency = self.com_requester[type_].isin2price(isin)
             return self._convert_to_euro(price, currency)
@@ -132,7 +133,7 @@ class ProviderManager:
             logger.warning(f"Comdirect price failed for {isin}: {exc}")
             return None
 
-    def _fetch_yahoo_price(self, isin: str) -> Decimal | None:
+    def _fetch_yahoo_price(self, isin: str) -> Optional[Decimal]:
         try:
             price, currency = self.yahoo_request.isin2price(isin)
             return self._convert_to_euro(price, currency)
@@ -143,7 +144,7 @@ class ProviderManager:
             logger.error(f"Yahoo Finance unexpected error for {isin}: {exc}")
             return None
 
-    def _fetch_tiebreaker_price(self, isin: str, type_: str) -> Decimal | None:
+    def _fetch_tiebreaker_price(self, isin: str, type_: str) -> Optional[Decimal]:
         """AlleAktien is used as tiebreaker (Stocks only; no-op for ETFs/Indices)."""
         if not AssetClass.is_stock(type_):
             logger.info(f"Tiebreaker: AlleAktien skipped for type {type_} ({isin})")
