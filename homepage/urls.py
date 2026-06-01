@@ -17,6 +17,8 @@ urlpatterns = [
     path('post/<slug:slug>/', views.BlogDetailView.as_view(), name='blog_detail'),
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),
+    # API Overview
+    path('api-overview/', views.api_overview, name='api-overview'),
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')), 
 ]

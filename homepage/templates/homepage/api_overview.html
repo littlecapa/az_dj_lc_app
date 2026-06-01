@@ -1,0 +1,103 @@
+{% extends 'homepage/base_home.html' %}
+{% load static %}
+
+{% block title %}API Overview – Littlecapa{% endblock %}
+
+{% block content %}
+<style>
+    .api-group { margin-bottom: 2.5rem; }
+    .api-group h4 {
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        margin-bottom: 1rem;
+        padding-bottom: .4rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .api-card {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        padding: .75rem 1rem;
+        border: 1px solid #e3e6ea;
+        border-radius: 8px;
+        margin-bottom: .6rem;
+        background: #fff;
+    }
+    .api-card:hover { background: #f8f9fa; }
+    .method-badge {
+        font-size: .72rem;
+        font-weight: 700;
+        padding: .25em .6em;
+        border-radius: 4px;
+        white-space: nowrap;
+        min-width: 60px;
+        text-align: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .method-GET    { background: #d1e7dd; color: #0a3622; }
+    .method-POST   { background: #cfe2ff; color: #052c65; }
+    .method-GETPOST { background: #fff3cd; color: #664d03; }
+    .api-path {
+        font-family: monospace;
+        font-size: .88rem;
+        font-weight: 600;
+        color: #2d3748;
+        word-break: break-all;
+    }
+    .api-desc {
+        font-size: .85rem;
+        color: #6c757d;
+        margin-top: .2rem;
+        line-height: 1.5;
+    }
+    .auth-badge {
+        font-size: .72rem;
+        background: #f0f0f0;
+        color: #555;
+        padding: .15em .5em;
+        border-radius: 4px;
+        white-space: nowrap;
+        flex-shrink: 0;
+        margin-top: 3px;
+    }
+    .meta { display: flex; flex-direction: column; gap: .25rem; align-items: flex-start; flex-shrink: 0; }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex align-items-center mb-4">
+        <h2 class="mb-0 me-3">API Overview</h2>
+        <span class="badge bg-secondary">{{ request.user.username }}</span>
+    </div>
+
+    <div class="alert alert-info py-2 mb-4" style="font-size:.85rem">
+        <strong>Auth:</strong> Alle Endpoints erfordern entweder
+        <code>X-Api-Key: &lt;FINTECH_API_KEY&gt;</code> im Header
+        oder einen aktiven Staff-Login.
+        Mit <span class="badge bg-warning text-dark">Staff-Login</span> markierte Endpoints akzeptieren nur Sessions.
+    </div>
+
+    {% for group in endpoints %}
+    <div class="api-group">
+        <h4>
+            <span class="badge bg-{{ group.color }} me-2" style="font-size:.75rem">{{ group.items|length }}</span>
+            {{ group.group }}
+        </h4>
+        {% for ep in group.items %}
+        <div class="api-card">
+            <div class="meta">
+                <span class="method-badge method-{{ ep.method|cut:'/' }}">{{ ep.method }}</span>
+                <span class="auth-badge">{{ ep.auth }}</span>
+            </div>
+            <div>
+                <div class="api-path">{{ ep.path }}</div>
+                <div class="api-desc">{{ ep.desc }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

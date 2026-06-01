@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import ContactForm
 from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink
@@ -229,3 +230,106 @@ def dashboard_view(request):
         'error': error_message
     }
     return render(request, 'homepage/dashboard.html', context)
+
+@login_required
+def api_overview(request):
+    """API-Übersicht — alle Endpoints mit Beschreibung. Login erforderlich."""
+    endpoints = [
+        {
+            "group": "Fintech – Portfolio (Read)",
+            "color": "primary",
+            "items": [
+                {
+                    "method": "GET",
+                    "path": "/fintech/api/portfolio",
+                    "auth": "Key / Session",
+                    "desc": "Alle Positionen mit aktuellem Wert, Einstandspreis, absolutem und prozentualem P&L sowie Tages-Delta (delta_perc_1d). Enthält eine Gesamt-Summary.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/fintech/api/watchlist",
+                    "auth": "Key / Session",
+                    "desc": "Alle Watchlist-Einträge sortiert nach Performance seit Aufnahme. Felder: watchlist, isin, name, current_price, price_at_add, delta_perc_since_add, source, notes.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/fintech/api/assets/{isin}/history?days=30",
+                    "auth": "Key / Session",
+                    "desc": "Gespeicherte Kurshistorie für eine ISIN. Parameter: days (1–365, Standard 30). Gibt first_price, last_price, delta_perc sowie die vollständige history-Liste zurück.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/fintech/api/securities/{isin}/price?type=STOCK",
+                    "auth": "Key / Session",
+                    "desc": "Aktuellen Kurs live abrufen (Comdirect + Yahoo Finance, Tiebreaker AlleAktien). type: STOCK | ETF | ETC | FOND | CRYPTO | DERIVATIVE.",
+                },
+            ],
+        },
+        {
+            "group": "Fintech – Portfolio (Legacy)",
+            "color": "secondary",
+            "items": [
+                {
+                    "method": "GET",
+                    "path": "/fintech/export",
+                    "auth": "Key / Session",
+                    "desc": "Portfolio als HTML-Seite mit eingebettetem JSON (Legacy-Endpoint). Für maschinenlesbare Daten /fintech/api/portfolio bevorzugen.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/fintech/export_watchlist",
+                    "auth": "Key / Session",
+                    "desc": "Watchlist als HTML-Seite mit eingebettetem JSON (Legacy-Endpoint). Für maschinenlesbare Daten /fintech/api/watchlist bevorzugen.",
+                },
+            ],
+        },
+        {
+            "group": "Fintech – Watchlist (Write)",
+            "color": "success",
+            "items": [
+                {
+                    "method": "POST",
+                    "path": "/fintech/api/watchlist/create",
+                    "auth": "Key / Session",
+                    "desc": 'Neue Watchlist anlegen oder bestehende zurückgeben. Body: {"name": "Tech Favoriten"}.',
+                },
+                {
+                    "method": "POST",
+                    "path": "/fintech/api/watchlist/{name}/entries",
+                    "auth": "Key / Session",
+                    "desc": 'Asset zu einer Watchlist hinzufügen. Legt Asset und Watchlist bei Bedarf an. Holt aktiv Kurs wenn keiner gecacht ist. Body: {"isin": "...", "asset_class": "STOCK", "source": "...", "notes": "..."}.',
+                },
+            ],
+        },
+        {
+            "group": "Fintech – Quick Links (Write)",
+            "color": "success",
+            "items": [
+                {
+                    "method": "POST",
+                    "path": "/fintech/api/quicklinks/import",
+                    "auth": "Key / Session",
+                    "desc": 'Bulk-Import von Quick Links. Body: JSON-Array mit Objekten {name, url, category, prio, is_active}. Bestehende Links (gleicher Name + Kategorie) werden aktualisiert. Kategorien: Chess | Finance | AI | Video | News | Misc | Travel | Bonn.',
+                },
+            ],
+        },
+        {
+            "group": "Homepage – Verwaltung",
+            "color": "warning",
+            "items": [
+                {
+                    "method": "GET/POST",
+                    "path": "/fintech/import",
+                    "auth": "Staff-Login",
+                    "desc": "CSV-Import von Transaktionen (Portfolio-Positionen). Unterstützt Dry-Run.",
+                },
+                {
+                    "method": "GET/POST",
+                    "path": "/fintech/import_watchlist",
+                    "auth": "Staff-Login",
+                    "desc": "JSON-Import von Watchlist-Einträgen über ein Web-Formular.",
+                },
+            ],
+        },
+    ]
+    return render(request, "homepage/api_overview.html", {"endpoints": endpoints})
