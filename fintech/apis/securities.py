@@ -13,6 +13,7 @@ Authentication: X-API-Key header (handled by ApiKeyMiddleware).
 import logging
 import re
 from decimal import Decimal
+from typing import Optional
 from ..models_helper.asset_class import AssetClass
 
 from django.http import JsonResponse
@@ -57,7 +58,7 @@ class SecurityPriceView(View):
 
         # --- fetch price ---
         try:
-            price: Decimal | None = _provider_manager.isin2price(isin, security_type)
+            price: Optional[Decimal] = _provider_manager.isin2price(isin, security_type)
         except ValueError as exc:
             return JsonResponse({"error": "Bad Request", "detail": str(exc)}, status=400)
         except Exception as exc:

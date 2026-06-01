@@ -2,6 +2,7 @@ import requests
 import logging
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from ...models import Asset
 from ...models_helper.currency_class import CurrencyClass
@@ -21,8 +22,8 @@ class CurrencyProxy:
         self.api_url = api_url
         self.ttl = timedelta(minutes=ttl_minutes)
         self.valid_currencies = set(CurrencyClass.values)
-        self._data: dict | None = None
-        self._fetched_at: datetime | None = None
+        self._data: Optional[dict] = None
+        self._fetched_at: Optional[datetime] = None
 
     # ------------------------------------------------------------------
     # Public API

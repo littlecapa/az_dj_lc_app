@@ -16,6 +16,7 @@ import json
 import logging
 import re
 from decimal import Decimal
+from typing import Optional, Tuple
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -54,7 +55,7 @@ def _resolve_user(request) -> User:
     return User.objects.filter(is_superuser=True).order_by('id').first()
 
 
-def _json_body(request) -> tuple[dict, str | None]:
+def _json_body(request) -> Tuple[dict, Optional[str]]:
     """Parse JSON body. Returns (data, error_message)."""
     try:
         return json.loads(request.body or "{}"), None
