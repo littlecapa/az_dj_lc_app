@@ -69,7 +69,9 @@
                     </td>
                     <td>
                         <div class="fw-semibold">{{ row.name }}</div>
-                        <div class="text-muted" style="font-size:.78rem">{{ row.isin }} &middot; {{ row.asset_class }}</div>
+                        <div class="text-muted" style="font-size:.78rem">
+                            {% if row.name != row.isin %}{{ row.isin }} &middot; {% endif %}{{ row.asset_class }}
+                        </div>
                     </td>
                     <td class="text-end">
                         {% if row.price_at_add %}
