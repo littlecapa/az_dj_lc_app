@@ -2,6 +2,36 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+
+class QuickLink(models.Model):
+
+    class Category(models.TextChoices):
+        CHESS   = 'Chess',   'Chess'
+        FINANCE = 'Finance', 'Finance'
+        AI      = 'AI',      'AI'
+        VIDEO   = 'Video',   'Video'
+        NEWS    = 'News',    'News'
+        MISC    = 'Misc',    'Misc'
+        TRAVEL  = 'Travel',  'Travel'
+        BONN    = 'Bonn',    'Bonn'
+
+    name     = models.CharField(max_length=32)
+    url      = models.URLField()
+    prio     = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="1 = hervorgehoben (fett), 2+ = normal. Niedrigere Zahl = weiter oben."
+    )
+    category = models.CharField(max_length=16, choices=Category.choices, default=Category.MISC)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['category', 'prio', 'name']
+        verbose_name = "Quick Link"
+        verbose_name_plural = "Quick Links"
+
+    def __str__(self):
+        return f"[{self.category}] {self.name}"
+
 class BlogPost(models.Model):
     # Datum
     date = models.DateField()

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ContactMessage, HistChessMagazine, BlogPost
+from .models import ContactMessage, HistChessMagazine, BlogPost, QuickLink
 
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
@@ -19,3 +19,10 @@ class BlogPostAdmin(admin.ModelAdmin):
     list_display = ('date', 'headline') # Übersichtstabelle
     list_filter = ('date', 'headline','is_active') # Filter rechts
     search_fields = ('date', 'headline') # Suchleiste oben
+
+@admin.register(QuickLink)
+class QuickLinkAdmin(admin.ModelAdmin):
+    list_display  = ('category', 'prio', 'name', 'url', 'is_active')
+    list_filter   = ('category', 'prio', 'is_active')
+    search_fields = ('name', 'url')
+    list_editable = ('prio', 'is_active')
