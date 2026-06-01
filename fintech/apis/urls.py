@@ -5,6 +5,7 @@ from fintech.apis.securities import SecurityPriceView
 from fintech.apis.cowork import PortfolioView, WatchlistView, AssetPriceHistoryView
 from fintech.apis.watchlist_api import WatchlistCreateView, WatchlistEntryCreateView
 from fintech.apis.quicklink_api import QuickLinkImportView
+from fintech.apis.asset_api import AssetResolveNameView, AssetResolveNamesView
 
 app_name = "fintech"
 
@@ -23,4 +24,8 @@ urlpatterns = [
 
     # QuickLink import
     path("quicklinks/import", QuickLinkImportView.as_view(), name="api-quicklinks-import"),
+
+    # Asset name resolution via Yahoo Finance
+    path("assets/resolve-names",              AssetResolveNamesView.as_view(), name="api-assets-resolve-names"),
+    path("assets/<str:isin>/resolve-name",    AssetResolveNameView.as_view(),  name="api-asset-resolve-name"),
 ]

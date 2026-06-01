@@ -27,14 +27,17 @@ class YahooFinanceRequest:
         symbol = self._isin2symbol(isin)
         return self._symbol2price(symbol, isin)
 
+    def isin2name(self, isin: str) -> str:
+        """Return the long name for *isin* from Yahoo Finance search."""
+        logger.info(f"Request isin2name {isin} from Yahoo Finance")
+        return self._fetch_name(isin)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _isin2symbol(self, isin: str) -> str:
-        if isin in self._symbol_cache:
-            return self._symbol_cache[isin]
-
+    def _search(self, isin: str) -> dict:
+        """Raw Yahoo Finance search result (first quote) for *isin*."""
         resp = requests.get(
             SEARCH_URL,
             params={"q": isin, "quotesCount": 1, "newsCount": 0},
@@ -47,12 +50,27 @@ class YahooFinanceRequest:
 
         quotes = resp.json().get("quotes", [])
         if not quotes:
-            raise KeyNotFoundWarning(f"Yahoo Finance: no symbol found for {isin}")
+            raise KeyNotFoundWarning(f"Yahoo Finance: no result found for {isin}")
+        return quotes[0]
 
-        symbol = quotes[0]["symbol"]
+    def _isin2symbol(self, isin: str) -> str:
+        if isin in self._symbol_cache:
+            return self._symbol_cache[isin]
+
+        quote  = self._search(isin)
+        symbol = quote["symbol"]
         self._symbol_cache[isin] = symbol
         logger.info(f"Yahoo Finance: {isin} → {symbol}")
         return symbol
+
+    def _fetch_name(self, isin: str) -> str:
+        quote = self._search(isin)
+        name  = quote.get("longname") or quote.get("shortname") or ""
+        name  = name.strip()
+        if not name:
+            raise KeyNotFoundWarning(f"Yahoo Finance: no name found for {isin}")
+        logger.info(f"Yahoo Finance name [{isin}]: {name}")
+        return name
 
     def _symbol2price(self, symbol: str, isin: str) -> tuple[str, str]:
         url  = CHART_URL.format(symbol=symbol)
