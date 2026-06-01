@@ -302,6 +302,24 @@ def api_overview(request):
             ],
         },
         {
+            "group": "Fintech – Assets (Write)",
+            "color": "success",
+            "items": [
+                {
+                    "method": "POST",
+                    "path": "/fintech/api/assets/{isin}/resolve-name",
+                    "auth": "Key / Session",
+                    "desc": 'Namen für eine ISIN bei Yahoo Finance nachschlagen und Asset aktualisieren. Überschreibt nur wenn name==isin oder {"force": true} übergeben wird.',
+                },
+                {
+                    "method": "POST",
+                    "path": "/fintech/api/assets/resolve-names",
+                    "auth": "Key / Session",
+                    "desc": 'Bulk: Namen für alle Assets auflösen wo name==isin. Mit {"force": true} werden alle Assets aktualisiert. 207 bei Teilfehlern.',
+                },
+            ],
+        },
+        {
             "group": "Fintech – Quick Links (Write)",
             "color": "success",
             "items": [
@@ -310,6 +328,24 @@ def api_overview(request):
                     "path": "/fintech/api/quicklinks/import",
                     "auth": "Key / Session",
                     "desc": 'Bulk-Import von Quick Links. Body: JSON-Array mit Objekten {name, url, category, prio, is_active}. Bestehende Links (gleicher Name + Kategorie) werden aktualisiert. Kategorien: Chess | Finance | AI | Video | News | Misc | Travel | Bonn.',
+                },
+            ],
+        },
+        {
+            "group": "Fintech – Seiten (Login)",
+            "color": "info",
+            "items": [
+                {
+                    "method": "GET",
+                    "path": "/fintech/watchlist-performance/",
+                    "auth": "Login",
+                    "desc": "Übersicht aller Watchlisten mit annualisierter Rendite p.a. (Annahme: 10.000 € pro Position). Sortiert nach bester Performance.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/fintech/watchlist-performance/{name}/",
+                    "auth": "Login",
+                    "desc": "Drill-down einer Watchlist: alle Positionen mit Einstiegskurs, aktuellem Kurs, Haltedauer, hypothetischem Wert, einfacher und annualisierter Rendite.",
                 },
             ],
         },
@@ -328,6 +364,12 @@ def api_overview(request):
                     "path": "/fintech/import_watchlist",
                     "auth": "Staff-Login",
                     "desc": "JSON-Import von Watchlist-Einträgen über ein Web-Formular.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/api-overview/",
+                    "auth": "Login",
+                    "desc": "Diese Seite — Übersicht aller API-Endpoints.",
                 },
             ],
         },
