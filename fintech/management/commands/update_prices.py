@@ -21,6 +21,7 @@ from asgiref.sync import async_to_sync, sync_to_async
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from django.db.models import Q
 from fintech.models import Asset, Price
 from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
@@ -165,7 +166,10 @@ class Command(BaseCommand):
 
     @sync_to_async
     def _get_assets_to_update(self, isin_filter, asset_classes, cutoff):
-        qs = Asset.objects.filter(holdings__quantity__gt=0)
+        # Kurse holen für: Positionen mit Bestand > 0  ODER  Assets in einer Watchlist
+        qs = Asset.objects.filter(
+            Q(holdings__quantity__gt=0) | Q(watchlistentry__isnull=False)
+        ).distinct()
         if isin_filter:
             qs = qs.filter(isin=isin_filter.upper())
         if asset_classes:
