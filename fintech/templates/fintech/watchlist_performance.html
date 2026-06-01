@@ -1,0 +1,103 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Watchlist Performance{% endblock %}
+
+{% block content %}
+<style>
+    .perf-positive { color: #198754; font-weight: 600; }
+    .perf-negative { color: #dc3545; font-weight: 600; }
+    .perf-neutral  { color: #6c757d; }
+    .wl-card {
+        border: 1px solid #e3e6ea;
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
+        background: #fff;
+        margin-bottom: 1rem;
+        transition: box-shadow .15s;
+    }
+    .wl-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+    .wl-name { font-size: 1.1rem; font-weight: 700; }
+    .wl-meta { font-size: .82rem; color: #6c757d; }
+    .big-perf { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+    .label-small { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #aaa; }
+    .bar-track { height: 6px; background: #e9ecef; border-radius: 3px; margin-top: 6px; }
+    .bar-fill  { height: 100%; border-radius: 3px; transition: width .4s; }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex align-items-center mb-4 gap-3">
+        <h2 class="mb-0">Watchlist Performance</h2>
+        <span class="text-muted small">(Annahme: 10.000 € pro Position beim Einstieg)</span>
+    </div>
+
+    {% if not rows %}
+        <p class="text-muted">Keine Watchlisten vorhanden.</p>
+    {% else %}
+
+    {# Bestes / schlechtestes für Balken-Skalierung #}
+    {% with max_ann=rows.0.annualized %}
+
+    <div class="row g-3">
+        {% for row in rows %}
+        <div class="col-md-6 col-lg-4">
+            <div class="wl-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="wl-name">{{ row.name }}</div>
+                        <div class="wl-meta mt-1">
+                            {{ row.valid_count }} / {{ row.entry_count }} Positionen mit Kurs
+                        </div>
+                    </div>
+                    {% if row.annualized is not None %}
+                        <div class="text-end">
+                            <div class="big-perf {% if row.annualized >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                                {% if row.annualized >= 0 %}+{% endif %}{{ row.annualized|floatformat:1 }} %
+                            </div>
+                            <div class="label-small">p.a.</div>
+                        </div>
+                    {% else %}
+                        <div class="perf-neutral">–</div>
+                    {% endif %}
+                </div>
+
+                {% if row.annualized is not None %}
+                <div class="mt-3 row text-center g-0">
+                    <div class="col">
+                        <div class="label-small">Investiert</div>
+                        <div style="font-size:.9rem">{{ row.total_invested|floatformat:0 }} €</div>
+                    </div>
+                    <div class="col">
+                        <div class="label-small">Aktuell</div>
+                        <div style="font-size:.9rem">{{ row.total_current|floatformat:0 }} €</div>
+                    </div>
+                    <div class="col">
+                        <div class="label-small">Gewinn/Verlust</div>
+                        <div style="font-size:.9rem" class="{% if row.gain_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.gain_abs >= 0 %}+{% endif %}{{ row.gain_abs|floatformat:0 }} €
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="label-small">Einfach</div>
+                        <div style="font-size:.9rem" class="{% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.simple >= 0 %}+{% endif %}{{ row.simple|floatformat:1 }} %
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="mt-3">
+                    <a href="{% url 'fintech:watchlist-detail' row.name %}"
+                       class="btn btn-sm btn-outline-primary w-100">
+                        Details &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% endwith %}
+    {% endif %}
+</div>
+{% endblock %}

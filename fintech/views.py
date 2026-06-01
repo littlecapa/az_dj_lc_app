@@ -1,5 +1,6 @@
 from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.conf import settings
 from django.db.models import F, ExpressionWrapper, DecimalField
@@ -7,11 +8,12 @@ from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import WatchlistEntry, Watchlist, Asset
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from .apis.services.csv_import import import_transactions
 from django.contrib import messages
 from django.core.management import call_command
 from django.views.decorators.cache import never_cache
+from django.utils import timezone
 
 import logging
 
@@ -243,4 +245,138 @@ def watchlist_import(request):
         "submitted_json": raw,
         "dry_run":        dry_run,
         "result":         result,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Watchlist Performance
+# ---------------------------------------------------------------------------
+
+HYPOTHETICAL_INVESTMENT = Decimal("10000")  # EUR pro Eintrag
+
+
+def _entry_perf(entry):
+    """
+    Berechnet Performance-Kennzahlen für einen WatchlistEntry.
+    Gibt None zurück wenn Kurs-Daten fehlen.
+    """
+    price_add = entry.price_at_add
+    price_now = entry.asset.current_price
+    if not price_add or not price_now or price_add == 0:
+        return None
+
+    try:
+        price_add = Decimal(str(price_add))
+        price_now = Decimal(str(price_now))
+        ratio = price_now / price_add
+        current_value = HYPOTHETICAL_INVESTMENT * ratio
+        simple_return = ratio - 1
+
+        # Haltedauer in Tagen (mind. 1)
+        added_at = entry.added_at
+        if hasattr(added_at, 'date'):
+            added_at = added_at.date()
+        days_held = max((timezone.now().date() - added_at).days, 1)
+
+        # Annualisierte Rendite (CAGR)
+        annualized = float(ratio) ** (365.0 / days_held) - 1
+
+        return {
+            "current_value":   current_value,
+            "simple_return":   simple_return,
+            "annualized":      Decimal(str(round(annualized, 6))),
+            "days_held":       days_held,
+        }
+    except (InvalidOperation, ZeroDivisionError):
+        return None
+
+
+@login_required
+def watchlist_performance(request):
+    """Übersicht: alle Watchlisten mit annualisierter Performance."""
+    watchlists = Watchlist.objects.prefetch_related(
+        "entries__asset"
+    ).order_by("name")
+
+    rows = []
+    for wl in watchlists:
+        entries = list(wl.entries.select_related("asset").all())
+        total_invested = Decimal("0")
+        total_current  = Decimal("0")
+        weighted_days  = Decimal("0")
+        valid_count    = 0
+
+        for entry in entries:
+            perf = _entry_perf(entry)
+            if perf is None:
+                continue
+            total_invested += HYPOTHETICAL_INVESTMENT
+            total_current  += perf["current_value"]
+            weighted_days  += HYPOTHETICAL_INVESTMENT * perf["days_held"]
+            valid_count    += 1
+
+        if valid_count == 0 or total_invested == 0:
+            rows.append({
+                "name":        wl.name,
+                "entry_count": len(entries),
+                "valid_count": 0,
+                "annualized":  None,
+                "simple":      None,
+                "gain_abs":    None,
+            })
+            continue
+
+        simple = total_current / total_invested - 1
+        avg_days = float(weighted_days / total_invested)
+        annualized = float(total_current / total_invested) ** (365.0 / max(avg_days, 1)) - 1
+
+        rows.append({
+            "name":           wl.name,
+            "entry_count":    len(entries),
+            "valid_count":    valid_count,
+            "total_invested": total_invested,
+            "total_current":  total_current,
+            "gain_abs":       total_current - total_invested,
+            "simple":         simple * 100,
+            "annualized":     Decimal(str(round(annualized * 100, 2))),
+        })
+
+    rows.sort(key=lambda r: r["annualized"] if r["annualized"] is not None else Decimal("-999"), reverse=True)
+    return render(request, "fintech/watchlist_performance.html", {"rows": rows})
+
+
+@login_required
+def watchlist_detail(request, watchlist_name):
+    """Drill-down: Einzelpositionen einer Watchlist mit Performance."""
+    wl = get_object_or_404(Watchlist, name=watchlist_name)
+    entries = wl.entries.select_related("asset").order_by("asset__name")
+
+    entry_rows = []
+    for entry in entries:
+        perf = _entry_perf(entry)
+        entry_rows.append({
+            "isin":          entry.asset.isin,
+            "name":          entry.asset.name,
+            "asset_class":   entry.asset.asset_class,
+            "price_at_add":  entry.price_at_add,
+            "current_price": entry.asset.current_price,
+            "added_at":      entry.added_at,
+            "source":        entry.source,
+            "notes":         entry.notes,
+            "days_held":     perf["days_held"]    if perf else None,
+            "current_value": perf["current_value"] if perf else None,
+            "simple":        perf["simple_return"] * 100 if perf else None,
+            "annualized":    perf["annualized"] * 100    if perf else None,
+            "has_price":     perf is not None,
+        })
+
+    entry_rows.sort(
+        key=lambda r: r["annualized"] if r["annualized"] is not None else Decimal("-999"),
+        reverse=True,
+    )
+
+    return render(request, "fintech/watchlist_detail.html", {
+        "watchlist": wl,
+        "entry_rows": entry_rows,
+        "hypothetical": HYPOTHETICAL_INVESTMENT,
     })

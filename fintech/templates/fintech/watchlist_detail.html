@@ -1,0 +1,130 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}{{ watchlist.name }} – Detail{% endblock %}
+
+{% block content %}
+<style>
+    .perf-positive { color: #198754; font-weight: 600; }
+    .perf-negative { color: #dc3545; font-weight: 600; }
+    .perf-neutral  { color: #aaa; }
+    .rank-badge {
+        width: 28px; height: 28px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: .75rem; font-weight: 700; flex-shrink: 0;
+    }
+    .rank-1 { background: #ffd700; color: #333; }
+    .rank-2 { background: #c0c0c0; color: #333; }
+    .rank-3 { background: #cd7f32; color: #fff; }
+    .rank-n { background: #e9ecef; color: #555; }
+    th { white-space: nowrap; }
+    .note-cell { font-size: .8rem; color: #6c757d; max-width: 200px; }
+</style>
+
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'fintech:watchlist-performance' %}">Watchlist Performance</a>
+            </li>
+            <li class="breadcrumb-item active">{{ watchlist.name }}</li>
+        </ol>
+    </nav>
+
+    <h2 class="mb-1">{{ watchlist.name }}</h2>
+    <p class="text-muted small mb-4">
+        Annahme: {{ hypothetical|floatformat:0 }} € pro Position beim Einstieg
+    </p>
+
+    {% if not entry_rows %}
+        <p class="text-muted">Keine Einträge in dieser Watchlist.</p>
+    {% else %}
+
+    {# Summary-Zeile #}
+    {% with total_inv=0 total_cur=0 %}
+    {% endwith %}
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Name / ISIN</th>
+                    <th class="text-end">Einstieg</th>
+                    <th class="text-end">Aktuell</th>
+                    <th class="text-end">Tage</th>
+                    <th class="text-end">Hyp. Wert</th>
+                    <th class="text-end">Einfach</th>
+                    <th class="text-end">p.a.</th>
+                    <th>Quelle / Notiz</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in entry_rows %}
+                <tr>
+                    <td>
+                        <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="fw-semibold">{{ row.name }}</div>
+                        <div class="text-muted" style="font-size:.78rem">{{ row.isin }} &middot; {{ row.asset_class }}</div>
+                    </td>
+                    <td class="text-end">
+                        {% if row.price_at_add %}
+                            {{ row.price_at_add|floatformat:2 }} €
+                            <div class="text-muted" style="font-size:.75rem">{{ row.added_at|date:"d.m.Y" }}</div>
+                        {% else %}
+                            <span class="perf-neutral">–</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.current_price %}
+                            {{ row.current_price|floatformat:2 }} €
+                        {% else %}
+                            <span class="perf-neutral">–</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.days_held %}{{ row.days_held }}{% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.current_value %}
+                            <span class="{% if row.current_value >= hypothetical %}perf-positive{% else %}perf-negative{% endif %}">
+                                {{ row.current_value|floatformat:0 }} €
+                            </span>
+                        {% else %}
+                            <span class="perf-neutral">–</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.simple is not None %}
+                            <span class="{% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                                {% if row.simple >= 0 %}+{% endif %}{{ row.simple|floatformat:1 }} %
+                            </span>
+                        {% else %}
+                            <span class="perf-neutral">–</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.annualized is not None %}
+                            <span class="{% if row.annualized >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                                {% if row.annualized >= 0 %}+{% endif %}{{ row.annualized|floatformat:1 }} %
+                            </span>
+                        {% else %}
+                            <span class="perf-neutral">–</span>
+                        {% endif %}
+                    </td>
+                    <td class="note-cell">
+                        {% if row.source %}<div>📎 {{ row.source }}</div>{% endif %}
+                        {% if row.notes  %}<div>📝 {{ row.notes  }}</div>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
