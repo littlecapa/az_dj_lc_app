@@ -110,10 +110,12 @@
                         {% endif %}
                     </td>
                     <td class="text-end">
-                        {% if row.annualized is not None %}
+                        {% if row.annualized is not None and row.days_held >= 365 %}
                             <span class="{% if row.annualized >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
                                 {% if row.annualized >= 0 %}+{% endif %}{{ row.annualized|floatformat:1 }} %
                             </span>
+                        {% elif row.days_held is not None and row.days_held < 365 %}
+                            <span class="perf-neutral" title="Noch kein volles Jahr vergangen">< 1 J.</span>
                         {% else %}
                             <span class="perf-neutral">–</span>
                         {% endif %}

@@ -49,12 +49,19 @@
                             {{ row.valid_count }} / {{ row.entry_count }} Positionen mit Kurs
                         </div>
                     </div>
-                    {% if row.annualized is not None %}
+                    {% if row.annualized is not None and row.avg_days >= 365 %}
                         <div class="text-end">
                             <div class="big-perf {% if row.annualized >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
                                 {% if row.annualized >= 0 %}+{% endif %}{{ row.annualized|floatformat:1 }} %
                             </div>
                             <div class="label-small">p.a.</div>
+                        </div>
+                    {% elif row.simple is not None %}
+                        <div class="text-end">
+                            <div class="big-perf {% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                                {% if row.simple >= 0 %}+{% endif %}{{ row.simple|floatformat:1 }} %
+                            </div>
+                            <div class="label-small">gesamt</div>
                         </div>
                     {% else %}
                         <div class="perf-neutral">–</div>

@@ -28,13 +28,16 @@ from django.utils.decorators import method_decorator
 from ..models import Asset, Watchlist, WatchlistEntry
 from ..models_helper.asset_class import AssetClass
 from .services.provider_manager import ProviderManager
+from .services.yahoo_finance import YahooFinanceRequest
+from .services.request_lib import KeyNotFoundWarning
 
 logger = logging.getLogger(__name__)
 
 ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{10}$")
 
-# One shared ProviderManager per process (has internal SoupCache)
+# One shared instance per process
 _provider_manager = ProviderManager()
+_yahoo            = YahooFinanceRequest()
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +162,16 @@ class WatchlistEntryCreateView(View):
         )
         if asset_created:
             logger.info(f"Neues Asset angelegt: {isin} ({asset_name})")
+
+        # --- Namen auflösen falls noch nicht gesetzt ---
+        if asset.name == isin:
+            try:
+                real_name = _yahoo.isin2name(isin)
+                asset.name = real_name
+                asset.save(update_fields=["name"])
+                logger.info(f"Asset-Name aufgelöst: {isin} → '{real_name}'")
+            except Exception as exc:
+                logger.warning(f"Name-Auflösung für {isin} fehlgeschlagen: {exc}")
 
         # --- Kurs sicherstellen ---
         price_fetched = False

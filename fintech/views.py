@@ -339,6 +339,7 @@ def watchlist_performance(request):
             "gain_abs":       total_current - total_invested,
             "simple":         simple * 100,
             "annualized":     Decimal(str(round(annualized * 100, 2))),
+            "avg_days":       round(avg_days),
         })
 
     rows.sort(key=lambda r: r["annualized"] if r["annualized"] is not None else Decimal("-999"), reverse=True)
