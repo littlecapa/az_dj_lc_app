@@ -118,6 +118,7 @@ logging.warning(f"CSRF_TRUSTED_ORIGINS: {CSRF_TRUSTED_ORIGINS}")
 INSTALLED_APPS = [
     'homepage',
     'fintech',
+    'chess',
     'health',
     'django.contrib.admin',
     'django.contrib.auth',

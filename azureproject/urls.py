@@ -6,6 +6,7 @@ from django.http import HttpResponse
 
 urlpatterns = [
     path('', include('homepage.urls')),
+    path('chess/', include('chess.urls')),
     path('fintech/', include('fintech.urls')),
     path('health/', include('health.urls')),
     path('admin/', admin.site.urls),
