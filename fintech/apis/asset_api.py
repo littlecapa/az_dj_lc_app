@@ -33,6 +33,67 @@ ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{10}$")
 _yahoo  = YahooFinanceRequest()
 
 
+# ---------------------------------------------------------------------------
+# PATCH /fintech/api/assets/<isin>
+# ---------------------------------------------------------------------------
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AssetUpdateView(View):
+    """Manually update asset fields (name, symbol, exchange). Body: JSON object."""
+
+    http_method_names = ["patch"]
+
+    def patch(self, request, isin: str):
+        if not _is_authorized(request):
+            return JsonResponse({"error": "Unauthorized"}, status=401)
+
+        isin = isin.upper().strip()
+        if not ISIN_RE.match(isin):
+            return JsonResponse(
+                {"error": "Bad Request", "detail": f"'{isin}' is not a valid ISIN."}, status=400
+            )
+
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError as exc:
+            return JsonResponse({"error": "Bad Request", "detail": str(exc)}, status=400)
+
+        try:
+            asset = Asset.objects.get(isin=isin)
+        except Asset.DoesNotExist:
+            return JsonResponse(
+                {"error": "Not Found", "detail": f"Asset {isin} not in database."}, status=404
+            )
+
+        ALLOWED = {"name", "symbol", "exchange"}
+        updated_fields = []
+        for field in ALLOWED:
+            if field in data:
+                value = str(data[field]).strip()
+                if not value:
+                    return JsonResponse(
+                        {"error": "Bad Request", "detail": f"'{field}' must not be empty."}, status=400
+                    )
+                setattr(asset, field, value)
+                updated_fields.append(field)
+
+        if not updated_fields:
+            return JsonResponse(
+                {"error": "Bad Request", "detail": f"No updatable fields provided. Allowed: {sorted(ALLOWED)}"}, status=400
+            )
+
+        asset.save(update_fields=updated_fields)
+        logger.info(f"Asset {isin} updated: {updated_fields}")
+
+        return JsonResponse({
+            "isin":           isin,
+            "updated_fields": updated_fields,
+            "name":           asset.name,
+            "symbol":         asset.symbol,
+            "exchange":       asset.exchange,
+        })
+
+
 def _is_authorized(request) -> bool:
     api_key = getattr(settings, "FINTECH_API_KEY", None)
     if api_key and request.headers.get("X-Api-Key", "") == api_key:
