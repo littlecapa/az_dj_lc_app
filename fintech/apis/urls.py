@@ -3,7 +3,10 @@
 from django.urls import path
 from fintech.apis.securities import SecurityPriceView
 from fintech.apis.cowork import PortfolioView, WatchlistView, AssetPriceHistoryView
-from fintech.apis.watchlist_api import WatchlistCreateView, WatchlistEntryCreateView
+from fintech.apis.watchlist_api import (
+    WatchlistCreateView, WatchlistEntryCreateView,
+    WatchlistEntryDeleteView, WatchlistDeleteView,
+)
 from fintech.apis.quicklink_api import QuickLinkImportView
 from fintech.apis.asset_api import AssetResolveNameView, AssetResolveNamesView, AssetUpdateView
 
@@ -18,9 +21,11 @@ urlpatterns = [
     path("watchlist",                 WatchlistView.as_view(),         name="api-watchlist"),
     path("assets/<str:isin>/history", AssetPriceHistoryView.as_view(), name="api-asset-history"),
 
-    # Watchlist write endpoints
-    path("watchlist/create",                       WatchlistCreateView.as_view(),      name="api-watchlist-create"),
-    path("watchlist/<str:watchlist_name>/entries", WatchlistEntryCreateView.as_view(), name="api-watchlist-entries"),
+    # Watchlist write/delete endpoints
+    path("watchlist/create",                                    WatchlistCreateView.as_view(),       name="api-watchlist-create"),
+    path("watchlist/<str:watchlist_name>/entries",              WatchlistEntryCreateView.as_view(),  name="api-watchlist-entries"),
+    path("watchlist/<str:watchlist_name>/entries/<str:isin>",   WatchlistEntryDeleteView.as_view(),  name="api-watchlist-entry-delete"),
+    path("watchlist/<str:watchlist_name>",                      WatchlistDeleteView.as_view(),       name="api-watchlist-delete"),
 
     # QuickLink import
     path("quicklinks/import", QuickLinkImportView.as_view(), name="api-quicklinks-import"),

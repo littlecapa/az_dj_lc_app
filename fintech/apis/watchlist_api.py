@@ -1,13 +1,20 @@
 """
 Watchlist REST API
 
-POST /fintech/api/watchlist
+POST   /fintech/api/watchlist/create
     Watchlist anlegen (oder bestehende zurückgeben)
 
-POST /fintech/api/watchlist/<name>/entries
+POST   /fintech/api/watchlist/<name>/entries
     Asset zu einer Watchlist hinzufügen.
     Legt das Asset an falls noch nicht vorhanden.
     Holt aktiv einen aktuellen Kurs wenn keiner gecacht ist.
+
+DELETE /fintech/api/watchlist/<name>/entries/<isin>
+    Einzelnen Eintrag aus einer Watchlist entfernen.
+    Das Asset selbst bleibt erhalten.
+
+DELETE /fintech/api/watchlist/<name>
+    Gesamte Watchlist inkl. aller Einträge löschen.
 
 Authentication: X-Api-Key header OR active staff session.
 """
@@ -224,3 +231,93 @@ class WatchlistEntryCreateView(View):
             "entry_created": entry_created,
             "asset_created": asset_created,
         }, status=201 if entry_created else 200)
+
+
+# ---------------------------------------------------------------------------
+# DELETE /fintech/api/watchlist/<name>/entries/<isin>
+# ---------------------------------------------------------------------------
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WatchlistEntryDeleteView(View):
+    """
+    Remove a single asset from a watchlist.
+
+    The asset record itself is NOT deleted — only the watchlist entry.
+    Returns 404 if the watchlist or entry does not exist.
+    """
+
+    http_method_names = ["delete"]
+
+    def delete(self, request, watchlist_name: str, isin: str):
+        if not _is_authorized(request):
+            return JsonResponse({"error": "Unauthorized"}, status=401)
+
+        isin = isin.upper().strip()
+        if not ISIN_RE.match(isin):
+            return JsonResponse(
+                {"error": "Bad Request", "detail": f"'{isin}' is not a valid ISIN."}, status=400
+            )
+
+        user = _resolve_user(request)
+
+        try:
+            watchlist = Watchlist.objects.get(name=watchlist_name, user=user)
+        except Watchlist.DoesNotExist:
+            return JsonResponse(
+                {"error": "Not Found", "detail": f"Watchlist '{watchlist_name}' not found."}, status=404
+            )
+
+        deleted, _ = WatchlistEntry.objects.filter(
+            watchlist=watchlist, asset_id=isin
+        ).delete()
+
+        if not deleted:
+            return JsonResponse(
+                {"error": "Not Found", "detail": f"ISIN '{isin}' not in watchlist '{watchlist_name}'."}, status=404
+            )
+
+        logger.info(f"WatchlistEntry gelöscht: {isin} aus '{watchlist_name}'")
+        return JsonResponse({
+            "deleted":        True,
+            "watchlist":      watchlist_name,
+            "isin":           isin,
+            "entries_left":   watchlist.entries.count(),
+        })
+
+
+# ---------------------------------------------------------------------------
+# DELETE /fintech/api/watchlist/<name>
+# ---------------------------------------------------------------------------
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WatchlistDeleteView(View):
+    """
+    Delete an entire watchlist including all its entries.
+
+    Assets are NOT deleted. Returns 404 if the watchlist does not exist.
+    """
+
+    http_method_names = ["delete"]
+
+    def delete(self, request, watchlist_name: str):
+        if not _is_authorized(request):
+            return JsonResponse({"error": "Unauthorized"}, status=401)
+
+        user = _resolve_user(request)
+
+        try:
+            watchlist = Watchlist.objects.get(name=watchlist_name, user=user)
+        except Watchlist.DoesNotExist:
+            return JsonResponse(
+                {"error": "Not Found", "detail": f"Watchlist '{watchlist_name}' not found."}, status=404
+            )
+
+        entry_count = watchlist.entries.count()
+        watchlist.delete()
+
+        logger.info(f"Watchlist gelöscht: '{watchlist_name}' ({entry_count} Einträge)")
+        return JsonResponse({
+            "deleted":      True,
+            "watchlist":    watchlist_name,
+            "entries_removed": entry_count,
+        })

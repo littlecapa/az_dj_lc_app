@@ -299,6 +299,18 @@ def api_overview(request):
                     "auth": "Key / Session",
                     "desc": 'Asset zu einer Watchlist hinzufügen. Legt Asset und Watchlist bei Bedarf an. Holt aktiv Kurs wenn keiner gecacht ist. Body: {"isin": "...", "asset_class": "STOCK", "source": "...", "notes": "..."}.',
                 },
+                {
+                    "method": "DELETE",
+                    "path": "/fintech/api/watchlist/{name}/entries/{isin}",
+                    "auth": "Key / Session",
+                    "desc": "Einzelnen Eintrag aus einer Watchlist entfernen. Das Asset selbst bleibt erhalten. Gibt entries_left zurück.",
+                },
+                {
+                    "method": "DELETE",
+                    "path": "/fintech/api/watchlist/{name}",
+                    "auth": "Key / Session",
+                    "desc": "Gesamte Watchlist inkl. aller Einträge löschen. Assets bleiben erhalten. Gibt entries_removed zurück.",
+                },
             ],
         },
         {
