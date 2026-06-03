@@ -46,7 +46,7 @@ class BlogPost(models.Model):
     external_url = models.URLField(blank=True, null=True, help_text="If set, 'Read more' leads here (External). If empty, it loads the template based on the slug.")
     
     # Logic: This must match the filename in templates/homepage/blog/ (without .html)
-    slug = models.SlugField(max_length=50, unique=True, blank=True)
+    slug = models.SlugField(max_length=50, unique=True, blank=True, null=True, help_text="Auto-generated from headline if empty. Must be unique."   )
     is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
