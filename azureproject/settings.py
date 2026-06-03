@@ -119,6 +119,7 @@ INSTALLED_APPS = [
     'homepage',
     'fintech',
     'chess',
+    'recipes',
     'health',
     'django.contrib.admin',
     'django.contrib.auth',

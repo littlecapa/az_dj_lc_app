@@ -1,0 +1,56 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Rezepte – Littlecapa{% endblock %}
+
+{% block content %}
+<style>
+    .construction-wrap {
+        min-height: 60vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 4rem 1rem;
+    }
+    .construction-sign {
+        background: #f5a623;
+        color: #1a1a1a;
+        border: 6px solid #1a1a1a;
+        border-radius: 12px;
+        padding: 2rem 3rem;
+        max-width: 480px;
+        box-shadow: 6px 6px 0 #1a1a1a;
+        position: relative;
+    }
+    .construction-sign::before,
+    .construction-sign::after {
+        content: "";
+        display: block;
+        height: 18px;
+        background: repeating-linear-gradient(
+            90deg,
+            #1a1a1a 0px, #1a1a1a 24px,
+            #f5a623 24px, #f5a623 48px
+        );
+        border-radius: 4px 4px 0 0;
+        margin: -2rem -3rem 1.5rem;
+    }
+    .construction-sign::after {
+        margin: 1.5rem -3rem -2rem;
+        border-radius: 0 0 4px 4px;
+    }
+    .construction-icon { font-size: 4rem; margin-bottom: .5rem; }
+    .construction-sign h1 { font-size: 2rem; font-weight: 900; margin-bottom: .5rem; }
+    .construction-sign p  { font-size: 1rem; margin: 0; }
+</style>
+
+<div class="construction-wrap">
+    <div class="construction-sign">
+        <div class="construction-icon">🍽️</div>
+        <h1>Under Construction</h1>
+        <p>Die Rezepte-App ist in Arbeit.<br>Bald gibt es hier leckere Ideen!</p>
+    </div>
+</div>
+{% endblock %}
