@@ -142,7 +142,28 @@ def _parse_liebling(raw) -> bool:
 def parse_excel(file_obj) -> list[RezeptRow]:
     """Liest eine .xlsx-Datei und gibt eine Liste von RezeptRow zurück."""
     import openpyxl
-    wb = openpyxl.load_workbook(file_obj, data_only=True)
+    # Mehrere Ladestrategien — manche xlsx-Dateien haben invalide Stylesheets
+    wb = None
+    errors = []
+    for kwargs in [
+        {'data_only': True},
+        {'data_only': True, 'read_only': True},
+        {'data_only': True, 'keep_links': False},
+    ]:
+        try:
+            file_obj.seek(0)
+            wb = openpyxl.load_workbook(file_obj, **kwargs)
+            break
+        except Exception as exc:
+            errors.append(str(exc))
+
+    if wb is None:
+        raise ValueError(
+            f"Die Excel-Datei konnte nicht gelesen werden. "
+            f"Bitte als CSV speichern (Excel → Speichern unter → CSV UTF-8) "
+            f"und nochmal hochladen. Details: {errors[0]}"
+        )
+
     ws = wb.active
 
     rows = list(ws.iter_rows(values_only=True))
