@@ -1,0 +1,121 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Rezepte – Littlecapa{% endblock %}
+
+{% block content %}
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* ── Header ── */
+  header.rezepte-header {
+    background: #1c1917; color: #fafaf8;
+    padding: 1.25rem 2rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  header.rezepte-header h1 {
+    font-family: Georgia, serif; font-size: 1.6rem; font-weight: normal; letter-spacing: 0.03em;
+  }
+  header.rezepte-header h1 span { color: #e7c547; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 1.1rem; border: none; border-radius: 6px;
+    font-size: 0.9rem; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary  { background: #e7c547; color: #1c1917; font-weight: 600; }
+  .btn-ghost    { background: transparent; color: #fafaf8; border: 1px solid rgba(255,255,255,0.3); }
+  .btn-danger   { background: #ef4444; color: #fff; }
+  .btn-sm       { padding: 0.35rem 0.75rem; font-size: 0.82rem; }
+  .btn-cancel   { background: #f5f5f4; color: #44403c; border: 1px solid #d6d3d1; }
+
+  /* ── Layout ── */
+  .container.rezepte { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+
+  /* ── Toolbar ── */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; }
+  .search-wrap { position: relative; flex: 1; min-width: 200px; }
+  .search-wrap input {
+    width: 100%; padding: 0.55rem 0.85rem 0.55rem 2.2rem;
+    border: 1px solid #d6d3d1; border-radius: 8px;
+    background: #fff; font-size: 0.92rem; color: #1c1917;
+  }
+  .search-wrap input:focus { outline: none; border-color: #e7c547; box-shadow: 0 0 0 2px #e7c54740; }
+  .search-icon { position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%); color: #78716c; pointer-events: none; }
+  select { padding: 0.55rem 0.75rem; border: 1px solid #d6d3d1; border-radius: 8px; background: #fff; font-size: 0.88rem; color: #1c1917; cursor: pointer; }
+  select:focus { outline: none; border-color: #e7c547; }
+
+  .filter-row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 1rem; font-size: 0.85rem; color: #78716c; }
+  .tag-btn { padding: 0.3rem 0.75rem; border-radius: 20px; border: 1px solid #d6d3d1; background: #fff; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; color: #44403c; }
+  .tag-btn.active { background: #e7c547; border-color: #e7c547; color: #1c1917; font-weight: 600; }
+  .tag-btn:hover:not(.active) { border-color: #a8a29e; }
+  .count-bar { font-size: 0.82rem; color: #78716c; margin-bottom: 0.75rem; }
+
+  /* ── Karten ── */
+  .rezept-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .rezept-card {
+    background: #fff; border: 1px solid #e7e5e4; border-radius: 10px;
+    padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 1rem;
+    cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .rezept-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); border-color: #d6d3d1; }
+  .star { font-size: 1.2rem; line-height: 1; flex-shrink: 0; margin-top: 0.15rem; }
+  .card-body { flex: 1; min-width: 0; }
+  .card-title { font-family: Georgia, serif; font-size: 1.05rem; color: #1c1917; margin-bottom: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; font-size: 0.78rem; color: #78716c; }
+  .card-actions { display: flex; gap: 0.4rem; flex-shrink: 0; align-items: center; }
+  .badge { background: #f5f5f4; border: 1px solid #e7e5e4; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.75rem; }
+  .badge-akzent { background: #fef9e7; border-color: #e7c547; color: #92400e; }
+  .empty-state { text-align: center; padding: 4rem 1rem; color: #78716c; font-family: Georgia, serif; font-size: 1.1rem; }
+
+  /* ── Detail ── */
+  .detail-back { display: inline-flex; align-items: center; gap: 0.4rem; color: #78716c; font-size: 0.88rem; cursor: pointer; margin-bottom: 1.25rem; border: none; background: none; padding: 0; }
+  .detail-back:hover { color: #1c1917; }
+  .detail-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .detail-title { font-family: Georgia, serif; font-size: 2rem; font-weight: normal; color: #1c1917; flex: 1; }
+  .detail-meta { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .detail-section { margin-bottom: 1.5rem; }
+  .detail-section h3 { font-family: Georgia, serif; font-size: 1.1rem; font-weight: normal; color: #1c1917; border-bottom: 2px solid #e7c547; padding-bottom: 0.3rem; margin-bottom: 0.75rem; }
+  .zutaten-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+  .zutaten-list li { padding: 0.35rem 0; border-bottom: 1px solid #f5f5f4; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; }
+  .zutaten-list li::before { content: "·"; color: #e7c547; font-size: 1.4rem; line-height: 0; }
+  .notiz-text { white-space: pre-wrap; line-height: 1.7; font-size: 0.95rem; color: #44403c; }
+
+  /* ── Formular ── */
+  .modal { background: #fafaf8; border-radius: 12px; width: 100%; padding: 1.75rem; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+  .modal h2 { font-family: Georgia, serif; font-size: 1.4rem; font-weight: normal; margin-bottom: 1.5rem; color: #1c1917; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 0.82rem; font-weight: 600; color: #44403c; text-transform: uppercase; letter-spacing: 0.04em; }
+  input[type="text"], input[type="url"], input[type="number"], textarea, select.form-select {
+    padding: 0.55rem 0.75rem; border: 1px solid #d6d3d1; border-radius: 7px;
+    background: #fff; font-size: 0.92rem; color: #1c1917; font-family: inherit; width: 100%;
+  }
+  input:focus, textarea:focus, select.form-select:focus { outline: none; border-color: #e7c547; box-shadow: 0 0 0 2px #e7c54740; }
+  textarea { resize: vertical; min-height: 90px; }
+  .form-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e7e5e4; }
+  .liebling-toggle { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.92rem; color: #44403c; user-select: none; }
+  .liebling-toggle input { width: auto; }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
+    .detail-title { font-size: 1.4rem; }
+  }
+</style>
+
+<div id="root"></div>
+
+<script>
+  window.REZEPTE_CONFIG = {
+    isAuthenticated: {{ request.user.is_authenticated|lower }},
+    csrfToken: '{{ csrf_token }}',
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel" src="{% static 'recipes/app.jsx' %}"></script>
+{% endblock %}

@@ -1,9 +1,8 @@
 import csv
 import logging
 
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
 from django.shortcuts import render
+from django.http import HttpResponse
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 
@@ -13,19 +12,31 @@ from .serializers import RezeptSerializer
 logger = logging.getLogger(__name__)
 
 
+class ReadPublicWriteAuthenticated(permissions.BasePermission):
+    """GET/HEAD/OPTIONS für alle; POST/PATCH/DELETE nur eingeloggt."""
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return bool(request.user and request.user.is_authenticated)
+
+
 class RezeptViewSet(viewsets.ModelViewSet):
-    """CRUD + CSV-Export für Rezepte des eingeloggten Users."""
+    """CRUD + CSV-Export. Lesen öffentlich, Schreiben nur eingeloggt."""
 
     serializer_class   = RezeptSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [ReadPublicWriteAuthenticated]
 
     def get_queryset(self):
-        return Rezept.objects.filter(user=self.request.user)
+        if self.request.user.is_authenticated:
+            # Eingeloggter User sieht nur seine eigenen Rezepte
+            return Rezept.objects.filter(user=self.request.user)
+        # Öffentlich: alle Rezepte
+        return Rezept.objects.all()
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def export_csv(self, request):
         """GET /rezepte/api/rezepte/export_csv/"""
         response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -43,7 +54,6 @@ class RezeptViewSet(viewsets.ModelViewSet):
         return response
 
 
-@login_required
 def index(request):
-    """Liefert die Rezepte-App (Under Construction bis React-Frontend fertig ist)."""
-    return render(request, 'recipes/index.html')
+    """Rezepte-Hauptseite — öffentlich lesbar."""
+    return render(request, 'recipes/app.html')
