@@ -8,6 +8,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # SQL Server: bestehenden Unique-Index explizit droppen bevor AlterField
+        migrations.RunSQL(
+            sql="IF EXISTS (SELECT name FROM sys.indexes WHERE name = 'homepage_blogpost_slug_ca3a29db') "
+                "DROP INDEX homepage_blogpost_slug_ca3a29db ON homepage_blogpost;",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.AlterField(
             model_name='blogpost',
             name='slug',
