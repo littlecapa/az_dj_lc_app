@@ -30,10 +30,6 @@ class RezeptViewSet(viewsets.ModelViewSet):
     permission_classes = [ReadPublicWriteAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_authenticated:
-            # Eingeloggter User sieht nur seine eigenen Rezepte
-            return Rezept.objects.filter(user=self.request.user)
-        # Öffentlich: alle Rezepte
         return Rezept.objects.all()
 
     def perform_create(self, serializer):
