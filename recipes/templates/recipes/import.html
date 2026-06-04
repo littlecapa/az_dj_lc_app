@@ -1,0 +1,159 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Rezepte importieren{% endblock %}
+
+{% block content %}
+<style>
+  .import-wrap   { max-width: 860px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+  .import-card   { background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 2rem; margin-bottom: 1.5rem; }
+  .import-card h2{ font-family: Georgia, serif; font-size: 1.4rem; font-weight: normal; margin-bottom: 1.25rem; color: #1c1917; }
+  .form-group    { margin-bottom: 1rem; }
+  label          { display: block; font-size: .82rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #44403c; margin-bottom: .35rem; }
+  input[type=file]{ width: 100%; padding: .5rem; border: 1px solid #d6d3d1; border-radius: 7px; background: #fafaf8; }
+  .dry-label     { display: flex; align-items: center; gap: .5rem; font-size: .92rem; color: #44403c; cursor: pointer; }
+  .dry-label input{ width: auto; }
+  .btn           { padding: .6rem 1.4rem; border: none; border-radius: 7px; font-size: .95rem; cursor: pointer; transition: opacity .15s; }
+  .btn:hover     { opacity: .85; }
+  .btn-primary   { background: #e7c547; color: #1c1917; font-weight: 700; }
+  .btn-import    { background: #1c1917; color: #fff; font-weight: 700; }
+  .alert         { padding: .75rem 1rem; border-radius: 7px; margin-bottom: 1rem; font-size: .9rem; }
+  .alert-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+  .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+  .alert-info    { background: #fef9e7; color: #92400e; border: 1px solid #e7c547; }
+  .preview-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  .preview-table th { background: #1c1917; color: #fafaf8; padding: .5rem .75rem; text-align: left; }
+  .preview-table td { padding: .45rem .75rem; border-bottom: 1px solid #f5f5f4; vertical-align: top; }
+  .preview-table tr:hover td { background: #fafaf8; }
+  .warn-badge    { background: #fef3c7; color: #92400e; border-radius: 4px; padding: .1rem .4rem; font-size: .75rem; }
+  .liebling-yes  { color: #e7c547; }
+  .stat-row      { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .stat          { text-align: center; }
+  .stat-num      { font-size: 2rem; font-weight: 800; color: #1c1917; line-height: 1; }
+  .stat-label    { font-size: .78rem; color: #78716c; text-transform: uppercase; }
+  .mapping-note  { font-size: .8rem; color: #78716c; background: #f5f5f4; border-radius: 6px; padding: .75rem 1rem; margin-bottom: 1rem; }
+</style>
+
+<div class="import-wrap">
+  <h1 style="font-family:Georgia,serif;font-weight:normal;margin-bottom:1.5rem">Rezepte importieren</h1>
+
+  {% for msg in messages %}
+    <div class="alert alert-error">{{ msg }}</div>
+  {% endfor %}
+
+  <!-- ── Upload-Formular ── -->
+  {% if not result %}
+  <div class="import-card">
+    <h2>Datei hochladen</h2>
+    <p style="color:#78716c;margin-bottom:1.25rem;font-size:.9rem">
+      Unterstützte Formate: <strong>.xlsx</strong> (Excel) und <strong>.csv</strong>.
+      Erwartet werden Spalten: Titel, Kategorie, Quelle, Zutaten, Bemerkung, Bewertung.
+    </p>
+
+    <div class="mapping-note">
+      ⚠️ <strong>Kategorie-Mapping:</strong>
+      Kartoffeln → Vegetarisch · Herzhaft → Snacks &amp; Dips
+      (laut Absprache — <a href="https://littlecapa.atlassian.net/wiki/spaces/MH/pages/776404993" target="_blank">Confluence</a>).
+      Unbekannte Kategorien werden ebenfalls auf Vegetarisch gesetzt.
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Excel- oder CSV-Datei</label>
+        <input type="file" name="rezept_file" accept=".xlsx,.xls,.csv" required>
+      </div>
+      <div class="form-group">
+        <label class="dry-label">
+          <input type="checkbox" name="dry_run" checked>
+          Dry Run — Vorschau anzeigen, nichts speichern
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary">Datei analysieren</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- ── Ergebnis / Vorschau ── -->
+  {% if result %}
+  <div class="import-card">
+    {% if result.dry_run %}
+      <div class="alert alert-info">
+        <strong>Dry Run — Vorschau.</strong>
+        Nichts wurde gespeichert. Prüfe die Daten unten und importiere dann ohne Dry Run.
+      </div>
+    {% else %}
+      <div class="alert alert-success">
+        ✅ Import abgeschlossen.
+      </div>
+    {% endif %}
+
+    <div class="stat-row">
+      <div class="stat"><div class="stat-num">{{ result.total }}</div><div class="stat-label">Gefunden</div></div>
+      <div class="stat"><div class="stat-num" style="color:#059669">{{ result.imported }}</div><div class="stat-label">{% if result.dry_run %}Bereit{% else %}Importiert{% endif %}</div></div>
+      <div class="stat"><div class="stat-num" style="color:#dc2626">{{ result.skipped }}</div><div class="stat-label">Übersprungen</div></div>
+      <div class="stat"><div class="stat-num" style="color:#e7c547">{% for r in result.rows %}{% if r.liebling %}1{% endif %}{% endfor %}</div><div class="stat-label">Lieblinge</div></div>
+    </div>
+
+    {% if result.errors %}
+    <div class="alert alert-error" style="margin-bottom:1rem">
+      <strong>Fehler:</strong>
+      <ul style="margin:.5rem 0 0 1rem">{% for e in result.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Vorschau-Tabelle -->
+  {% if result.rows %}
+  <div class="import-card">
+    <h2>Vorschau ({{ result.rows|length }} Rezepte)</h2>
+    <div style="overflow-x:auto">
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Titel</th><th>Kategorie</th><th>Quelle</th>
+            <th>Zutaten</th><th>Liebling</th><th>Hinweise</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in result.rows %}
+          <tr>
+            <td style="color:#a8a29e">{{ r.row_num }}</td>
+            <td><strong>{{ r.name }}</strong></td>
+            <td>{{ r.kategorie }}</td>
+            <td>{{ r.quelle }}{% if r.link %}<br><span style="font-size:.75rem;color:#78716c">{{ r.link|truncatechars:40 }}</span>{% endif %}</td>
+            <td>{{ r.zutaten|truncatechars:50 }}</td>
+            <td class="liebling-yes">{% if r.liebling %}⭐{% endif %}</td>
+            <td>{% for w in r.warnings %}<span class="warn-badge">{{ w }}</span><br>{% endfor %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Formular für echten Import -->
+  {% if result.dry_run and result.total > 0 %}
+  <div class="import-card">
+    <h2>Jetzt importieren</h2>
+    <p style="color:#78716c;font-size:.9rem;margin-bottom:1rem">
+      Alles sieht gut aus? Dann dieselbe Datei nochmal hochladen — diesmal ohne Dry Run.
+      Bestehende Rezepte mit gleichem Namen werden aktualisiert.
+    </p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Datei nochmal auswählen</label>
+        <input type="file" name="rezept_file" accept=".xlsx,.xls,.csv" required>
+      </div>
+      <!-- dry_run NICHT gesetzt → echter Import -->
+      <button type="submit" class="btn btn-import">⬆ Jetzt importieren</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <a href="{% url 'recipes:import' %}" style="color:#78716c;font-size:.88rem">← Neue Datei hochladen</a>
+  {% endif %}
+</div>
+{% endblock %}

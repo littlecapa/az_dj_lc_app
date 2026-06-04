@@ -1,13 +1,16 @@
 import csv
 import logging
 
-from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
+from django.contrib import messages
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 
 from .models import Rezept
 from .serializers import RezeptSerializer
+from .services.importer import parse_excel, parse_csv, do_import
 
 logger = logging.getLogger(__name__)
 
@@ -57,3 +60,35 @@ class RezeptViewSet(viewsets.ModelViewSet):
 def index(request):
     """Rezepte-Hauptseite — öffentlich lesbar."""
     return render(request, 'recipes/app.html')
+
+
+@login_required
+def import_view(request):
+    """Upload Excel/CSV → Vorschau → Import."""
+    result = None
+    rows   = None
+
+    if request.method == 'POST':
+        uploaded = request.FILES.get('rezept_file')
+        dry_run  = request.POST.get('dry_run') == 'on'
+
+        if not uploaded:
+            messages.error(request, 'Bitte eine Datei auswählen.')
+            return redirect('recipes:import')
+
+        fname = uploaded.name.lower()
+        try:
+            if fname.endswith('.xlsx') or fname.endswith('.xls'):
+                rows = parse_excel(uploaded)
+            elif fname.endswith('.csv'):
+                rows = parse_csv(uploaded)
+            else:
+                messages.error(request, 'Nur .xlsx und .csv Dateien werden unterstützt.')
+                return redirect('recipes:import')
+        except Exception as exc:
+            messages.error(request, f'Fehler beim Lesen der Datei: {exc}')
+            return redirect('recipes:import')
+
+        result = do_import(rows, user=request.user, dry_run=dry_run)
+
+    return render(request, 'recipes/import.html', {'result': result})
