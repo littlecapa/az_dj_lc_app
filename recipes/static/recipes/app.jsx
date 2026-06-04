@@ -30,9 +30,12 @@ const api = {
 /* ─── Konstanten ─── */
 const KATEGORIEN = [
   { key: 'fruehstueck', label: 'Frühstück' },
+  { key: 'vorspeisen',  label: 'Vorspeisen' },
   { key: 'suppen',      label: 'Suppen' },
   { key: 'vegetarisch', label: 'Vegetarisch' },
-  { key: 'fleisch',     label: 'Fleisch & Fisch' },
+  { key: 'fleisch',     label: 'Fleisch' },
+  { key: 'fisch',       label: 'Fisch & Meeresfrüchte' },
+  { key: 'kartoffeln',  label: 'Kartoffeln' },
   { key: 'pasta',       label: 'Pasta & Reis' },
   { key: 'backen',      label: 'Backen' },
   { key: 'dessert',     label: 'Desserts' },
@@ -43,7 +46,7 @@ const AUFWAND = ['niedrig', 'mittel', 'hoch'];
 const QUELLEN = ['OneNote', 'Chefkoch', 'Papier', 'Screenshot', 'Buch', 'Familie', 'Eigenes'];
 const SAISONS = ['Frühling', 'Sommer', 'Herbst', 'Winter', 'Ganzjährig'];
 
-const LEER = { id: null, name: '', kategorie: 'vegetarisch', aufwand: 'niedrig', zeit: '', saison: 'Ganzjährig', quelle: 'Eigenes', zutaten: '', notiz: '', link: '', liebling: false };
+const LEER = { id: null, name: '', kategorie: 'vegetarisch', aufwand: 'niedrig', saison: 'Ganzjährig', quelle: 'Eigenes', zutaten: '', notiz: '', link: '', liebling: false };
 const katLabel = k => KATEGORIEN.find(x => x.key === k)?.label || k;
 const katClass = k => `badge kat-${k || 'default'}`;
 
@@ -85,14 +88,14 @@ function App() {
 
   /* Aktionen */
   function oeffneNeu() { setFormular({ ...LEER }); setAnsicht('formular'); }
-  function oeffneBearbeiten(r) { setFormular({ ...r, zeit: r.zeit || '' }); setAnsicht('formular'); }
+  function oeffneBearbeiten(r) { setFormular({ ...r }); setAnsicht('formular'); }
 
   async function speichereFormular() {
     if (!formular.name.trim()) return;
     if (!CFG.isAuthenticated) { alert('Bitte einloggen um Rezepte zu speichern.'); return; }
     setSaving(true);
     try {
-      const payload = { ...formular, zeit: formular.zeit ? parseInt(formular.zeit) : null };
+      const payload = { ...formular };
       if (formular.id) {
         const updated = await api.update(formular.id, payload);
         setRezepte(prev => prev.map(r => r.id === updated.id ? updated : r));
@@ -166,7 +169,7 @@ function App() {
           <div className="detail-meta">
             <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
             <span className="chip">🔥 {r.aufwand}</span>
-            {r.zeit && <span className="chip">⏱ {r.zeit} Min</span>}
+            
             <span className="chip">🌿 {r.saison}</span>
             {r.quelle && <span className="badge badge-akzent">{r.quelle}</span>}
           </div>
@@ -180,7 +183,7 @@ function App() {
           )}
           {r.notiz && (
             <div className="detail-section">
-              <h3>Zubereitung & Notizen</h3>
+              <h3>Zubereitung</h3>
               <p className="notiz-text">{r.notiz}</p>
             </div>
           )}
@@ -208,12 +211,10 @@ function App() {
               <div className="form-group full"><label>Titel *</label><input type="text" value={formular.name} onChange={set('name')} placeholder="Rezeptname" /></div>
               <div className="form-group"><label>Kategorie</label><select className="form-select" value={formular.kategorie} onChange={set('kategorie')}>{KATEGORIEN.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}</select></div>
               <div className="form-group"><label>Aufwand</label><select className="form-select" value={formular.aufwand} onChange={set('aufwand')}>{AUFWAND.map(a => <option key={a}>{a}</option>)}</select></div>
-              <div className="form-group"><label>Zeit (Min)</label><input type="number" value={formular.zeit} onChange={set('zeit')} placeholder="30" min="0" /></div>
-              <div className="form-group"><label>Saison</label><select className="form-select" value={formular.saison} onChange={set('saison')}>{SAISONS.map(s => <option key={s}>{s}</option>)}</select></div>
               <div className="form-group"><label>Quelle</label><select className="form-select" value={formular.quelle} onChange={set('quelle')}>{QUELLEN.map(q => <option key={q}>{q}</option>)}</select></div>
               <div className="form-group"><label>Link (optional)</label><input type="url" value={formular.link} onChange={set('link')} placeholder="https://…" /></div>
               <div className="form-group full"><label>Zutaten (kommagetrennt)</label><input type="text" value={formular.zutaten} onChange={set('zutaten')} placeholder="Linsen, Karotten, Zwiebel, …" /></div>
-              <div className="form-group full"><label>Zubereitung & Notizen</label><textarea value={formular.notiz} onChange={set('notiz')} placeholder="Schritt-für-Schritt oder freie Notizen …" rows={5} /></div>
+              <div className="form-group full"><label>Zubereitung</label><textarea value={formular.notiz} onChange={set('notiz')} placeholder="Schritt-für-Schritt oder freie Notizen …" rows={5} /></div>
               <div className="form-group full"><label className="liebling-toggle"><input type="checkbox" checked={formular.liebling} onChange={set('liebling')} /> ⭐ Als Lieblingsrezept markieren</label></div>
             </div>
             <div className="form-actions">
@@ -275,7 +276,7 @@ function App() {
                     <div className="card-meta">
                       <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
                       <span className="chip">🔥 {r.aufwand}</span>
-                      {r.zeit && <span className="chip">⏱ {r.zeit} Min</span>}
+                      
                       <span className="chip">🌿 {r.saison}</span>
                     </div>
                   </div>

@@ -9,3 +9,8 @@ class RezeptAdmin(admin.ModelAdmin):
     search_fields = ('name', 'zutaten', 'quelle', 'notiz')
     list_editable = ('liebling',)
     ordering      = ('name',)
+    fieldsets     = (
+        (None, {'fields': ('name', 'kategorie', 'aufwand', 'saison', 'quelle', 'link', 'liebling')}),
+        ('Zutaten & Zubereitung', {'fields': ('zutaten', 'notiz')}),
+        ('Foto', {'fields': ('foto',), 'classes': ('collapse',)}),
+    )

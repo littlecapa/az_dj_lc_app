@@ -33,12 +33,20 @@ KATEGORIE_MAPPING: dict[str, str] = {
     'antipasti beilage':'vegetarisch',
     'antipasti':        'vegetarisch',
     'beilage':          'vegetarisch',
-    # Fleisch & Fisch
+    # Vorspeisen
+    'vorspeise':        'vorspeisen',
+    'vorspeisen':       'vorspeisen',
+    # Fleisch
     'fleisch':          'fleisch',
-    'fisch':            'fleisch',
     'fleisch & fisch':  'fleisch',
     'geflügel':         'fleisch',
     'geflugel':         'fleisch',
+    # Fisch & Meeresfrüchte
+    'fisch':            'fisch',
+    'meeresfrüchte':    'fisch',
+    'fisch & meeresfrüchte': 'fisch',
+    # Kartoffeln
+    'kartoffeln':       'kartoffeln',
     # Pasta & Reis
     'pasta':            'pasta',
     'pasta & reis':     'pasta',
@@ -63,8 +71,6 @@ KATEGORIE_MAPPING: dict[str, str] = {
     'herzhaft':         'snacks',
     'saucen dips':      'snacks',
     'saucen':           'snacks',
-    # Kartoffeln → vegetarisch (laut Sabines Vorgabe)
-    'kartoffeln':       'vegetarisch',
     # Getränke
     'getränke':         'getraenke',
     'getraenke':        'getraenke',
@@ -96,7 +102,8 @@ QUELLE_MAPPING: dict[str, str] = {
 
 GUELTIGE_QUELLEN = {'Chefkoch', 'OneNote', 'Papier', 'Buch', 'Familie', 'Eigenes', 'Screenshot'}
 GUELTIGE_KATEGORIEN = {
-    'fruehstueck', 'suppen', 'vegetarisch', 'fleisch',
+    'fruehstueck', 'vorspeisen', 'suppen', 'vegetarisch',
+    'fleisch', 'fisch', 'kartoffeln',
     'pasta', 'backen', 'dessert', 'snacks', 'getraenke',
 }
 
