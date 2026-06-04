@@ -35,6 +35,11 @@ class Rezept(models.Model):
     notiz      = models.TextField(blank=True, verbose_name='Zubereitung')
     link       = models.URLField(blank=True)
     liebling   = models.BooleanField(default=False)
+    foto_url   = models.URLField(
+        blank=True, null=True,
+        verbose_name='Foto-URL',
+        help_text='Direkter Bild-Link, z.B. Google Drive: https://drive.google.com/uc?id=FILE_ID'
+    )
     foto       = models.ImageField(upload_to='rezepte/', blank=True, null=True)
     erstellt   = models.DateTimeField(auto_now_add=True)
     geaendert  = models.DateTimeField(auto_now=True)

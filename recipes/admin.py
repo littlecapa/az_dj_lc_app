@@ -12,5 +12,5 @@ class RezeptAdmin(admin.ModelAdmin):
     fieldsets     = (
         (None, {'fields': ('name', 'kategorie', 'aufwand', 'saison', 'quelle', 'link', 'liebling')}),
         ('Zutaten & Zubereitung', {'fields': ('zutaten', 'notiz')}),
-        ('Foto', {'fields': ('foto',), 'classes': ('collapse',)}),
+        ('Foto', {'fields': ('foto_url', 'foto'), 'classes': ('collapse',)}),
     )

@@ -157,6 +157,11 @@ function App() {
         <Header onNeu={oeffneNeu} />
         <div className="rz-container">
           <button className="detail-back" onClick={() => setAnsicht('liste')}>← Zurück zur Liste</button>
+          {r.foto_url && (
+            <img src={r.foto_url} alt={r.name}
+              style={{ width: '100%', maxHeight: '320px', objectFit: 'cover', borderRadius: '10px', marginBottom: '1.25rem' }}
+              onError={e => e.target.style.display='none'} />
+          )}
           <div className="detail-header">
             <div className="detail-title">{r.liebling ? '⭐ ' : ''}{r.name}</div>
             {CFG.isAuthenticated && (
@@ -213,6 +218,7 @@ function App() {
               <div className="form-group"><label>Aufwand</label><select className="form-select" value={formular.aufwand} onChange={set('aufwand')}>{AUFWAND.map(a => <option key={a}>{a}</option>)}</select></div>
               <div className="form-group"><label>Quelle</label><select className="form-select" value={formular.quelle} onChange={set('quelle')}>{QUELLEN.map(q => <option key={q}>{q}</option>)}</select></div>
               <div className="form-group"><label>Link (optional)</label><input type="url" value={formular.link} onChange={set('link')} placeholder="https://…" /></div>
+              <div className="form-group"><label>Foto-URL (optional)</label><input type="url" value={formular.foto_url || ''} onChange={set('foto_url')} placeholder="https://drive.google.com/uc?id=…" /></div>
               <div className="form-group full"><label>Zutaten (kommagetrennt)</label><input type="text" value={formular.zutaten} onChange={set('zutaten')} placeholder="Linsen, Karotten, Zwiebel, …" /></div>
               <div className="form-group full"><label>Zubereitung</label><textarea value={formular.notiz} onChange={set('notiz')} placeholder="Schritt-für-Schritt oder freie Notizen …" rows={5} /></div>
               <div className="form-group full"><label className="liebling-toggle"><input type="checkbox" checked={formular.liebling} onChange={set('liebling')} /> ⭐ Als Lieblingsrezept markieren</label></div>
