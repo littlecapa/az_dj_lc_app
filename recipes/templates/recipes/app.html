@@ -15,36 +15,48 @@
   }
   header.rezepte-header h1 {
     font-family: Georgia, serif; font-size: 1.6rem; font-weight: normal; letter-spacing: 0.03em;
+    margin: 0;
   }
   header.rezepte-header h1 span { color: #e7c547; }
 
+  /* ── Buttons ── */
   .btn {
     display: inline-flex; align-items: center; gap: 0.4rem;
     padding: 0.5rem 1.1rem; border: none; border-radius: 6px;
     font-size: 0.9rem; cursor: pointer; transition: opacity 0.15s;
+    text-decoration: none;
   }
   .btn:hover { opacity: 0.85; }
-  .btn-primary  { background: #e7c547; color: #1c1917; font-weight: 600; }
-  .btn-ghost    { background: transparent; color: #fafaf8; border: 1px solid rgba(255,255,255,0.3); }
-  .btn-danger   { background: #ef4444; color: #fff; }
-  .btn-sm       { padding: 0.35rem 0.75rem; font-size: 0.82rem; }
-  .btn-cancel   { background: #f5f5f4; color: #44403c; border: 1px solid #d6d3d1; }
+  .btn-primary { background: #e7c547; color: #1c1917; font-weight: 700; }
+  .btn-danger  { background: #ef4444; color: #fff; }
+  .btn-sm      { padding: 0.35rem 0.75rem; font-size: 0.82rem; }
+  .btn-cancel  { background: #f5f5f4; color: #44403c; border: 1px solid #d6d3d1; }
+  .btn-outline { background: #f5f5f4; color: #44403c; border: 1px solid #d6d3d1; }
 
   /* ── Layout ── */
-  .container.rezepte { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+  .rz-container { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
 
   /* ── Toolbar ── */
   .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; }
   .search-wrap { position: relative; flex: 1; min-width: 200px; }
+  .search-wrap::before {
+    content: ""; position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+    background-size: contain; background-repeat: no-repeat;
+  }
   .search-wrap input {
-    width: 100%; padding: 0.55rem 0.85rem 0.55rem 2.2rem;
+    width: 100%; padding: 0.6rem 0.85rem 0.6rem 2.4rem;
     border: 1px solid #d6d3d1; border-radius: 8px;
     background: #fff; font-size: 0.92rem; color: #1c1917;
   }
   .search-wrap input:focus { outline: none; border-color: #e7c547; box-shadow: 0 0 0 2px #e7c54740; }
-  .search-icon { position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%); color: #78716c; pointer-events: none; }
-  select { padding: 0.55rem 0.75rem; border: 1px solid #d6d3d1; border-radius: 8px; background: #fff; font-size: 0.88rem; color: #1c1917; cursor: pointer; }
-  select:focus { outline: none; border-color: #e7c547; }
+
+  select.rz-select {
+    padding: 0.6rem 0.75rem; border: 1px solid #d6d3d1; border-radius: 8px;
+    background: #fff; font-size: 0.88rem; color: #1c1917; cursor: pointer;
+  }
+  select.rz-select:focus { outline: none; border-color: #e7c547; }
 
   .filter-row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 1rem; font-size: 0.85rem; color: #78716c; }
   .tag-btn { padding: 0.3rem 0.75rem; border-radius: 20px; border: 1px solid #d6d3d1; background: #fff; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; color: #44403c; }
@@ -52,32 +64,57 @@
   .tag-btn:hover:not(.active) { border-color: #a8a29e; }
   .count-bar { font-size: 0.82rem; color: #78716c; margin-bottom: 0.75rem; }
 
-  /* ── Karten ── */
-  .rezept-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  /* ── Karte ── */
+  .rezept-list { display: flex; flex-direction: column; gap: 0.6rem; }
   .rezept-card {
-    background: #fff; border: 1px solid #e7e5e4; border-radius: 10px;
-    padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 1rem;
-    cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s;
+    background: #fff; border: 1px solid #e7e5e4; border-radius: 12px;
+    padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1rem;
+    cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
   }
-  .rezept-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); border-color: #d6d3d1; }
-  .star { font-size: 1.2rem; line-height: 1; flex-shrink: 0; margin-top: 0.15rem; }
+  .rezept-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); border-color: #c5c3bf; transform: translateY(-1px); }
+  .star { font-size: 1.3rem; flex-shrink: 0; }
   .card-body { flex: 1; min-width: 0; }
-  .card-title { font-family: Georgia, serif; font-size: 1.05rem; color: #1c1917; margin-bottom: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; font-size: 0.78rem; color: #78716c; }
-  .card-actions { display: flex; gap: 0.4rem; flex-shrink: 0; align-items: center; }
-  .badge { background: #f5f5f4; border: 1px solid #e7e5e4; border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.75rem; }
-  .badge-akzent { background: #fef9e7; border-color: #e7c547; color: #92400e; }
+  .card-title {
+    font-family: Georgia, serif; font-size: 1.05rem; font-weight: normal;
+    color: #1c1917; margin-bottom: 0.4rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+  .card-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
   .empty-state { text-align: center; padding: 4rem 1rem; color: #78716c; font-family: Georgia, serif; font-size: 1.1rem; }
+
+  /* ── Kategorie-Badges (kräftige Lebensmittelfarben) ── */
+  .badge {
+    border-radius: 5px; padding: 0.2rem 0.55rem; font-size: 0.75rem;
+    font-weight: 600; display: inline-block; white-space: nowrap;
+  }
+  .kat-fruehstueck { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+  .kat-suppen      { background: #ffedd5; color: #9a3412; border: 1px solid #fb923c; }
+  .kat-vegetarisch { background: #dcfce7; color: #14532d; border: 1px solid #4ade80; }
+  .kat-fleisch     { background: #fee2e2; color: #7f1d1d; border: 1px solid #fca5a5; }
+  .kat-pasta       { background: #fef9c3; color: #713f12; border: 1px solid #facc15; }
+  .kat-backen      { background: #fdf4e7; color: #7c3f00; border: 1px solid #d97706; }
+  .kat-dessert     { background: #fce7f3; color: #831843; border: 1px solid #f472b6; }
+  .kat-snacks      { background: #e0f2fe; color: #0c4a6e; border: 1px solid #38bdf8; }
+  .kat-getraenke   { background: #dbeafe; color: #1e3a8a; border: 1px solid #60a5fa; }
+  .kat-default     { background: #f5f5f4; color: #44403c; border: 1px solid #d6d3d1; }
+
+  /* Zeit / Saison Chips */
+  .chip {
+    background: #f5f5f4; color: #78716c; border-radius: 20px;
+    padding: 0.2rem 0.6rem; font-size: 0.75rem; display: inline-flex;
+    align-items: center; gap: 0.2rem; white-space: nowrap;
+  }
 
   /* ── Detail ── */
   .detail-back { display: inline-flex; align-items: center; gap: 0.4rem; color: #78716c; font-size: 0.88rem; cursor: pointer; margin-bottom: 1.25rem; border: none; background: none; padding: 0; }
   .detail-back:hover { color: #1c1917; }
   .detail-header { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
   .detail-title { font-family: Georgia, serif; font-size: 2rem; font-weight: normal; color: #1c1917; flex: 1; }
-  .detail-meta { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .detail-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
   .detail-section { margin-bottom: 1.5rem; }
   .detail-section h3 { font-family: Georgia, serif; font-size: 1.1rem; font-weight: normal; color: #1c1917; border-bottom: 2px solid #e7c547; padding-bottom: 0.3rem; margin-bottom: 0.75rem; }
-  .zutaten-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+  .zutaten-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
   .zutaten-list li { padding: 0.35rem 0; border-bottom: 1px solid #f5f5f4; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; }
   .zutaten-list li::before { content: "·"; color: #e7c547; font-size: 1.4rem; line-height: 0; }
   .notiz-text { white-space: pre-wrap; line-height: 1.7; font-size: 0.95rem; color: #44403c; }
@@ -88,12 +125,14 @@
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
   .form-group.full { grid-column: 1 / -1; }
-  label { font-size: 0.82rem; font-weight: 600; color: #44403c; text-transform: uppercase; letter-spacing: 0.04em; }
-  input[type="text"], input[type="url"], input[type="number"], textarea, select.form-select {
+  .form-group label { font-size: 0.82rem; font-weight: 600; color: #44403c; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-group input, .form-group textarea, .form-group select {
     padding: 0.55rem 0.75rem; border: 1px solid #d6d3d1; border-radius: 7px;
     background: #fff; font-size: 0.92rem; color: #1c1917; font-family: inherit; width: 100%;
   }
-  input:focus, textarea:focus, select.form-select:focus { outline: none; border-color: #e7c547; box-shadow: 0 0 0 2px #e7c54740; }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    outline: none; border-color: #e7c547; box-shadow: 0 0 0 2px #e7c54740;
+  }
   textarea { resize: vertical; min-height: 90px; }
   .form-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e7e5e4; }
   .liebling-toggle { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.92rem; color: #44403c; user-select: none; }
@@ -103,6 +142,7 @@
     .form-grid { grid-template-columns: 1fr; }
     .form-group.full { grid-column: 1; }
     .detail-title { font-size: 1.4rem; }
+    header.rezepte-header { padding: 1rem; }
   }
 </style>
 

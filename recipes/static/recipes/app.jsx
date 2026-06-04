@@ -45,6 +45,7 @@ const SAISONS = ['Frühling', 'Sommer', 'Herbst', 'Winter', 'Ganzjährig'];
 
 const LEER = { id: null, name: '', kategorie: 'vegetarisch', aufwand: 'niedrig', zeit: '', saison: 'Ganzjährig', quelle: 'Eigenes', zutaten: '', notiz: '', link: '', liebling: false };
 const katLabel = k => KATEGORIEN.find(x => x.key === k)?.label || k;
+const katClass = k => `badge kat-${k || 'default'}`;
 
 /* ─── App ─── */
 function App() {
@@ -132,7 +133,7 @@ function App() {
   if (laden) return (
     <>
       <Header onNeu={oeffneNeu} />
-      <div className="container" style={{ textAlign: 'center', padding: '4rem', color: '#78716c', fontFamily: 'Georgia, serif' }}>
+      <div className="rz-container" style={{ textAlign: 'center', padding: '4rem', color: '#78716c', fontFamily: 'Georgia, serif' }}>
         Rezepte werden geladen …
       </div>
     </>
@@ -141,7 +142,7 @@ function App() {
   if (fehler) return (
     <>
       <Header onNeu={oeffneNeu} />
-      <div className="container" style={{ textAlign: 'center', padding: '4rem', color: '#ef4444' }}>{fehler}</div>
+      <div className="rz-container" style={{ textAlign: 'center', padding: '4rem', color: '#ef4444' }}>{fehler}</div>
     </>
   );
 
@@ -151,7 +152,7 @@ function App() {
     return (
       <>
         <Header onNeu={oeffneNeu} />
-        <div className="container">
+        <div className="rz-container">
           <button className="detail-back" onClick={() => setAnsicht('liste')}>← Zurück zur Liste</button>
           <div className="detail-header">
             <div className="detail-title">{r.liebling ? '⭐ ' : ''}{r.name}</div>
@@ -163,10 +164,10 @@ function App() {
             )}
           </div>
           <div className="detail-meta">
-            <span className="badge">{katLabel(r.kategorie)}</span>
-            <span className="badge">Aufwand: {r.aufwand}</span>
-            {r.zeit && <span className="badge">⏱ {r.zeit} Min</span>}
-            <span className="badge">{r.saison}</span>
+            <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
+            <span className="chip">🔥 {r.aufwand}</span>
+            {r.zeit && <span className="chip">⏱ {r.zeit} Min</span>}
+            <span className="chip">🌿 {r.saison}</span>
             {r.quelle && <span className="badge badge-akzent">{r.quelle}</span>}
           </div>
           {r.zutaten && (
@@ -200,7 +201,7 @@ function App() {
     return (
       <>
         <Header onNeu={oeffneNeu} />
-        <div className="container">
+        <div className="rz-container">
           <div className="modal" style={{ maxWidth: '660px', margin: '0 auto' }}>
             <h2>{formular.id ? 'Rezept bearbeiten' : 'Neues Rezept'}</h2>
             <div className="form-grid">
@@ -229,13 +230,13 @@ function App() {
   return (
     <>
       <Header onNeu={oeffneNeu} />
-      <div className="container">
+      <div className="rz-container">
         <div className="toolbar">
           <div className="search-wrap">
             <span className="search-icon">🔍</span>
             <input type="text" placeholder="Rezept oder Zutat suchen …" value={suche} onChange={e => setSuche(e.target.value)} />
           </div>
-          <select value={sortierung} onChange={e => setSort(e.target.value)}>
+          <select className="rz-select" value={sortierung} onChange={e => setSort(e.target.value)}>
             <option value="name">A – Z</option>
             <option value="datum">Neueste zuerst</option>
           </select>
@@ -246,15 +247,15 @@ function App() {
         <div className="filter-row">
           <span>Filter:</span>
           <button className={`tag-btn ${nurLiebling ? 'active' : ''}`} onClick={() => setNurL(v => !v)}>⭐ Lieblinge</button>
-          <select value={katFilter} onChange={e => setKat(e.target.value)} style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem' }}>
+          <select className="rz-select" value={katFilter} onChange={e => setKat(e.target.value)} style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem' }}>
             <option value="">Alle Kategorien</option>
             {KATEGORIEN.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
           </select>
-          <select value={aufwandF} onChange={e => setAufwand(e.target.value)} style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem' }}>
+          <select className="rz-select" value={aufwandF} onChange={e => setAufwand(e.target.value)} style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem' }}>
             <option value="">Alle Aufwände</option>
             {AUFWAND.map(a => <option key={a}>{a}</option>)}
           </select>
-          <select value={saisonF} onChange={e => setSaison(e.target.value)} style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem' }}>
+          <select className="rz-select" value={saisonF} onChange={e => setSaison(e.target.value)} style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem' }}>
             <option value="">Alle Saisons</option>
             {SAISONS.map(s => <option key={s}>{s}</option>)}
           </select>
@@ -272,10 +273,10 @@ function App() {
                   <div className="card-body">
                     <div className="card-title">{r.name}</div>
                     <div className="card-meta">
-                      <span className="badge">{katLabel(r.kategorie)}</span>
-                      <span className="badge">Aufwand: {r.aufwand}</span>
-                      {r.zeit && <span>⏱ {r.zeit} Min</span>}
-                      <span className="badge">{r.saison}</span>
+                      <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
+                      <span className="chip">🔥 {r.aufwand}</span>
+                      {r.zeit && <span className="chip">⏱ {r.zeit} Min</span>}
+                      <span className="chip">🌿 {r.saison}</span>
                     </div>
                   </div>
                   {CFG.isAuthenticated && (
@@ -295,7 +296,7 @@ function App() {
 
 function Header({ onNeu }) {
   return (
-    <header>
+    <header className="rezepte-header">
       <h1>Meine <span>Rezepte</span></h1>
       {CFG.isAuthenticated && (
         <button className="btn btn-primary" onClick={onNeu}>+ Neues Rezept</button>
