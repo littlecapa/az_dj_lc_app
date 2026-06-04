@@ -19,51 +19,79 @@ logger = logging.getLogger(__name__)
 # ── Kategorie-Mapping ──────────────────────────────────────────────────────
 # Excel-Kategorie (lowercase) → App-Kategorie-Key
 KATEGORIE_MAPPING: dict[str, str] = {
-    'frühstück':      'fruehstueck',
-    'fruehstueck':    'fruehstueck',
-    'suppe':          'suppen',
-    'suppen':         'suppen',
-    'vegetarisch':    'vegetarisch',
-    'vegi':           'vegetarisch',
-    'fleisch':        'fleisch',
-    'fisch':          'fleisch',
-    'fleisch & fisch':'fleisch',
-    'geflügel':       'fleisch',
-    'geflugel':       'fleisch',
-    'pasta':          'pasta',
-    'pasta & reis':   'pasta',
-    'reis':           'pasta',
-    'nudeln':         'pasta',
-    'kartoffeln':     'vegetarisch',   # ⚠️ ambiguous – im Protokoll als vegetarisch gewählt
-    'backen':         'backen',
-    'gebäck':         'backen',
-    'gebaeck':        'backen',
-    'kuchen':         'backen',
-    'dessert':        'dessert',
-    'desserts':       'dessert',
-    'nachtisch':      'dessert',
-    'snacks':         'snacks',
-    'snacks & dips':  'snacks',
-    'dips':           'snacks',
-    'herzhaft':       'snacks',        # ⚠️ ambiguous – im Protokoll als snacks gewählt
-    'getränke':       'getraenke',
-    'getraenke':      'getraenke',
-    'getränk':        'getraenke',
+    # Frühstück
+    'frühstück':        'fruehstueck',
+    'fruehstueck':      'fruehstueck',
+    # Suppen
+    'suppe':            'suppen',
+    'suppen':           'suppen',
+    # Vegetarisch
+    'vegetarisch':      'vegetarisch',
+    'vegi':             'vegetarisch',
+    'salat':            'vegetarisch',
+    'gemüse':           'vegetarisch',
+    'antipasti beilage':'vegetarisch',
+    'antipasti':        'vegetarisch',
+    'beilage':          'vegetarisch',
+    # Fleisch & Fisch
+    'fleisch':          'fleisch',
+    'fisch':            'fleisch',
+    'fleisch & fisch':  'fleisch',
+    'geflügel':         'fleisch',
+    'geflugel':         'fleisch',
+    # Pasta & Reis
+    'pasta':            'pasta',
+    'pasta & reis':     'pasta',
+    'reis':             'pasta',
+    'nudeln':           'pasta',
+    # Backen
+    'backen':           'backen',
+    'gebäck':           'backen',
+    'gebaeck':          'backen',
+    'kuchen':           'backen',
+    'brot':             'backen',
+    'brötchen':         'backen',
+    'kleingebäck':      'backen',
+    # Desserts
+    'dessert':          'dessert',
+    'desserts':         'dessert',
+    'nachtisch':        'dessert',
+    # Snacks & Dips
+    'snacks':           'snacks',
+    'snacks & dips':    'snacks',
+    'dips':             'snacks',
+    'herzhaft':         'snacks',
+    'saucen dips':      'snacks',
+    'saucen':           'snacks',
+    # Kartoffeln → vegetarisch (laut Sabines Vorgabe)
+    'kartoffeln':       'vegetarisch',
+    # Getränke
+    'getränke':         'getraenke',
+    'getraenke':        'getraenke',
+    'getränk':          'getraenke',
 }
 
 # ── Quelle-Mapping ────────────────────────────────────────────────────────
 QUELLE_MAPPING: dict[str, str] = {
-    'ck':         'Chefkoch',
-    'chefkoch':   'Chefkoch',
-    'ow':         'OneNote',
-    'one note':   'OneNote',
-    'onenote':    'OneNote',
-    'papier':     'Papier',
-    'buch':       'Buch',
-    'familie':    'Familie',
-    'eigenes':    'Eigenes',
-    'eigene':     'Eigenes',
-    'screenshot': 'Screenshot',
+    'ck':           'Chefkoch',
+    'chefkoch':     'Chefkoch',
+    'ow':           'OneNote',
+    'one note':     'OneNote',
+    'onenote':      'OneNote',
+    'papier':       'Papier',
+    'buch':         'Buch',
+    'familie':      'Familie',
+    'eigenes':      'Eigenes',
+    'eigene':       'Eigenes',
+    'screenshot':   'Screenshot',
+    # Bekannte Personen/Bücher aus Sabines Excel → Familie oder Buch
+    'trudel':       'Familie',
+    'thai-kb gu':   'Buch',
+    'gu':           'Buch',
+    'silberlöffel': 'Buch',
+    'jörg hecker':  'Buch',
+    'oliver welling':'Buch',
+    'organizeat':   'Eigenes',
 }
 
 GUELTIGE_QUELLEN = {'Chefkoch', 'OneNote', 'Papier', 'Buch', 'Familie', 'Eigenes', 'Screenshot'}
@@ -231,7 +259,7 @@ def parse_excel(file_obj) -> list[RezeptRow]:
 
 
 def parse_csv(file_obj) -> list[RezeptRow]:
-    """Liest eine .csv-Datei (UTF-8 oder Latin-1)."""
+    """Liest eine .csv-Datei (UTF-8 oder Latin-1, Komma oder Semikolon)."""
     import csv, io
     raw = file_obj.read()
     for enc in ('utf-8-sig', 'utf-8', 'latin-1'):
@@ -243,7 +271,11 @@ def parse_csv(file_obj) -> list[RezeptRow]:
     else:
         text = raw.decode('latin-1', errors='replace')
 
-    reader = csv.DictReader(io.StringIO(text))
+    # Trennzeichen automatisch erkennen (Semikolon häufig bei deutschem Excel)
+    first_line = text.split('\n')[0]
+    delimiter = ';' if first_line.count(';') > first_line.count(',') else ','
+
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
     result = []
     for i, row in enumerate(reader, start=2):
         row_lower = {k.strip().lower(): v for k, v in row.items() if k}
