@@ -106,6 +106,8 @@ if 'CODESPACE_NAME' in os.environ:
     CSRF_TRUSTED_ORIGINS = [f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}']
 else:
     CSRF_TRUSTED_ORIGINS = [
+    'https://littlecapa.com',
+    'https://www.littlecapa.com',
     'http://localhost:8864',
     'http://127.0.0.1:8864',
     'http://0.0.0.0:8864',
