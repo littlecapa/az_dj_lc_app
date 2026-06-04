@@ -1,8 +1,19 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
-app_name = "recipes"
+from .views import RezeptViewSet, index
+
+router = DefaultRouter()
+router.register(r'rezepte', RezeptViewSet, basename='rezept')
+
+app_name = 'recipes'
 
 urlpatterns = [
-    path("", views.index, name="index"),
+    path('',     index,              name='index'),   # /rezepte/
+    path('api/', include(router.urls)),               # /rezepte/api/rezepte/
 ]
+
+# Generierte API-Endpunkte:
+#   GET  /POST          /rezepte/api/rezepte/
+#   GET  /PATCH/DELETE  /rezepte/api/rezepte/{id}/
+#   GET                 /rezepte/api/rezepte/export_csv/

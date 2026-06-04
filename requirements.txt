@@ -1,4 +1,6 @@
 asgiref==3.10.0
+django-cors-headers==4.7.0
+Pillow==11.2.1
 async-timeout==5.0.1
 azure-core==1.38.1
 azure-identity==1.25.2
