@@ -1,0 +1,165 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}{{ label }} – Portfolio{% endblock %}
+
+{% block content %}
+<style>
+    .perf-positive { color: #198754; font-weight: 600; }
+    .perf-negative { color: #dc3545; font-weight: 600; }
+    .perf-neutral  { color: #aaa; }
+    .rank-badge {
+        width: 28px; height: 28px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: .75rem; font-weight: 700; flex-shrink: 0;
+    }
+    .rank-1 { background: #ffd700; color: #333; }
+    .rank-2 { background: #c0c0c0; color: #333; }
+    .rank-3 { background: #cd7f32; color: #fff; }
+    .rank-n { background: #e9ecef; color: #555; }
+    th { white-space: nowrap; }
+    .badge-free { background: #d1fae5; color: #065f46; font-size:.7rem; }
+    .badge-hold { background: #fef3c7; color: #92400e; font-size:.7rem; }
+</style>
+
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'fintech:portfolio-performance' %}">Portfolio Performance</a>
+            </li>
+            <li class="breadcrumb-item active">{{ label }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <div class="d-flex align-items-baseline gap-3">
+            <h2 class="mb-0">{{ label }}</h2>
+            <span class="text-muted small">{{ rows|length }} Position{{ rows|length|pluralize:"en" }}</span>
+        </div>
+        <div class="d-flex gap-2">
+            {% if prev_slug %}
+            <a href="{% url 'fintech:portfolio-category-detail' prev_slug %}"
+               class="btn btn-outline-secondary btn-sm" title="{{ prev_label }}">
+                &laquo; {{ prev_label }}
+            </a>
+            {% else %}
+            <button class="btn btn-outline-secondary btn-sm" disabled>&laquo;</button>
+            {% endif %}
+            {% if next_slug %}
+            <a href="{% url 'fintech:portfolio-category-detail' next_slug %}"
+               class="btn btn-outline-secondary btn-sm" title="{{ next_label }}">
+                {{ next_label }} &raquo;
+            </a>
+            {% else %}
+            <button class="btn btn-outline-secondary btn-sm" disabled>&raquo;</button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if simple_total is not None %}
+    <div class="d-flex gap-4 mb-4 flex-wrap">
+        <div>
+            <span class="text-muted small">Investiert</span>
+            <span class="ms-2 fw-semibold">{{ total_inv|floatformat:0 }} €</span>
+        </div>
+        <div>
+            <span class="text-muted small">Aktuell</span>
+            <span class="ms-2 fw-semibold">{{ total_cur|floatformat:0 }} €</span>
+        </div>
+        <div>
+            <span class="text-muted small">G/V</span>
+            <span class="ms-2 fw-semibold {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                {% if gain_total >= 0 %}+{% endif %}{{ gain_total|floatformat:0 }} €
+                &nbsp;({% if simple_total >= 0 %}+{% endif %}{{ simple_total|floatformat:1 }} %)
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not rows %}
+        <p class="text-muted">Keine Einträge in dieser Kategorie.</p>
+    {% else %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Name / ISIN</th>
+                    <th class="text-end">Menge</th>
+                    <th class="text-end">Einstand</th>
+                    <th class="text-end">Aktuell</th>
+                    <th class="text-end">Investiert</th>
+                    <th class="text-end">Aktueller Wert</th>
+                    <th class="text-end">G/V €</th>
+                    <th class="text-end">G/V %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>
+                        <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="fw-semibold">
+                            {{ row.name }}
+                            {% if row.stake_recovered %}
+                                <span class="badge badge-free ms-1">free</span>
+                            {% endif %}
+                            {% if row.not_for_sale %}
+                                <span class="badge badge-hold ms-1">hold</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-muted" style="font-size:.78rem">
+                            {{ row.isin }} &middot; {{ row.asset_class }}
+                        </div>
+                    </td>
+                    <td class="text-end" style="font-size:.88rem">{{ row.quantity|floatformat:2 }}</td>
+                    <td class="text-end">
+                        {% if row.avg_price %}{{ row.avg_price|floatformat:2 }} €
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.current_price %}{{ row.current_price|floatformat:2 }} €
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                    <td class="text-end">{{ row.invested|floatformat:0 }} €</td>
+                    <td class="text-end">{{ row.current|floatformat:0 }} €</td>
+                    <td class="text-end">
+                        {% if row.gain_abs is not None %}
+                        <span class="{% if row.gain_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.gain_abs >= 0 %}+{% endif %}{{ row.gain_abs|floatformat:0 }} €
+                        </span>
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.simple is not None %}
+                        <span class="{% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.simple >= 0 %}+{% endif %}{{ row.simple|floatformat:1 }} %
+                        </span>
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="table-light fw-bold">
+                <tr>
+                    <td colspan="5" class="text-end text-muted">Gesamt</td>
+                    <td class="text-end">{{ total_inv|floatformat:0 }} €</td>
+                    <td class="text-end">{{ total_cur|floatformat:0 }} €</td>
+                    <td class="text-end {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                        {% if gain_total >= 0 %}+{% endif %}{{ gain_total|floatformat:0 }} €
+                    </td>
+                    <td class="text-end {% if simple_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                        {% if simple_total >= 0 %}+{% endif %}{{ simple_total|floatformat:1 }} %
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

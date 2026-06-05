@@ -6,7 +6,10 @@ from django.conf import settings
 from django.db.models import F, ExpressionWrapper, DecimalField
 from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
-from .models import WatchlistEntry, Watchlist, Asset
+from .models import WatchlistEntry, Watchlist, Asset, Holdings
+from .models_helper.category_class import CategoryClass
+from django.utils.text import slugify
+from django.http import Http404
 import json
 from decimal import Decimal, InvalidOperation
 from .apis.services.csv_import import import_transactions
@@ -344,6 +347,157 @@ def watchlist_performance(request):
 
     rows.sort(key=lambda r: r["annualized"] if r["annualized"] is not None else Decimal("-999"), reverse=True)
     return render(request, "fintech/watchlist_performance.html", {"rows": rows})
+
+
+# ---------------------------------------------------------------------------
+# Portfolio Performance (nach Kategorie)
+# ---------------------------------------------------------------------------
+
+# Slug ↔ Kategorie-ID Mapping (nur neue Kategorien 20–37)
+_NEW_CATEGORIES = [v for v, _ in CategoryClass.choices if v >= 20]
+_SLUG_TO_ID  = {slugify(CategoryClass(v).label): v for v in _NEW_CATEGORIES}
+_ID_TO_SLUG  = {v: slugify(CategoryClass(v).label) for v in _NEW_CATEGORIES}
+# Alphabetisch sortierte Liste für Prev/Next
+_SORTED_SLUGS = sorted(_SLUG_TO_ID.keys())
+
+
+@login_required
+def portfolio_performance(request):
+    """Übersicht: alle neuen Kategorien (20–37) mit Performance."""
+    holdings = (
+        Holdings.objects
+        .select_related('asset')
+        .filter(category__gte=20)          # nur neue Kategorien
+        .order_by('category', 'asset__name')
+    )
+
+    # Kategorie-Label-Map
+    cat_labels = {v: label for v, label in CategoryClass.choices}
+
+    # Gruppieren
+    groups = {}
+    for h in holdings:
+        cat = h.category
+        if cat not in groups:
+            groups[cat] = {
+                'category':       cat,
+                'label':          cat_labels.get(cat, str(cat)),
+                'holdings':       [],
+                'total_invested': Decimal('0'),
+                'total_current':  Decimal('0'),
+            }
+        g = groups[cat]
+        g['holdings'].append(h)
+
+        invested = (h.average_purchase_price or Decimal('0')) * h.quantity
+        current  = (h.asset.current_price or Decimal('0')) * h.quantity
+
+        g['total_invested'] += invested
+        g['total_current']  += current
+
+    # Kennzahlen berechnen
+    rows = []
+    for g in groups.values():
+        inv = g['total_invested']
+        cur = g['total_current']
+        if inv > 0:
+            simple    = (cur / inv - 1) * 100
+            gain_abs  = cur - inv
+        else:
+            simple   = None
+            gain_abs = None
+
+        rows.append({
+            'category':       g['category'],
+            'slug':           _ID_TO_SLUG.get(g['category'], str(g['category'])),
+            'label':          g['label'],
+            'count':          len(g['holdings']),
+            'total_invested': inv,
+            'total_current':  cur,
+            'gain_abs':       gain_abs,
+            'simple':         simple,
+        })
+
+    rows.sort(key=lambda r: r['simple'] if r['simple'] is not None else Decimal('-999'), reverse=True)
+
+    total_inv = sum(r['total_invested'] for r in rows)
+    total_cur = sum(r['total_current']  for r in rows)
+
+    return render(request, 'fintech/portfolio_performance.html', {
+        'rows':      rows,
+        'total_inv': total_inv,
+        'total_cur': total_cur,
+        'gain_total': total_cur - total_inv,
+        'simple_total': (total_cur / total_inv - 1) * 100 if total_inv else None,
+    })
+
+
+@login_required
+def portfolio_category_detail(request, category_slug):
+    """Drill-down: alle Holdings einer Kategorie (per Slug)."""
+    category_id = _SLUG_TO_ID.get(category_slug)
+    if category_id is None:
+        raise Http404(f"Kategorie '{category_slug}' nicht gefunden.")
+
+    label = CategoryClass(category_id).label
+
+    # Prev / Next (alphabetisch)
+    idx = _SORTED_SLUGS.index(category_slug)
+    prev_slug = _SORTED_SLUGS[idx - 1] if idx > 0 else None
+    next_slug = _SORTED_SLUGS[idx + 1] if idx < len(_SORTED_SLUGS) - 1 else None
+
+    holdings = (
+        Holdings.objects
+        .select_related('asset')
+        .filter(category=category_id)
+        .order_by('asset__name')
+    )
+
+    rows = []
+    for h in holdings:
+        invested  = (h.average_purchase_price or Decimal('0')) * h.quantity
+        cur_price = h.asset.current_price or Decimal('0')
+        current   = cur_price * h.quantity
+        if invested > 0:
+            simple   = (current / invested - 1) * 100
+            gain_abs = current - invested
+        else:
+            simple   = None
+            gain_abs = None
+
+        rows.append({
+            'name':          h.asset.name,
+            'isin':          h.asset.isin,
+            'asset_class':   h.asset.asset_class,
+            'quantity':      h.quantity,
+            'avg_price':     h.average_purchase_price,
+            'current_price': h.asset.current_price,
+            'invested':      invested,
+            'current':       current,
+            'gain_abs':      gain_abs,
+            'simple':        simple,
+            'not_for_sale':  h.not_for_sale,
+            'stake_recovered': h.stake_recovered,
+        })
+
+    rows.sort(key=lambda r: r['simple'] if r['simple'] is not None else Decimal('-999'), reverse=True)
+
+    total_inv = sum(r['invested'] for r in rows)
+    total_cur = sum(r['current']  for r in rows)
+
+    return render(request, 'fintech/portfolio_category_detail.html', {
+        'label':        label,
+        'category_slug': category_slug,
+        'rows':          rows,
+        'total_inv':     total_inv,
+        'total_cur':     total_cur,
+        'gain_total':    total_cur - total_inv,
+        'simple_total':  (total_cur / total_inv - 1) * 100 if total_inv else None,
+        'prev_slug':     prev_slug,
+        'next_slug':     next_slug,
+        'prev_label':    CategoryClass(_SLUG_TO_ID[prev_slug]).label if prev_slug else None,
+        'next_label':    CategoryClass(_SLUG_TO_ID[next_slug]).label if next_slug else None,
+    })
 
 
 @login_required

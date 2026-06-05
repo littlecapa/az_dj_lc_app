@@ -1,0 +1,117 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Portfolio Performance{% endblock %}
+
+{% block content %}
+<style>
+    .perf-positive { color: #198754; font-weight: 600; }
+    .perf-negative { color: #dc3545; font-weight: 600; }
+    .perf-neutral  { color: #6c757d; }
+    .cat-card {
+        border: 1px solid #e3e6ea;
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
+        background: #fff;
+        margin-bottom: 1rem;
+        transition: box-shadow .15s;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+    .cat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); border-color: #ced4da; color: inherit; }
+    .cat-name { font-size: 1.05rem; font-weight: 700; }
+    .cat-count { font-size: .82rem; color: #6c757d; }
+    .big-perf { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+    .label-small { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #aaa; }
+    .summary-bar {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e3e6ea;
+    }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex align-items-center mb-3 gap-3 flex-wrap">
+        <h2 class="mb-0">Portfolio Performance</h2>
+        <span class="text-muted small">nach Kategorie · reale Einstandspreise</span>
+    </div>
+
+    {% if simple_total is not None %}
+    <div class="summary-bar">
+        <div class="row text-center g-0">
+            <div class="col-6 col-md-3">
+                <div class="label-small">Investiert</div>
+                <div class="fw-bold">{{ total_inv|floatformat:0 }} €</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Aktuell</div>
+                <div class="fw-bold">{{ total_cur|floatformat:0 }} €</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Gewinn / Verlust</div>
+                <div class="fw-bold {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {% if gain_total >= 0 %}+{% endif %}{{ gain_total|floatformat:0 }} €
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Gesamt</div>
+                <div class="fw-bold {% if simple_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {% if simple_total >= 0 %}+{% endif %}{{ simple_total|floatformat:1 }} %
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not rows %}
+        <p class="text-muted">Keine Holdings mit neuen Kategorien gefunden.</p>
+    {% else %}
+    <div class="row g-3">
+        {% for row in rows %}
+        <div class="col-md-6 col-lg-3">
+            <a href="{% url 'fintech:portfolio-category-detail' row.slug %}" class="cat-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="cat-name">{{ row.label }}</div>
+                        <div class="cat-count mt-1">{{ row.count }} Position{{ row.count|pluralize:"en" }}</div>
+                    </div>
+                    {% if row.simple is not None %}
+                    <div class="text-end">
+                        <div class="big-perf {% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.simple >= 0 %}+{% endif %}{{ row.simple|floatformat:1 }} %
+                        </div>
+                        <div class="label-small">gesamt</div>
+                    </div>
+                    {% else %}
+                    <div class="perf-neutral">–</div>
+                    {% endif %}
+                </div>
+
+                {% if row.total_invested > 0 %}
+                <div class="mt-3 row text-center g-0">
+                    <div class="col">
+                        <div class="label-small">Investiert</div>
+                        <div style="font-size:.85rem">{{ row.total_invested|floatformat:0 }} €</div>
+                    </div>
+                    <div class="col">
+                        <div class="label-small">Aktuell</div>
+                        <div style="font-size:.85rem">{{ row.total_current|floatformat:0 }} €</div>
+                    </div>
+                    <div class="col">
+                        <div class="label-small">G/V</div>
+                        <div style="font-size:.85rem" class="{% if row.gain_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.gain_abs >= 0 %}+{% endif %}{{ row.gain_abs|floatformat:0 }} €
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
