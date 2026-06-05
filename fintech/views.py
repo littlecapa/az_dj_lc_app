@@ -37,6 +37,110 @@ def _is_api_key_valid(request) -> bool:
     return request.headers.get("X-Api-Key", "") == api_key
 
 @login_required
+def portfolio_overall(request):
+    """Alle Holdings, sortiert nach Gesamtperformance. Inkl. CSV-Export."""
+    import csv
+    from django.http import HttpResponse
+
+    today = timezone.now().date()
+    yesterday_sq = Price.objects.filter(
+        asset=OuterRef('asset_id'),
+        timestamp__date__lt=today,
+    ).order_by('-timestamp').values('current_price')[:1]
+
+    holdings = (
+        Holdings.objects
+        .select_related('asset')
+        .filter(category__gte=20)
+        .annotate(yesterday_price=Subquery(
+            yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)
+        ))
+        .order_by('asset__name')
+    )
+
+    rows = []
+    for h in holdings:
+        invested   = (h.average_purchase_price or Decimal('0')) * h.quantity
+        cur_price  = h.asset.current_price or Decimal('0')
+        yest_price = getattr(h, 'yesterday_price', None) or Decimal('0')
+        current    = cur_price  * h.quantity
+        yesterday  = yest_price * h.quantity
+
+        simple   = (current / invested  - 1) * 100 if invested  > 0 else None
+        gain_abs = current - invested              if invested  > 0 else None
+        day_perc = (current / yesterday - 1) * 100 if yesterday > 0 else None
+        day_abs  = current - yesterday             if yesterday > 0 else None
+
+        cat_label = CategoryClass(h.category).label if h.category else '–'
+
+        rows.append({
+            'holdings_id':    h.pk,
+            'asset_id':       h.asset.pk,
+            'name':           h.asset.name,
+            'isin':           h.asset.isin,
+            'symbol':         h.asset.symbol or '',
+            'logo':           h.asset.logo or '',
+            'asset_class':    h.asset.asset_class,
+            'category':       cat_label,
+            'quantity':       h.quantity,
+            'avg_price':      h.average_purchase_price,
+            'current_price':  h.asset.current_price,
+            'yesterday_price': yest_price if yest_price else None,
+            'invested':       invested,
+            'current':        current,
+            'gain_abs':       gain_abs,
+            'simple':         simple,
+            'day_perc':       day_perc,
+            'day_abs':        day_abs,
+            'not_for_sale':   h.not_for_sale,
+            'stake_recovered': h.stake_recovered,
+        })
+
+    # CSV-Export
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="portfolio_overall.csv"'
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow(['Name', 'ISIN', 'Kategorie', 'Asset Class', 'Menge',
+                         'Einstand €', 'Aktuell €', 'Investiert €', 'Wert €',
+                         'G/V €', 'G/V %', 'Tag €', 'Tag %'])
+        for r in sorted(rows, key=lambda x: x['simple'] if x['simple'] else Decimal('-999'), reverse=True):
+            writer.writerow([
+                r['name'], r['isin'], r['category'], r['asset_class'],
+                str(r['quantity']).replace('.', ','),
+                str(r['avg_price'] or '').replace('.', ','),
+                str(r['current_price'] or '').replace('.', ','),
+                str(r['invested']).replace('.', ','),
+                str(r['current']).replace('.', ','),
+                str(r['gain_abs'] or '').replace('.', ','),
+                f"{r['simple']:.2f}".replace('.', ',') if r['simple'] is not None else '',
+                str(r['day_abs'] or '').replace('.', ','),
+                f"{r['day_perc']:.2f}".replace('.', ',') if r['day_perc'] is not None else '',
+            ])
+        return response
+
+    rows.sort(key=lambda r: r['simple'] if r['simple'] is not None else Decimal('-999'), reverse=True)
+
+    total_inv  = sum(r['invested'] for r in rows)
+    total_cur  = sum(r['current']  for r in rows)
+    total_yest = sum(r['current'] - r['day_abs'] for r in rows if r['day_abs'] is not None)
+
+    day_total_abs = total_cur - total_yest if total_yest else None
+    day_total_pct = (total_cur / total_yest - 1) * 100 if total_yest else None
+
+    return render(request, 'fintech/portfolio_overall.html', {
+        'rows':          rows,
+        'total_inv':     total_inv,
+        'total_cur':     total_cur,
+        'total_yest':    total_yest,
+        'gain_total':    total_cur - total_inv,
+        'simple_total':  (total_cur / total_inv - 1) * 100 if total_inv else None,
+        'day_total_abs': day_total_abs,
+        'day_total_pct': day_total_pct,
+    })
+
+
+@login_required
 def fintech_index(request):
     return render(request, 'fintech/index.html')
 
