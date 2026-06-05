@@ -6,6 +6,7 @@ from . import views
 app_name = "fintech" # Namespace für URL-Namen in diesem App-Teil
 
 urlpatterns = [
+    path('', views.fintech_index, name="fintech-index"),
     path('api/', include('fintech.apis.urls')),
     path("export", views.portfolio_export, name="portfolio-export"),
     path("export_watchlist", views.watchlist_export, name="watchlist-export"),

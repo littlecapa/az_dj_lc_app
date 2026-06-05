@@ -36,6 +36,11 @@ def _is_api_key_valid(request) -> bool:
         return False
     return request.headers.get("X-Api-Key", "") == api_key
 
+@login_required
+def fintech_index(request):
+    return render(request, 'fintech/index.html')
+
+
 def portfolio_export(request):
     if not (_is_api_key_valid(request) or (request.user.is_active and request.user.is_staff)):
         return JsonResponse({"error": "Unauthorized"}, status=401)

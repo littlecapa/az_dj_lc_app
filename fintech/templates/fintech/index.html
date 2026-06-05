@@ -1,0 +1,102 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Fintech – Übersicht{% endblock %}
+
+{% block content %}
+<style>
+    .ft-card {
+        display: flex; flex-direction: column;
+        border: 1px solid #e3e6ea; border-radius: 12px;
+        padding: 1.5rem; background: #fff;
+        text-decoration: none; color: inherit;
+        transition: box-shadow .15s, border-color .15s, transform .1s;
+        height: 100%;
+    }
+    .ft-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,.1);
+        border-color: #ced4da;
+        transform: translateY(-2px);
+        color: inherit;
+    }
+    .ft-icon { font-size: 2rem; margin-bottom: .75rem; }
+    .ft-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
+    .ft-desc  { font-size: .85rem; color: #6c757d; flex: 1; }
+    .ft-group-label {
+        font-size: .72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; color: #6c757d;
+        margin-bottom: .75rem; margin-top: 1.5rem;
+    }
+    .ft-group-label:first-child { margin-top: 0; }
+</style>
+
+<div class="container py-5">
+    <h2 class="mb-4">Fintech</h2>
+
+    <!-- Portfolio -->
+    <div class="ft-group-label">📊 Portfolio</div>
+    <div class="row g-3 mb-2">
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-performance' %}" class="ft-card">
+                <div class="ft-icon">📈</div>
+                <div class="ft-title">Portfolio Performance</div>
+                <div class="ft-desc">Alle Kategorien mit Gesamt- und Tagesperformance. Toggle Gesamt / Tag.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-winners' %}" class="ft-card">
+                <div class="ft-icon">🏆</div>
+                <div class="ft-title">Winners &amp; Losers</div>
+                <div class="ft-desc">Top-10 / Flop-10 nach Tages- und Gesamtperformance auf einen Blick.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-export' %}" class="ft-card">
+                <div class="ft-icon">⬇</div>
+                <div class="ft-title">Portfolio Export</div>
+                <div class="ft-desc">Portfolio als JSON exportieren.</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Watchlist -->
+    <div class="ft-group-label">👁 Watchlist</div>
+    <div class="row g-3 mb-2">
+        <div class="col-md-4">
+            <a href="{% url 'fintech:watchlist-performance' %}" class="ft-card">
+                <div class="ft-icon">📉</div>
+                <div class="ft-title">Watchlist Performance</div>
+                <div class="ft-desc">Alle Watchlisten mit annualisierter Rendite p.a.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:watchlist-export' %}" class="ft-card">
+                <div class="ft-icon">⬇</div>
+                <div class="ft-title">Watchlist Export</div>
+                <div class="ft-desc">Watchlist-Einträge als JSON exportieren.</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Verwaltung (nur Staff) -->
+    {% if request.user.is_staff %}
+    <div class="ft-group-label">⚙️ Verwaltung</div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-import' %}" class="ft-card">
+                <div class="ft-icon">⬆</div>
+                <div class="ft-title">Portfolio Import</div>
+                <div class="ft-desc">Transaktionen per CSV importieren. Dry-Run verfügbar.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:watchlist-import' %}" class="ft-card">
+                <div class="ft-icon">⬆</div>
+                <div class="ft-title">Watchlist Import</div>
+                <div class="ft-desc">Watchlist-Einträge per JSON importieren.</div>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
