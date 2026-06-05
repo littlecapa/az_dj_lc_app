@@ -40,7 +40,7 @@ class StockRequest:
         response = requests.get(url, timeout=10)
         response.encoding = "utf-8"
 
-        if response.status_code == 404 or response.status_code == 400:
+        if 400 <= response.status_code < 500:
             raise KeyNotFoundWarning(f"Provider returned {response.status_code} for ISIN {isin}")
         response.raise_for_status()  # 5xx und sonstige Fehler → echte Exception
 

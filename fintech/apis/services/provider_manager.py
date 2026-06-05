@@ -10,6 +10,7 @@ from .request_lib import KeyNotFoundWarning, KeyNotFoundError
 from .soup_cache import SoupCache
 from .exchange_rate_proxy import CurrencyProxy
 from ...models_helper.asset_class import AssetClass
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,15 @@ class ProviderManager:
             price, currency = self.com_requester[type_].isin2price(isin)
             return self._convert_to_euro(price, currency)
         except (KeyNotFoundWarning, KeyNotFoundError) as exc:
+            # STOCK kann als FOND bei Comdirect gelistet sein (z.B. UK Investment Trusts)
+            if type_ == AssetClass.STOCK.value:
+                logger.info(f"Comdirect STOCK fehlgeschlagen für {isin} — versuche FOND-URL als Fallback")
+                try:
+                    price, currency = self.com_requester[AssetClass.FOND.value].isin2price(isin)
+                    logger.info(f"FOND-Fallback erfolgreich für {isin}")
+                    return self._convert_to_euro(price, currency)
+                except (KeyNotFoundWarning, KeyNotFoundError):
+                    pass
             logger.warning(f"Comdirect price failed for {isin}: {exc}")
             return None
 

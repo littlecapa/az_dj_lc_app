@@ -135,7 +135,7 @@ class Holdings(models.Model):
     
     category = models.IntegerField(
         choices=CategoryClass.choices,
-        default=CategoryClass.BASIS_INVESTMENT,
+        default=CategoryClass.MISCELLANEOUS,
         null=True,
         blank=True,
         help_text="Kategorie der Investment-Strategie"
