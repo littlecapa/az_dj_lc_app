@@ -344,7 +344,31 @@ def api_overview(request):
             ],
         },
         {
-            "group": "Fintech – Seiten (Login)",
+            "group": "Fintech – Portfolio (Login)",
+            "color": "success",
+            "items": [
+                {
+                    "method": "GET",
+                    "path": "/fintech/portfolio/",
+                    "auth": "Login",
+                    "desc": "Portfolio-Übersicht nach Kategorie (18 neue Kategorien). Toggle Gesamt/Tag-Performance, Sortierung per Klick. 4 Kacheln pro Reihe.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/fintech/portfolio/{category}/",
+                    "auth": "Login",
+                    "desc": "Detailansicht einer Kategorie: alle Holdings mit Einstand, aktuellem Kurs, G/V, Tagesperformance. Toggle + Prev/Next-Navigation. Links zu TradingView / JustETF / onvista.",
+                },
+                {
+                    "method": "GET",
+                    "path": "/fintech/winner/",
+                    "auth": "Login",
+                    "desc": "Winners & Losers: 4 Spalten mit je Top-10 — bester/schlechtester Tag, beste/schlechteste Gesamtperformance. Inkl. Portfolio-Summary.",
+                },
+            ],
+        },
+        {
+            "group": "Fintech – Watchlist (Login)",
             "color": "info",
             "items": [
                 {
