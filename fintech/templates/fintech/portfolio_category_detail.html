@@ -124,7 +124,8 @@
             </thead>
             <tbody>
                 {% for row in rows %}
-                <tr>
+                <tr data-simple="{{ row.simple|floatformat:4|default:'-9999' }}"
+                    data-day="{{ row.day_perc|floatformat:4|default:'-9999' }}">
                     <td>
                         <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
                             {{ forloop.counter }}
@@ -229,6 +230,22 @@ const STORAGE_KEY = 'portfolio_perf_mode';
 const sw     = document.getElementById('perfSwitch');
 const toggle = document.getElementById('modeToggle');
 
+function sortRows(isDay) {
+    const tbody = document.querySelector('table tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const key = isDay ? 'day' : 'simple';
+    rows.sort((a, b) => parseFloat(b.dataset[key]) - parseFloat(a.dataset[key]));
+    rows.forEach(row => tbody.appendChild(row));
+    // Rang-Badges neu nummerieren
+    tbody.querySelectorAll('tr').forEach((row, i) => {
+        const badge = row.querySelector('.rank-badge');
+        if (!badge) return;
+        badge.textContent = i + 1;
+        badge.className = 'rank-badge ' + (i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-n');
+    });
+}
+
 function applyMode(isDay) {
     sw.checked = isDay;
     toggle.classList.toggle('day-mode', isDay);
@@ -241,6 +258,7 @@ function applyMode(isDay) {
 
     document.getElementById('footerGesamt').style.display = isDay ? 'none' : '';
     document.getElementById('footerTag').style.display    = isDay ? ''     : 'none';
+    sortRows(isDay);
 }
 
 // Zustand aus localStorage lesen
