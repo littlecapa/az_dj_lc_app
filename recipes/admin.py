@@ -9,6 +9,12 @@ class RezeptAdmin(admin.ModelAdmin):
     search_fields = ('name', 'zutaten', 'quelle', 'notiz')
     list_editable = ('liebling',)
     ordering      = ('name',)
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.user = request.user
+        super().save_model(request, obj, form, change)
+
     fieldsets     = (
         (None, {'fields': ('name', 'kategorie', 'aufwand', 'saison', 'quelle', 'link', 'liebling')}),
         ('Zutaten & Zubereitung', {'fields': ('zutaten', 'notiz')}),
