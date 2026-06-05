@@ -428,6 +428,7 @@ def portfolio_winners(request):
         'day_worst':     top(rows, 'day_perc',   reverse=False),
         'total_inv':     total_inv,
         'total_cur':     total_cur,
+        'total_yest':    total_yest,
         'gain_total':    total_cur - total_inv,
         'simple_total':  (total_cur / total_inv  - 1) * 100 if total_inv  else None,
         'day_abs_total': total_cur - total_yest            if total_yest else None,
@@ -538,12 +539,13 @@ def portfolio_performance(request):
     total_yest = sum(g['total_yesterday'] for g in groups.values())
 
     return render(request, 'fintech/portfolio_performance.html', {
-        'rows':        rows,
-        'total_inv':   total_inv,
-        'total_cur':   total_cur,
-        'gain_total':  total_cur - total_inv,
-        'simple_total': (total_cur / total_inv  - 1) * 100 if total_inv  else None,
-        'day_total':   (total_cur / total_yest - 1) * 100 if total_yest else None,
+        'rows':          rows,
+        'total_inv':     total_inv,
+        'total_cur':     total_cur,
+        'total_yest':    total_yest,
+        'gain_total':    total_cur - total_inv,
+        'simple_total':  (total_cur / total_inv  - 1) * 100 if total_inv  else None,
+        'day_total':     (total_cur / total_yest - 1) * 100 if total_yest else None,
         'day_abs_total': total_cur - total_yest            if total_yest else None,
     })
 
