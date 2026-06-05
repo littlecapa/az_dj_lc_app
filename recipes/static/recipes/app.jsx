@@ -212,7 +212,7 @@ function App() {
       <>
         <Header onNeu={oeffneNeu} />
         <div className="rz-container">
-          <div className="modal" style={{ maxWidth: '660px', margin: '0 auto' }}>
+          <div className="rz-form" style={{ maxWidth: '660px', margin: '0 auto' }}>
             <h2>{formular.id ? 'Rezept bearbeiten' : 'Neues Rezept'}</h2>
             <div className="form-grid">
               <div className="form-group full"><label>Titel *</label><input type="text" value={formular.name} onChange={set('name')} placeholder="Rezeptname" /></div>
