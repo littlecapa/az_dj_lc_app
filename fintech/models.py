@@ -31,8 +31,8 @@ class Asset(models.Model):
     )
     
     symbol = models.CharField(
-        max_length=10,
-        help_text="Börsenkürzel (z.B. AAPL, SAP)",
+        max_length=20,
+        help_text="TradingView-Symbol (z.B. XETR:RHM, NASDAQ:AAPL)",
         null=True, 
         blank=True
     )

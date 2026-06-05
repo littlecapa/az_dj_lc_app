@@ -22,7 +22,8 @@
     .cat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); border-color: #ced4da; color: inherit; }
     .cat-name { font-size: 1.05rem; font-weight: 700; }
     .cat-count { font-size: .82rem; color: #6c757d; }
-    .big-perf { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+    .big-perf { font-size: 1.5rem; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+    .perf-box { min-width: 80px; text-align: right; flex-shrink: 0; }
     .label-small { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #aaa; }
     .summary-bar {
         background: #f8f9fa;
@@ -31,16 +32,33 @@
         margin-bottom: 1.5rem;
         border: 1px solid #e3e6ea;
     }
+    /* Toggle */
+    .mode-toggle { display: flex; align-items: center; gap: .6rem; user-select: none; }
+    .mode-toggle .label-l, .mode-toggle .label-r { font-size: .85rem; font-weight: 600; transition: color .2s; }
+    .mode-toggle .label-l { color: #1a73e8; }
+    .mode-toggle .label-r { color: #aaa; }
+    .mode-toggle.day-mode .label-l { color: #aaa; }
+    .mode-toggle.day-mode .label-r { color: #1a73e8; }
 </style>
 
 <div class="container py-4">
-    <div class="d-flex align-items-center mb-3 gap-3 flex-wrap">
-        <h2 class="mb-0">Portfolio Performance</h2>
-        <span class="text-muted small">nach Kategorie · reale Einstandspreise</span>
+    <div class="d-flex align-items-center mb-3 gap-3 flex-wrap justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <h2 class="mb-0">Portfolio Performance</h2>
+            <span class="text-muted small">reale Einstandspreise</span>
+        </div>
+        <!-- Toggle -->
+        <div class="mode-toggle" id="modeToggle">
+            <span class="label-l">Gesamt</span>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="perfSwitch" style="cursor:pointer;width:2.5rem;height:1.25rem;">
+            </div>
+            <span class="label-r">Tag</span>
+        </div>
     </div>
 
-    {% if simple_total is not None %}
-    <div class="summary-bar">
+    <!-- Summary-Bar: Gesamt -->
+    <div id="summaryGesamt" class="summary-bar">
         <div class="row text-center g-0">
             <div class="col-6 col-md-3">
                 <div class="label-small">Investiert</div>
@@ -64,34 +82,74 @@
             </div>
         </div>
     </div>
-    {% endif %}
+
+    <!-- Summary-Bar: Tag -->
+    <div id="summaryTag" class="summary-bar" style="display:none;">
+        <div class="row text-center g-0">
+            <div class="col-6 col-md-3">
+                <div class="label-small">Gestern</div>
+                <div class="fw-bold">{{ total_cur|de_currency:0 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Heute</div>
+                <div class="fw-bold">{{ total_cur|de_currency:0 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Tagesgewinn/-verlust</div>
+                <div class="fw-bold {% if day_abs_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {% if day_abs_total >= 0 %}+{% endif %}{{ day_abs_total|de_currency:0 }}
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Heute</div>
+                <div class="fw-bold {% if day_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {{ day_total|de_percent:2 }}
+                </div>
+            </div>
+        </div>
+    </div>
 
     {% if not rows %}
         <p class="text-muted">Keine Holdings mit neuen Kategorien gefunden.</p>
     {% else %}
     <div class="row g-3">
         {% for row in rows %}
-        <div class="col-md-6 col-lg-3">
+        <div class="col-md-6 col-lg-3 cat-col"
+             data-simple="{{ row.simple|floatformat:4|default:'-9999' }}"
+             data-day="{{ row.day_perc|floatformat:4|default:'-9999' }}">
             <a href="{% url 'fintech:portfolio-category-detail' row.slug %}" class="cat-card h-100">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div style="min-width:0;">
                         <div class="cat-name">{{ row.label }}</div>
                         <div class="cat-count mt-1">{{ row.count }} Position{{ row.count|pluralize:"en" }}</div>
                     </div>
-                    {% if row.simple is not None %}
-                    <div class="text-end">
-                        <div class="big-perf {% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
-                            {{ row.simple|de_percent:1 }}
-                        </div>
-                        <div class="label-small">gesamt</div>
+                    <!-- Gesamt-Performance -->
+                    <div class="perf-display perf-gesamt perf-box">
+                        {% if row.simple is not None %}
+                            <div class="big-perf {% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                                {{ row.simple|de_percent:1 }}
+                            </div>
+                            <div class="label-small">gesamt</div>
+                        {% else %}
+                            <div class="perf-neutral">–</div>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <div class="perf-neutral">–</div>
-                    {% endif %}
+                    <!-- Tages-Performance -->
+                    <div class="perf-display perf-tag perf-box" style="display:none;">
+                        {% if row.day_perc is not None %}
+                            <div class="big-perf {% if row.day_perc >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                                {{ row.day_perc|de_percent:2 }}
+                            </div>
+                            <div class="label-small">heute</div>
+                        {% else %}
+                            <div class="perf-neutral">–</div>
+                        {% endif %}
+                    </div>
                 </div>
 
                 {% if row.total_invested > 0 %}
-                <div class="mt-3 row text-center g-0">
+                <!-- Gesamt-Details -->
+                <div class="mt-3 row text-center g-0 detail-gesamt">
                     <div class="col">
                         <div class="label-small">Investiert</div>
                         <div style="font-size:.85rem">{{ row.total_invested|de_currency:0 }}</div>
@@ -107,6 +165,21 @@
                         </div>
                     </div>
                 </div>
+                <!-- Tages-Details -->
+                <div class="mt-3 row text-center g-0 detail-tag" style="display:none;">
+                    <div class="col">
+                        <div class="label-small">Aktuell</div>
+                        <div style="font-size:.85rem">{{ row.total_current|de_currency:0 }}</div>
+                    </div>
+                    <div class="col">
+                        <div class="label-small">Tages-G/V</div>
+                        <div style="font-size:.85rem {% if row.day_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.day_abs is not None %}
+                                {% if row.day_abs >= 0 %}+{% endif %}{{ row.day_abs|de_currency:0 }}
+                            {% else %}–{% endif %}
+                        </div>
+                    </div>
+                </div>
                 {% endif %}
             </a>
         </div>
@@ -114,4 +187,39 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+const STORAGE_KEY = 'portfolio_perf_mode';
+const sw     = document.getElementById('perfSwitch');
+const toggle = document.getElementById('modeToggle');
+
+function sortCards(isDay) {
+    const grid = document.querySelector('.row.g-3');
+    if (!grid) return;
+    const cols = Array.from(grid.querySelectorAll('.cat-col'));
+    const key  = isDay ? 'day' : 'simple';
+    cols.sort((a, b) => parseFloat(b.dataset[key]) - parseFloat(a.dataset[key]));
+    cols.forEach(col => grid.appendChild(col));
+}
+
+function applyMode(isDay) {
+    sw.checked = isDay;
+    toggle.classList.toggle('day-mode', isDay);
+    document.getElementById('summaryGesamt').style.display = isDay ? 'none' : '';
+    document.getElementById('summaryTag').style.display    = isDay ? ''     : 'none';
+    document.querySelectorAll('.perf-gesamt' ).forEach(el => el.style.display = isDay ? 'none' : '');
+    document.querySelectorAll('.perf-tag'    ).forEach(el => el.style.display = isDay ? ''     : 'none');
+    document.querySelectorAll('.detail-gesamt').forEach(el => el.style.display = isDay ? 'none' : '');
+    document.querySelectorAll('.detail-tag'   ).forEach(el => el.style.display = isDay ? ''     : 'none');
+    sortCards(isDay);
+}
+
+applyMode(localStorage.getItem(STORAGE_KEY) === 'tag');
+
+sw.addEventListener('change', () => {
+    const isDay = sw.checked;
+    localStorage.setItem(STORAGE_KEY, isDay ? 'tag' : 'gesamt');
+    applyMode(isDay);
+});
+</script>
 {% endblock %}

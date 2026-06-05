@@ -20,24 +20,35 @@
     th { white-space: nowrap; }
     .badge-free { background: #d1fae5; color: #065f46; font-size:.7rem; }
     .badge-hold { background: #fef3c7; color: #92400e; font-size:.7rem; }
+    /* Toggle */
+    .mode-toggle { display: flex; align-items: center; gap: .6rem; user-select: none; }
+    .mode-toggle .label-l, .mode-toggle .label-r { font-size: .85rem; font-weight: 600; transition: color .2s; }
+    .mode-toggle .label-l { color: #1a73e8; }
+    .mode-toggle .label-r { color: #aaa; }
+    .mode-toggle.day-mode .label-l { color: #aaa; }
+    .mode-toggle.day-mode .label-r { color: #1a73e8; }
 </style>
 
 <div class="container py-4">
-    <nav aria-label="breadcrumb" class="mb-3">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item">
-                <a href="{% url 'fintech:portfolio-performance' %}">Portfolio Performance</a>
-            </li>
-            <li class="breadcrumb-item active">{{ label }}</li>
-        </ol>
-    </nav>
-
+    <!-- Breadcrumb + Navigation -->
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-        <div class="d-flex align-items-baseline gap-3">
-            <h2 class="mb-0">{{ label }}</h2>
-            <span class="text-muted small">{{ rows|length }} Position{{ rows|length|pluralize:"en" }}</span>
-        </div>
-        <div class="d-flex gap-2">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'fintech:portfolio-performance' %}">Portfolio Performance</a>
+                </li>
+                <li class="breadcrumb-item active">{{ label }}</li>
+            </ol>
+        </nav>
+        <div class="d-flex gap-2 align-items-center">
+            <!-- Toggle -->
+            <div class="mode-toggle me-3" id="modeToggle">
+                <span class="label-l">Gesamt</span>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="perfSwitch" style="cursor:pointer;width:2.5rem;height:1.25rem;">
+                </div>
+                <span class="label-r">Tag</span>
+            </div>
             {% if prev_slug %}
             <a href="{% url 'fintech:portfolio-category-detail' prev_slug %}"
                class="btn btn-outline-secondary btn-sm" title="{{ prev_label }}">
@@ -57,25 +68,39 @@
         </div>
     </div>
 
-    {% if simple_total is not None %}
-    <div class="d-flex gap-4 mb-4 flex-wrap">
-        <div>
-            <span class="text-muted small">Investiert</span>
-            <span class="ms-2 fw-semibold">{{ total_inv|de_currency:0 }}</span>
-        </div>
-        <div>
-            <span class="text-muted small">Aktuell</span>
-            <span class="ms-2 fw-semibold">{{ total_cur|de_currency:0 }}</span>
-        </div>
-        <div>
-            <span class="text-muted small">G/V</span>
-            <span class="ms-2 fw-semibold {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
-                {% if gain_total >= 0 %}+{% endif %}{{ gain_total|de_currency:0 }}
-                &nbsp;({{ simple_total|de_percent:1 }})
-            </span>
-        </div>
+    <!-- Titel + Summary -->
+    <div class="d-flex align-items-baseline gap-3 mb-1 flex-wrap">
+        <h2 class="mb-0">{{ label }}</h2>
+        <span class="text-muted small">{{ rows|length }} Position{{ rows|length|pluralize:"en" }}</span>
     </div>
-    {% endif %}
+
+    <!-- Summary Gesamt -->
+    <div id="summaryGesamt" class="d-flex gap-4 mb-4 flex-wrap">
+        {% if simple_total is not None %}
+        <div><span class="text-muted small">Investiert</span>
+             <span class="ms-2 fw-semibold">{{ total_inv|de_currency:0 }}</span></div>
+        <div><span class="text-muted small">Aktuell</span>
+             <span class="ms-2 fw-semibold">{{ total_cur|de_currency:0 }}</span></div>
+        <div><span class="text-muted small">G/V</span>
+             <span class="ms-2 fw-semibold {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                 {% if gain_total >= 0 %}+{% endif %}{{ gain_total|de_currency:0 }}
+                 &nbsp;({{ simple_total|de_percent:1 }})
+             </span></div>
+        {% endif %}
+    </div>
+
+    <!-- Summary Tag -->
+    <div id="summaryTag" class="d-flex gap-4 mb-4 flex-wrap" style="display:none !important;">
+        {% if day_total_pct is not None %}
+        <div><span class="text-muted small">Aktuell</span>
+             <span class="ms-2 fw-semibold">{{ total_cur|de_currency:0 }}</span></div>
+        <div><span class="text-muted small">Tages-G/V</span>
+             <span class="ms-2 fw-semibold {% if day_total_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                 {% if day_total_abs >= 0 %}+{% endif %}{{ day_total_abs|de_currency:0 }}
+                 &nbsp;({{ day_total_pct|de_percent:2 }})
+             </span></div>
+        {% endif %}
+    </div>
 
     {% if not rows %}
         <p class="text-muted">Keine Einträge in dieser Kategorie.</p>
@@ -87,12 +112,14 @@
                     <th>#</th>
                     <th>Name / ISIN</th>
                     <th class="text-end">Menge</th>
-                    <th class="text-end">Einstand</th>
+                    <th class="text-end col-gesamt">Einstand</th>
                     <th class="text-end">Aktuell</th>
-                    <th class="text-end">Investiert</th>
-                    <th class="text-end">Aktueller Wert</th>
-                    <th class="text-end">G/V €</th>
-                    <th class="text-end">G/V %</th>
+                    <th class="text-end col-gesamt">Investiert</th>
+                    <th class="text-end">Akt. Wert</th>
+                    <th class="text-end col-gesamt">G/V €</th>
+                    <th class="text-end col-gesamt">G/V %</th>
+                    <th class="text-end col-tag" style="display:none;">Tag €</th>
+                    <th class="text-end col-tag" style="display:none;">Tag %</th>
                 </tr>
             </thead>
             <tbody>
@@ -118,21 +145,15 @@
                                 <a href="https://www.onvista.de/aktien/ISIN/{{ row.isin }}"
                                    target="_blank" rel="noopener noreferrer" title="onvista">{{ row.name }}</a>
                             {% endif %}
-                            {% if row.stake_recovered %}
-                                <span class="badge badge-free ms-1">free</span>
-                            {% endif %}
-                            {% if row.not_for_sale %}
-                                <span class="badge badge-hold ms-1">hold</span>
-                            {% endif %}
+                            {% if row.stake_recovered %}<span class="badge badge-free ms-1">free</span>{% endif %}
+                            {% if row.not_for_sale %}<span class="badge badge-hold ms-1">hold</span>{% endif %}
                             <a href="/admin/fintech/holdings/{{ row.holdings_id }}/change/"
                                title="Bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
                         </div>
-                        <div class="text-muted" style="font-size:.78rem">
-                            {{ row.isin }} &middot; {{ row.asset_class }}
-                        </div>
+                        <div class="text-muted" style="font-size:.78rem">{{ row.isin }} &middot; {{ row.asset_class }}</div>
                     </td>
                     <td class="text-end" style="font-size:.88rem">{{ row.quantity|de_decimal:2 }}</td>
-                    <td class="text-end">
+                    <td class="text-end col-gesamt">
                         {% if row.avg_price %}{{ row.avg_price|de_currency:2 }}
                         {% else %}<span class="perf-neutral">–</span>{% endif %}
                     </td>
@@ -140,19 +161,33 @@
                         {% if row.current_price %}{{ row.current_price|de_currency:2 }}
                         {% else %}<span class="perf-neutral">–</span>{% endif %}
                     </td>
-                    <td class="text-end">{{ row.invested|de_currency:0 }}</td>
+                    <td class="text-end col-gesamt">{{ row.invested|de_currency:0 }}</td>
                     <td class="text-end">{{ row.current|de_currency:0 }}</td>
-                    <td class="text-end">
+                    <td class="text-end col-gesamt">
                         {% if row.gain_abs is not None %}
                         <span class="{% if row.gain_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
                             {% if row.gain_abs >= 0 %}+{% endif %}{{ row.gain_abs|de_currency:0 }}
                         </span>
                         {% else %}<span class="perf-neutral">–</span>{% endif %}
                     </td>
-                    <td class="text-end">
+                    <td class="text-end col-gesamt">
                         {% if row.simple is not None %}
                         <span class="{% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
                             {{ row.simple|de_percent:1 }}
+                        </span>
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                    <td class="text-end col-tag" style="display:none;">
+                        {% if row.day_abs is not None %}
+                        <span class="{% if row.day_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {% if row.day_abs >= 0 %}+{% endif %}{{ row.day_abs|de_currency:0 }}
+                        </span>
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                    <td class="text-end col-tag" style="display:none;">
+                        {% if row.day_perc is not None %}
+                        <span class="{% if row.day_perc >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {{ row.day_perc|de_percent:2 }}
                         </span>
                         {% else %}<span class="perf-neutral">–</span>{% endif %}
                     </td>
@@ -160,8 +195,9 @@
                 {% endfor %}
             </tbody>
             <tfoot class="table-light fw-bold">
-                <tr>
-                    <td colspan="5" class="text-end text-muted">Gesamt</td>
+                {# Gesamt-Footer: # Name Menge Einstand Aktuell | Investiert | Akt.Wert | G/V€ | G/V% #}
+                <tr id="footerGesamt">
+                    <td colspan="5" class="text-start text-muted">Gesamt</td>
                     <td class="text-end">{{ total_inv|de_currency:0 }}</td>
                     <td class="text-end">{{ total_cur|de_currency:0 }}</td>
                     <td class="text-end {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
@@ -171,9 +207,49 @@
                         {{ simple_total|de_percent:1 }}
                     </td>
                 </tr>
+                {# Tag-Footer: # Name Menge Aktuell Akt.Wert | Tag€ | Tag% #}
+                <tr id="footerTag" style="display:none;">
+                    <td colspan="4" class="text-start text-muted">Gesamt</td>
+                    <td class="text-end">{{ total_cur|de_currency:0 }}</td>
+                    <td class="text-end {% if day_total_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                        {% if day_total_abs %}{% if day_total_abs >= 0 %}+{% endif %}{{ day_total_abs|de_currency:0 }}{% endif %}
+                    </td>
+                    <td class="text-end {% if day_total_pct >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                        {% if day_total_pct %}{{ day_total_pct|de_percent:2 }}{% endif %}
+                    </td>
+                </tr>
             </tfoot>
         </table>
     </div>
     {% endif %}
 </div>
+
+<script>
+const STORAGE_KEY = 'portfolio_perf_mode';
+const sw     = document.getElementById('perfSwitch');
+const toggle = document.getElementById('modeToggle');
+
+function applyMode(isDay) {
+    sw.checked = isDay;
+    toggle.classList.toggle('day-mode', isDay);
+
+    document.getElementById('summaryGesamt').style.display = isDay ? 'none' : '';
+    document.getElementById('summaryTag').style.display    = isDay ? ''     : 'none';
+
+    document.querySelectorAll('.col-gesamt').forEach(el => el.style.display = isDay ? 'none' : '');
+    document.querySelectorAll('.col-tag'   ).forEach(el => el.style.display = isDay ? ''     : 'none');
+
+    document.getElementById('footerGesamt').style.display = isDay ? 'none' : '';
+    document.getElementById('footerTag').style.display    = isDay ? ''     : 'none';
+}
+
+// Zustand aus localStorage lesen
+applyMode(localStorage.getItem(STORAGE_KEY) === 'tag');
+
+sw.addEventListener('change', () => {
+    const isDay = sw.checked;
+    localStorage.setItem(STORAGE_KEY, isDay ? 'tag' : 'gesamt');
+    applyMode(isDay);
+});
+</script>
 {% endblock %}

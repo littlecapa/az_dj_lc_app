@@ -6,10 +6,13 @@ from django.conf import settings
 from django.db.models import F, ExpressionWrapper, DecimalField
 from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
+from .models import Price
+from django.db.models import OuterRef, Subquery
 from .models import WatchlistEntry, Watchlist, Asset, Holdings
 from .models_helper.category_class import CategoryClass
 from django.utils.text import slugify
 from django.http import Http404
+from .apis.services.openfigi import OpenFigiService
 import json
 from decimal import Decimal, InvalidOperation
 from .apis.services.csv_import import import_transactions
@@ -361,74 +364,119 @@ _ID_TO_SLUG  = {v: slugify(CategoryClass(v).label) for v in _NEW_CATEGORIES}
 _SORTED_SLUGS = sorted(_SLUG_TO_ID.keys())
 
 
+_openfigi = OpenFigiService()
+
+
+def _fetch_missing_symbols(holdings):
+    """
+    Prüft alle STOCK-Holdings ohne Symbol und holt sie via OpenFIGI (Batch).
+    Speichert gefundene Symbole direkt in Asset.symbol.
+    """
+    missing = [
+        h.asset for h in holdings
+        if h.asset.asset_class == 'STOCK' and not h.asset.symbol
+    ]
+    if not missing:
+        return
+
+    isins = [a.isin for a in missing]
+    logger.info(f"OpenFIGI: Symbol-Lookup für {len(isins)} Assets: {isins}")
+
+    symbol_map = _openfigi.isin2symbol_batch(isins)
+
+    for asset in missing:
+        symbol = symbol_map.get(asset.isin)
+        if symbol:
+            asset.symbol = symbol
+            asset.save(update_fields=['symbol'])
+            logger.info(f"Symbol gespeichert: {asset.isin} → {symbol}")
+        else:
+            logger.warning(f"Kein Symbol gefunden für {asset.isin} ({asset.name})")
+
+
 @login_required
 def portfolio_performance(request):
-    """Übersicht: alle neuen Kategorien (20–37) mit Performance."""
+    """Übersicht: alle neuen Kategorien mit Gesamt- und Tagesperformance."""
+    today = timezone.now().date()
+
+    # Yesterday-Price Subquery
+    yesterday_sq = Price.objects.filter(
+        asset=OuterRef('asset_id'),
+        timestamp__date__lt=today,
+    ).order_by('-timestamp').values('current_price')[:1]
+
     holdings = (
         Holdings.objects
         .select_related('asset')
-        .filter(category__gte=20)          # nur neue Kategorien
+        .filter(category__gte=20)
+        .annotate(yesterday_price=Subquery(yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)))
         .order_by('category', 'asset__name')
     )
 
-    # Kategorie-Label-Map
     cat_labels = {v: label for v, label in CategoryClass.choices}
 
-    # Gruppieren
     groups = {}
     for h in holdings:
         cat = h.category
         if cat not in groups:
             groups[cat] = {
-                'category':       cat,
-                'label':          cat_labels.get(cat, str(cat)),
-                'holdings':       [],
-                'total_invested': Decimal('0'),
-                'total_current':  Decimal('0'),
+                'category':        cat,
+                'label':           cat_labels.get(cat, str(cat)),
+                'count':           0,
+                'total_invested':  Decimal('0'),
+                'total_current':   Decimal('0'),
+                'total_yesterday': Decimal('0'),
             }
         g = groups[cat]
-        g['holdings'].append(h)
+        g['count'] += 1
 
-        invested = (h.average_purchase_price or Decimal('0')) * h.quantity
-        current  = (h.asset.current_price or Decimal('0')) * h.quantity
+        qty       = h.quantity
+        invested  = (h.average_purchase_price or Decimal('0')) * qty
+        current   = (h.asset.current_price    or Decimal('0')) * qty
+        yesterday = (h.yesterday_price        or Decimal('0')) * qty
 
-        g['total_invested'] += invested
-        g['total_current']  += current
+        g['total_invested']  += invested
+        g['total_current']   += current
+        g['total_yesterday'] += yesterday
 
-    # Kennzahlen berechnen
     rows = []
     for g in groups.values():
-        inv = g['total_invested']
-        cur = g['total_current']
-        if inv > 0:
-            simple    = (cur / inv - 1) * 100
-            gain_abs  = cur - inv
-        else:
-            simple   = None
-            gain_abs = None
+        inv  = g['total_invested']
+        cur  = g['total_current']
+        yest = g['total_yesterday']
+
+        simple   = (cur / inv  - 1) * 100 if inv  > 0 else None
+        gain_abs = cur - inv              if inv  > 0 else None
+        day_perc = (cur / yest - 1) * 100 if yest > 0 else None
+        day_abs  = cur - yest             if yest > 0 else None
 
         rows.append({
-            'category':       g['category'],
-            'slug':           _ID_TO_SLUG.get(g['category'], str(g['category'])),
-            'label':          g['label'],
-            'count':          len(g['holdings']),
-            'total_invested': inv,
-            'total_current':  cur,
-            'gain_abs':       gain_abs,
-            'simple':         simple,
+            'category':        g['category'],
+            'slug':            _ID_TO_SLUG.get(g['category'], str(g['category'])),
+            'label':           g['label'],
+            'count':           g['count'],
+            'total_invested':  inv,
+            'total_current':   cur,
+            'gain_abs':        gain_abs,
+            'simple':          simple,
+            'day_perc':        day_perc,
+            'day_abs':         day_abs,
         })
 
     rows.sort(key=lambda r: r['simple'] if r['simple'] is not None else Decimal('-999'), reverse=True)
 
-    total_inv = sum(r['total_invested'] for r in rows)
-    total_cur = sum(r['total_current']  for r in rows)
+    total_inv  = sum(r['total_invested'] for r in rows)
+    total_cur  = sum(r['total_current']  for r in rows)
+    total_yest = sum(g['total_yesterday'] for g in groups.values())
 
     return render(request, 'fintech/portfolio_performance.html', {
-        'rows':      rows,
-        'total_inv': total_inv,
-        'total_cur': total_cur,
-        'gain_total': total_cur - total_inv,
-        'simple_total': (total_cur / total_inv - 1) * 100 if total_inv else None,
+        'rows':        rows,
+        'total_inv':   total_inv,
+        'total_cur':   total_cur,
+        'gain_total':  total_cur - total_inv,
+        'simple_total': (total_cur / total_inv  - 1) * 100 if total_inv  else None,
+        'day_total':   (total_cur / total_yest - 1) * 100 if total_yest else None,
+        'day_abs_total': total_cur - total_yest            if total_yest else None,
     })
 
 
@@ -446,41 +494,55 @@ def portfolio_category_detail(request, category_slug):
     prev_slug = _SORTED_SLUGS[idx - 1] if idx > 0 else None
     next_slug = _SORTED_SLUGS[idx + 1] if idx < len(_SORTED_SLUGS) - 1 else None
 
+    today = timezone.now().date()
+    yesterday_sq = Price.objects.filter(
+        asset=OuterRef('asset_id'),
+        timestamp__date__lt=today,
+    ).order_by('-timestamp').values('current_price')[:1]
+
     holdings = (
         Holdings.objects
         .select_related('asset')
         .filter(category=category_id)
+        .annotate(yesterday_price=Subquery(yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)))
         .order_by('asset__name')
     )
 
+    # ── Symbol-Lookup via OpenFIGI für Stocks ohne Symbol ────────────────
+    _fetch_missing_symbols(holdings)
+
     rows = []
     for h in holdings:
-        invested  = (h.average_purchase_price or Decimal('0')) * h.quantity
-        cur_price = h.asset.current_price or Decimal('0')
-        current   = cur_price * h.quantity
-        if invested > 0:
-            simple   = (current / invested - 1) * 100
-            gain_abs = current - invested
-        else:
-            simple   = None
-            gain_abs = None
+        invested   = (h.average_purchase_price or Decimal('0')) * h.quantity
+        cur_price  = h.asset.current_price or Decimal('0')
+        yest_price = getattr(h, 'yesterday_price', None) or Decimal('0')
+        current    = cur_price  * h.quantity
+        yesterday  = yest_price * h.quantity
+
+        simple   = (current / invested  - 1) * 100 if invested  > 0 else None
+        gain_abs = current - invested              if invested  > 0 else None
+        day_perc = (current / yesterday - 1) * 100 if yesterday > 0 else None
+        day_abs  = current - yesterday             if yesterday > 0 else None
 
         rows.append({
-            'holdings_id':   h.pk,
-            'asset_id':      h.asset.pk,
-            'name':          h.asset.name,
-            'isin':          h.asset.isin,
-            'symbol':        h.asset.symbol or '',
-            'logo':          h.asset.logo or '',
-            'asset_class':   h.asset.asset_class,
-            'quantity':      h.quantity,
-            'avg_price':     h.average_purchase_price,
-            'current_price': h.asset.current_price,
-            'invested':      invested,
-            'current':       current,
-            'gain_abs':      gain_abs,
-            'simple':        simple,
-            'not_for_sale':  h.not_for_sale,
+            'holdings_id':    h.pk,
+            'asset_id':       h.asset.pk,
+            'name':           h.asset.name,
+            'isin':           h.asset.isin,
+            'symbol':         h.asset.symbol or '',
+            'logo':           h.asset.logo or '',
+            'asset_class':    h.asset.asset_class,
+            'quantity':       h.quantity,
+            'avg_price':      h.average_purchase_price,
+            'current_price':  h.asset.current_price,
+            'yesterday_price': yest_price if yest_price else None,
+            'invested':       invested,
+            'current':        current,
+            'gain_abs':       gain_abs,
+            'simple':         simple,
+            'day_perc':       day_perc,
+            'day_abs':        day_abs,
+            'not_for_sale':   h.not_for_sale,
             'stake_recovered': h.stake_recovered,
         })
 
@@ -489,14 +551,32 @@ def portfolio_category_detail(request, category_slug):
     total_inv = sum(r['invested'] for r in rows)
     total_cur = sum(r['current']  for r in rows)
 
+    total_yest = sum(r['day_abs'] + r['current'] if r['day_abs'] is not None else r['current'] for r in rows)
+    # Simpler: sum of yesterday values
+    total_yest = sum((r['yesterday_price'] or Decimal('0')) * 1 for r in rows)
+    # Actually recompute properly
+    total_yest = Decimal('0')
+    for r in rows:
+        yp = r['yesterday_price']
+        if yp:
+            # yesterday_price is price per share, multiply by qty
+            pass  # already computed as 'current - day_abs'
+        if r['day_abs'] is not None:
+            total_yest += r['current'] - r['day_abs']
+
+    day_total_abs = total_cur - total_yest if total_yest else None
+    day_total_pct = (total_cur / total_yest - 1) * 100 if total_yest else None
+
     return render(request, 'fintech/portfolio_category_detail.html', {
-        'label':        label,
+        'label':         label,
         'category_slug': category_slug,
         'rows':          rows,
         'total_inv':     total_inv,
         'total_cur':     total_cur,
         'gain_total':    total_cur - total_inv,
         'simple_total':  (total_cur / total_inv - 1) * 100 if total_inv else None,
+        'day_total_abs': day_total_abs,
+        'day_total_pct': day_total_pct,
         'prev_slug':     prev_slug,
         'next_slug':     next_slug,
         'prev_label':    CategoryClass(_SLUG_TO_ID[prev_slug]).label if prev_slug else None,
