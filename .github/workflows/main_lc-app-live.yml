@@ -69,9 +69,10 @@ jobs:
     # Migrationen ZUERST (vor dem Superuser!)
     - name: Run Django migrations
       run: |
+        echo "📦 Aktueller Migrations-Status:"
+        python manage.py showmigrations fintech
         echo "📦 Django Migrationen starten..."
-        python manage.py migrate
-      continue-on-error: true
+        python manage.py migrate --verbosity 2
 
     # --- Datenmigration ---
     #- name: Import Blog Posts

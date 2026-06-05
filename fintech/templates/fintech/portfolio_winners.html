@@ -1,0 +1,209 @@
+{% extends "homepage/base_home.html" %}
+{% load static de_format %}
+
+{% block title %}Portfolio Winners & Losers{% endblock %}
+
+{% block content %}
+<style>
+    .perf-positive { color: #198754; font-weight: 700; }
+    .perf-negative { color: #dc3545; font-weight: 700; }
+    .col-header {
+        font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;
+        color: #6c757d; font-weight: 700; padding-bottom: .5rem;
+        border-bottom: 2px solid #e3e6ea; margin-bottom: .75rem;
+    }
+    .col-header.positive { border-color: #198754; color: #198754; }
+    .col-header.negative { border-color: #dc3545; color: #dc3545; }
+    .entry {
+        padding: .6rem 0;
+        border-bottom: 1px solid #f5f5f4;
+    }
+    .entry:last-child { border-bottom: none; }
+    .entry-name {
+        font-size: 1rem; font-weight: 700;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .entry-name a { color: #1c1917; text-decoration: none; }
+    .entry-name a:hover { text-decoration: underline; }
+    .entry-isin { font-size: .75rem; color: #a8a29e; }
+    .entry-perf { font-size: 1.1rem; font-weight: 800; white-space: nowrap; }
+    .edit-link { color: #d6d3d1; font-size: .8rem; text-decoration: none; margin-left: .25rem; }
+    .edit-link:hover { color: #78716c; }
+    .label-small { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #aaa; }
+    .summary-bar {
+        background: #f8f9fa; border-radius: 10px;
+        padding: 1rem 1.5rem; border: 1px solid #e3e6ea;
+    }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex align-items-center mb-3 gap-3">
+        <h2 class="mb-0">Winners &amp; Losers</h2>
+        <a href="{% url 'fintech:portfolio-performance' %}" class="text-muted small">← Portfolio</a>
+    </div>
+
+    <!-- Summary Gesamt -->
+    {% if simple_total is not None %}
+    <div class="summary-bar mb-2">
+        <div class="row text-center g-0">
+            <div class="col-6 col-md-3">
+                <div class="label-small">Investiert</div>
+                <div class="fw-bold">{{ total_inv|de_currency:0 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Aktuell</div>
+                <div class="fw-bold">{{ total_cur|de_currency:0 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Gewinn / Verlust</div>
+                <div class="fw-bold {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {% if gain_total >= 0 %}+{% endif %}{{ gain_total|de_currency:0 }}
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Gesamt</div>
+                <div class="fw-bold {% if simple_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {{ simple_total|de_percent:1 }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Summary Tag -->
+    {% if day_pct_total is not None %}
+    <div class="summary-bar mb-4">
+        <div class="row text-center g-0">
+            <div class="col-6 col-md-3">
+                <div class="label-small">Gestern</div>
+                <div class="fw-bold">{{ total_cur|de_currency:0 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Heute</div>
+                <div class="fw-bold">{{ total_cur|de_currency:0 }}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Tagesgewinn/-verlust</div>
+                <div class="fw-bold {% if day_abs_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {% if day_abs_total >= 0 %}+{% endif %}{{ day_abs_total|de_currency:0 }}
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="label-small">Heute</div>
+                <div class="fw-bold {% if day_pct_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {{ day_pct_total|de_percent:2 }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+
+        {# Spalte 1: Bester Tag #}
+        <div class="col-md-6 col-lg-3">
+            <div class="col-header positive">📈 Day</div>
+            {% for r in day_best %}
+            <div class="entry">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div style="min-width:0;">
+                        <div class="entry-name d-flex align-items-center gap-1">
+                            {% if r.logo %}<img src="{{ r.logo }}" alt="" style="height:16px;width:16px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
+                            {% if r.asset_class == "ETF" %}
+                                <a href="https://www.justetf.com/de/etf-profile.html?isin={{ r.isin }}#uebersicht" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% elif r.symbol %}
+                                <a href="https://de.tradingview.com/symbols/{{ r.symbol }}/" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% else %}
+                                <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% endif %}
+                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                        </div>
+                        <div class="entry-isin">{{ r.isin }}</div>
+                    </div>
+                    <div class="entry-perf perf-positive">{{ r.day_perc|de_percent:2 }}</div>
+                </div>
+            </div>
+            {% empty %}<p class="text-muted small">Keine Daten</p>{% endfor %}
+        </div>
+
+        {# Spalte 2: Bestes Gesamt #}
+        <div class="col-md-6 col-lg-3">
+            <div class="col-header positive">📈 Overall</div>
+            {% for r in total_best %}
+            <div class="entry">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div style="min-width:0;">
+                        <div class="entry-name d-flex align-items-center gap-1">
+                            {% if r.logo %}<img src="{{ r.logo }}" alt="" style="height:16px;width:16px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
+                            {% if r.asset_class == "ETF" %}
+                                <a href="https://www.justetf.com/de/etf-profile.html?isin={{ r.isin }}#uebersicht" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% elif r.symbol %}
+                                <a href="https://de.tradingview.com/symbols/{{ r.symbol }}/" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% else %}
+                                <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% endif %}
+                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                        </div>
+                        <div class="entry-isin">{{ r.isin }}</div>
+                    </div>
+                    <div class="entry-perf perf-positive">{{ r.total_perc|de_percent:1 }}</div>
+                </div>
+            </div>
+            {% empty %}<p class="text-muted small">Keine Daten</p>{% endfor %}
+        </div>
+
+        {# Spalte 3: Schlechtestes Gesamt #}
+        <div class="col-md-6 col-lg-3">
+            <div class="col-header negative">📉 Overall</div>
+            {% for r in total_worst %}
+            <div class="entry">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div style="min-width:0;">
+                        <div class="entry-name d-flex align-items-center gap-1">
+                            {% if r.logo %}<img src="{{ r.logo }}" alt="" style="height:16px;width:16px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
+                            {% if r.asset_class == "ETF" %}
+                                <a href="https://www.justetf.com/de/etf-profile.html?isin={{ r.isin }}#uebersicht" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% elif r.symbol %}
+                                <a href="https://de.tradingview.com/symbols/{{ r.symbol }}/" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% else %}
+                                <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% endif %}
+                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                        </div>
+                        <div class="entry-isin">{{ r.isin }}</div>
+                    </div>
+                    <div class="entry-perf perf-negative">{{ r.total_perc|de_percent:1 }}</div>
+                </div>
+            </div>
+            {% empty %}<p class="text-muted small">Keine Daten</p>{% endfor %}
+        </div>
+
+        {# Spalte 4: Schlechtester Tag #}
+        <div class="col-md-6 col-lg-3">
+            <div class="col-header negative">📉 Day</div>
+            {% for r in day_worst %}
+            <div class="entry">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div style="min-width:0;">
+                        <div class="entry-name d-flex align-items-center gap-1">
+                            {% if r.logo %}<img src="{{ r.logo }}" alt="" style="height:16px;width:16px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
+                            {% if r.asset_class == "ETF" %}
+                                <a href="https://www.justetf.com/de/etf-profile.html?isin={{ r.isin }}#uebersicht" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% elif r.symbol %}
+                                <a href="https://de.tradingview.com/symbols/{{ r.symbol }}/" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% else %}
+                                <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
+                            {% endif %}
+                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                        </div>
+                        <div class="entry-isin">{{ r.isin }}</div>
+                    </div>
+                    <div class="entry-perf perf-negative">{{ r.day_perc|de_percent:2 }}</div>
+                </div>
+            </div>
+            {% empty %}<p class="text-muted small">Keine Daten</p>{% endfor %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

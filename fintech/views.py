@@ -366,6 +366,74 @@ _SORTED_SLUGS = sorted(_SLUG_TO_ID.keys())
 
 _openfigi = OpenFigiService()
 
+TOP_N = 5
+
+
+@login_required
+def portfolio_winners(request):
+    """4-Spalten-Übersicht: Tages/Gesamt-Top5 und -Flop5."""
+    today = timezone.now().date()
+    yesterday_sq = Price.objects.filter(
+        asset=OuterRef('asset_id'),
+        timestamp__date__lt=today,
+    ).order_by('-timestamp').values('current_price')[:1]
+
+    holdings = (
+        Holdings.objects
+        .select_related('asset')
+        .filter(category__gte=20)
+        .annotate(yesterday_price=Subquery(
+            yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)
+        ))
+    )
+
+    rows = []
+    for h in holdings:
+        invested   = (h.average_purchase_price or Decimal('0')) * h.quantity
+        cur_price  = h.asset.current_price or Decimal('0')
+        yest_price = getattr(h, 'yesterday_price', None) or Decimal('0')
+        current    = cur_price  * h.quantity
+        yesterday  = yest_price * h.quantity
+
+        total_perc = (current / invested  - 1) * 100 if invested  > 0 else None
+        day_perc   = (current / yesterday - 1) * 100 if yesterday > 0 else None
+
+        rows.append({
+            'name':        h.asset.name,
+            'isin':        h.asset.isin,
+            'symbol':      h.asset.symbol or '',
+            'logo':        h.asset.logo   or '',
+            'asset_class': h.asset.asset_class,
+            'holdings_id': h.pk,
+            'total_perc':  total_perc,
+            'day_perc':    day_perc,
+            'invested':    invested  if invested  > 0 else None,
+            'current':     current   if cur_price > 0 else None,
+            'yesterday':   yesterday if yest_price > 0 else None,
+        })
+
+    def top(lst, key, reverse=True):
+        valid = [r for r in lst if r[key] is not None]
+        return sorted(valid, key=lambda r: r[key], reverse=reverse)[:TOP_N]
+
+    # Summary-Daten
+    total_inv  = sum(r['invested']   for r in rows if r['invested']   is not None)
+    total_cur  = sum(r['current']    for r in rows if r['current']    is not None)
+    total_yest = sum(r['yesterday']  for r in rows if r['yesterday']  is not None)
+
+    return render(request, 'fintech/portfolio_winners.html', {
+        'day_best':      top(rows, 'day_perc',   reverse=True),
+        'total_best':    top(rows, 'total_perc', reverse=True),
+        'total_worst':   top(rows, 'total_perc', reverse=False),
+        'day_worst':     top(rows, 'day_perc',   reverse=False),
+        'total_inv':     total_inv,
+        'total_cur':     total_cur,
+        'gain_total':    total_cur - total_inv,
+        'simple_total':  (total_cur / total_inv  - 1) * 100 if total_inv  else None,
+        'day_abs_total': total_cur - total_yest            if total_yest else None,
+        'day_pct_total': (total_cur / total_yest - 1) * 100 if total_yest else None,
+    })
+
 
 def _fetch_missing_symbols(holdings):
     """
