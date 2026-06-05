@@ -120,8 +120,7 @@ function App() {
     } catch { alert('Fehler beim Löschen.'); }
   }
 
-  async function toggleLiebling(id, e) {
-    e && e.stopPropagation();
+  async function toggleLiebling(id) {
     if (!CFG.isAuthenticated) return;
     const r = rezepte.find(x => x.id === id);
     if (!r) return;
@@ -275,21 +274,22 @@ function App() {
           ? <div className="empty-state">Keine Rezepte gefunden.<br /><span style={{ fontSize: '0.9rem', color: '#a8a29e' }}>Füge ein neues Rezept hinzu oder ändere die Filter.</span></div>
           : <div className="rezept-list">
               {gefiltert.map(r => (
-                <div className="rezept-card" key={r.id} onClick={() => { setAktiv(r); setAnsicht('detail'); window.scrollTo(0, 0); }}>
-                  <span className="star">{r.liebling ? '⭐' : '·'}</span>
-                  <div className="card-body">
-                    <div className="card-title">{r.name}</div>
-                    <div className="card-meta">
-                      <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
-                      <span className="chip">🔥 {r.aufwand}</span>
-                      
-                      <span className="chip">🌿 {r.saison}</span>
+                <div className="rezept-card" key={r.id}>
+                  <div className="card-click" onClick={() => { setAktiv(r); setAnsicht('detail'); window.scrollTo(0, 0); }}>
+                    <span className="star">{r.liebling ? '⭐' : '·'}</span>
+                    <div className="card-body">
+                      <div className="card-title">{r.name}</div>
+                      <div className="card-meta">
+                        <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
+                        <span className="chip">🔥 {r.aufwand}</span>
+                        <span className="chip">🌿 {r.saison}</span>
+                      </div>
                     </div>
                   </div>
                   {CFG.isAuthenticated && (
-                    <div className="card-actions" onClick={e => e.stopPropagation()}>
-                      <button className="btn btn-ghost btn-sm" style={{ background: '#f5f5f4', color: '#44403c', border: '1px solid #d6d3d1' }} onClick={e => toggleLiebling(r.id, e)}>{r.liebling ? '★' : '☆'}</button>
-                      <button className="btn btn-ghost btn-sm" style={{ background: '#f5f5f4', color: '#44403c', border: '1px solid #d6d3d1' }} onClick={e => { e.stopPropagation(); oeffneBearbeiten(r); }}>✏</button>
+                    <div className="card-actions">
+                      <button className="btn btn-ghost btn-sm" style={{ background: '#f5f5f4', color: '#44403c', border: '1px solid #d6d3d1' }} onClick={() => toggleLiebling(r.id)}>{r.liebling ? '★' : '☆'}</button>
+                      <button className="btn btn-ghost btn-sm" style={{ background: '#f5f5f4', color: '#44403c', border: '1px solid #d6d3d1' }} onClick={() => oeffneBearbeiten(r)}>✏</button>
                     </div>
                   )}
                 </div>
