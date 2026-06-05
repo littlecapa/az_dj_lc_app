@@ -1,6 +1,7 @@
 from django.db import models
 
 class CategoryClass(models.IntegerChoices):
+        # ── Legacy (behalten bis Migration abgeschlossen) ──────────────────
         BASIS_INVESTMENT = 1, 'Basis Investment'
         DIVIDENDE = 2, 'Dividende'
         D_EU = 3, 'D/EU'
@@ -16,3 +17,22 @@ class CategoryClass(models.IntegerChoices):
         FINANCE = 13, 'Finance'
         CRYPTO = 14, 'Crypto'
         SONSTIGES = 99, 'Sonstiges'
+        # ── Neue Kategorien ────────────────────────────────────────────────
+        INSURANCE = 20, 'Insurance'
+        FINANCE_GLOBAL = 21, 'Finance Global'
+        EU_TECHNOLOGY = 22, 'EU Technology'
+        US_BIG_TECH = 23, 'US Big Tech'
+        CYBERSECURITY_CLOUD = 24, 'Cybersecurity & Cloud'
+        DEFENSE = 25, 'Defense'
+        ENERGY = 26, 'Energy'
+        AI_ROBOTICS = 27, 'AI & Robotics'
+        PHARMA_BIOTECH = 28, 'Pharma & Biotech'
+        CARS = 29, 'Cars'
+        CONSUMER_BRANDS = 30, 'Consumer & Brands'
+        INFRASTRUCTURE = 31, 'Infrastructure'
+        MINING_RESOURCES = 32, 'Mining & Resources'
+        PRECIOUS_METALS_BONDS = 33, 'Precious Metals & Bonds'
+        CRYPTO_BLOCKCHAIN = 34, 'Crypto & Blockchain'
+        CORE_INVESTMENT = 35, 'Core Investment'
+        ASIA_EMERGING = 36, 'Asia & Emerging Markets'
+        CHEMICALS = 37, 'Chemicals'
