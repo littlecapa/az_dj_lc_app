@@ -366,7 +366,7 @@ _SORTED_SLUGS = sorted(_SLUG_TO_ID.keys())
 
 _openfigi = OpenFigiService()
 
-TOP_N = 5
+TOP_N = 10
 
 
 @login_required
