@@ -1,5 +1,5 @@
 {% extends "homepage/base_home.html" %}
-{% load static %}
+{% load static de_format %}
 
 {% block title %}Portfolio Performance{% endblock %}
 
@@ -44,22 +44,22 @@
         <div class="row text-center g-0">
             <div class="col-6 col-md-3">
                 <div class="label-small">Investiert</div>
-                <div class="fw-bold">{{ total_inv|floatformat:0 }} €</div>
+                <div class="fw-bold">{{ total_inv|de_currency:0 }}</div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="label-small">Aktuell</div>
-                <div class="fw-bold">{{ total_cur|floatformat:0 }} €</div>
+                <div class="fw-bold">{{ total_cur|de_currency:0 }}</div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="label-small">Gewinn / Verlust</div>
                 <div class="fw-bold {% if gain_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
-                    {% if gain_total >= 0 %}+{% endif %}{{ gain_total|floatformat:0 }} €
+                    {% if gain_total >= 0 %}+{% endif %}{{ gain_total|de_currency:0 }}
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="label-small">Gesamt</div>
                 <div class="fw-bold {% if simple_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
-                    {% if simple_total >= 0 %}+{% endif %}{{ simple_total|floatformat:1 }} %
+                    {{ simple_total|de_percent:1 }}
                 </div>
             </div>
         </div>
@@ -81,7 +81,7 @@
                     {% if row.simple is not None %}
                     <div class="text-end">
                         <div class="big-perf {% if row.simple >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
-                            {% if row.simple >= 0 %}+{% endif %}{{ row.simple|floatformat:1 }} %
+                            {{ row.simple|de_percent:1 }}
                         </div>
                         <div class="label-small">gesamt</div>
                     </div>
@@ -94,16 +94,16 @@
                 <div class="mt-3 row text-center g-0">
                     <div class="col">
                         <div class="label-small">Investiert</div>
-                        <div style="font-size:.85rem">{{ row.total_invested|floatformat:0 }} €</div>
+                        <div style="font-size:.85rem">{{ row.total_invested|de_currency:0 }}</div>
                     </div>
                     <div class="col">
                         <div class="label-small">Aktuell</div>
-                        <div style="font-size:.85rem">{{ row.total_current|floatformat:0 }} €</div>
+                        <div style="font-size:.85rem">{{ row.total_current|de_currency:0 }}</div>
                     </div>
                     <div class="col">
                         <div class="label-small">G/V</div>
                         <div style="font-size:.85rem" class="{% if row.gain_abs >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
-                            {% if row.gain_abs >= 0 %}+{% endif %}{{ row.gain_abs|floatformat:0 }} €
+                            {% if row.gain_abs >= 0 %}+{% endif %}{{ row.gain_abs|de_currency:0 }}
                         </div>
                     </div>
                 </div>

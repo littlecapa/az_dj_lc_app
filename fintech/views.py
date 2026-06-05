@@ -466,8 +466,12 @@ def portfolio_category_detail(request, category_slug):
             gain_abs = None
 
         rows.append({
+            'holdings_id':   h.pk,
+            'asset_id':      h.asset.pk,
             'name':          h.asset.name,
             'isin':          h.asset.isin,
+            'symbol':        h.asset.symbol or '',
+            'logo':          h.asset.logo or '',
             'asset_class':   h.asset.asset_class,
             'quantity':      h.quantity,
             'avg_price':     h.average_purchase_price,

@@ -84,6 +84,12 @@ class Asset(models.Model):
         help_text="Zeitpunkt des letzten Kurses"
     )
 
+    logo = models.URLField(
+        blank=True,
+        null=True,
+        help_text="Logo-URL, z.B. https://s3-symbol-logo.tradingview.com/iberdrola--big.svg"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
