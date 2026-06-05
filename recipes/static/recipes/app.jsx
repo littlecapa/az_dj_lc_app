@@ -87,8 +87,8 @@ function App() {
   }, [rezepte, suche, katFilter, aufwandF, saisonF, nurLiebling, sortierung]);
 
   /* Aktionen */
-  function oeffneNeu() { setFormular({ ...LEER }); setAnsicht('formular'); }
-  function oeffneBearbeiten(r) { setFormular({ ...r }); setAnsicht('formular'); }
+  function oeffneNeu() { setFormular({ ...LEER }); setAnsicht('formular'); window.scrollTo(0, 0); }
+  function oeffneBearbeiten(r) { setFormular({ ...r }); setAnsicht('formular'); window.scrollTo(0, 0); }
 
   async function speichereFormular() {
     if (!formular.name.trim()) return;
@@ -275,7 +275,7 @@ function App() {
           ? <div className="empty-state">Keine Rezepte gefunden.<br /><span style={{ fontSize: '0.9rem', color: '#a8a29e' }}>Füge ein neues Rezept hinzu oder ändere die Filter.</span></div>
           : <div className="rezept-list">
               {gefiltert.map(r => (
-                <div className="rezept-card" key={r.id} onClick={() => { setAktiv(r); setAnsicht('detail'); }}>
+                <div className="rezept-card" key={r.id} onClick={() => { setAktiv(r); setAnsicht('detail'); window.scrollTo(0, 0); }}>
                   <span className="star">{r.liebling ? '⭐' : '·'}</span>
                   <div className="card-body">
                     <div className="card-title">{r.name}</div>
