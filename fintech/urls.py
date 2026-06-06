@@ -7,6 +7,11 @@ app_name = "fintech" # Namespace für URL-Namen in diesem App-Teil
 
 urlpatterns = [
     path('', views.fintech_index, name="fintech-index"),
+    path('test_api/', views.test_api, name="test-api"),
+    path('test_api/run/', views.test_api_run, name="test-api-run"),
+    path('test_api/lookup/', views.test_api_lookup, name="test-api-lookup"),
+    path('trigger/update-prices/', views.trigger_update_prices, name="trigger-update-prices"),
+    path('trigger/cleanup/', views.trigger_cleanup, name="trigger-cleanup"),
     path('api/', include('fintech.apis.urls')),
     path("export", views.portfolio_export, name="portfolio-export"),
     path("export_watchlist", views.watchlist_export, name="watchlist-export"),

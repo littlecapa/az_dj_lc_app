@@ -140,9 +140,195 @@ def portfolio_overall(request):
     })
 
 
+@staff_member_required
+def test_api(request):
+    return render(request, 'fintech/test_api.html')
+
+
+@staff_member_required
+def test_api_lookup(request):
+    """AJAX: ISIN → Asset-Name aus DB."""
+    isin = request.GET.get('isin', '').strip().upper()
+    if not isin:
+        return JsonResponse({'name': None})
+    asset = Asset.objects.filter(isin=isin).first()
+    return JsonResponse({
+        'name': asset.name if asset else None,
+        'asset_class': asset.asset_class if asset else None,
+    })
+
+
+@staff_member_required
+def test_api_run(request):
+    """AJAX: führt eine API-Aktion aus und gibt Ergebnisse aller Provider zurück."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    import json as _json
+    body = _json.loads(request.body)
+    isin   = body.get('isin', '').strip().upper()
+    action = body.get('action', '')
+
+    if not isin:
+        return JsonResponse({'error': 'ISIN fehlt'}, status=400)
+
+    from .apis.services.provider_manager import ProviderManager
+    from .apis.services.openfigi import OpenFigiService
+    from .apis.services.request_lib import KeyNotFoundWarning, KeyNotFoundError
+    from .models_helper.asset_class import AssetClass
+
+    pm  = ProviderManager()
+    results = []
+
+    if action == 'price':
+        from .apis.services.exchange_rate_proxy import CurrencyProxy
+        from .libs.general.converter import string2dec
+        fx = CurrencyProxy()
+
+        def to_eur(price_str, currency):
+            """Gibt (eur_price, fx_rate, fx_source) zurück."""
+            try:
+                dec = string2dec(price_str)
+                if currency == 'EUR':
+                    return str(round(dec, 4)), '1,0000', '–'
+                rate = fx.get_rate(currency)
+                eur  = round(dec / rate, 4)
+                return str(eur), str(round(rate, 4)), 'Frankfurter API'
+            except Exception as e:
+                return 'n/a', 'n/a', str(e)
+
+        def add_price_result(provider, price, currency):
+            eur, fx_rate, fx_src = to_eur(price, currency)
+            results.append({
+                'provider': provider,
+                'price':    f'{price}',
+                'currency': currency,
+                'fx_rate':  fx_rate if currency != 'EUR' else '–',
+                'fx_src':   fx_src  if currency != 'EUR' else '–',
+                'eur':      eur,
+                'ok':       True,
+            })
+
+        # Comdirect — alle Asset-Klassen
+        for ac_value, ac_label in AssetClass.choices:
+            try:
+                price, currency = pm.com_requester[ac_value].isin2price(isin)
+                add_price_result(f'Comdirect ({ac_label})', price, currency)
+            except (KeyNotFoundWarning, KeyNotFoundError):
+                results.append({'provider': f'Comdirect ({ac_label})', 'ok': False})
+            except Exception as e:
+                results.append({'provider': f'Comdirect ({ac_label})', 'ok': False, 'error': str(e)})
+
+        # Yahoo Finance
+        try:
+            price, currency = pm.yahoo_request.isin2price(isin)
+            add_price_result('Yahoo Finance', price, currency)
+        except Exception:
+            results.append({'provider': 'Yahoo Finance', 'ok': False})
+
+        # AlleAktien
+        try:
+            _, price, currency, _ = pm.alle_aktien_request.get_infos(isin)
+            add_price_result('AlleAktien', price, currency)
+        except Exception:
+            results.append({'provider': 'AlleAktien', 'ok': False})
+
+        # JustETF
+        try:
+            price, currency = pm.just_etf_request.isin2price(isin)
+            add_price_result('JustETF', price, currency)
+        except Exception:
+            results.append({'provider': 'JustETF', 'ok': False})
+
+    elif action == 'symbol':
+        svc = OpenFigiService()
+        # Rohkandidaten aus OpenFIGI anzeigen
+        try:
+            candidates = svc._query([isin])
+            all_cands = candidates[0] if candidates else []
+            if all_cands:
+                for c in all_cands[:8]:
+                    ticker = c.get('ticker', '–')
+                    exch   = c.get('exchCode', '–')
+                    sector = c.get('marketSector', '–')
+                    built  = svc._build(c) or 'n/a'
+                    results.append({
+                        'provider': f'OpenFIGI ({exch} / {sector})',
+                        'value': f'{built}  [ticker={ticker}]',
+                        'ok': bool(svc._build(c)),
+                    })
+                # Gewähltes Symbol
+                best = svc._best_symbol(isin, all_cands)
+                results.append({
+                    'provider': '→ Gewähltes Symbol',
+                    'value': best or 'n/a',
+                    'ok': bool(best),
+                })
+            else:
+                results.append({'provider': 'OpenFIGI', 'value': 'n/a', 'ok': False})
+        except Exception as e:
+            results.append({'provider': 'OpenFIGI', 'value': f'Fehler: {e}', 'ok': False})
+
+    elif action == 'wkn':
+        # Comdirect
+        for ac_value, ac_label in AssetClass.choices:
+            try:
+                wkn = pm.com_requester[ac_value].isin2wkn(isin)
+                results.append({'provider': f'Comdirect ({ac_label})', 'value': wkn, 'ok': True})
+            except (KeyNotFoundWarning, KeyNotFoundError):
+                results.append({'provider': f'Comdirect ({ac_label})', 'value': 'n/a', 'ok': False})
+            except Exception as e:
+                results.append({'provider': f'Comdirect ({ac_label})', 'value': f'Fehler: {e}', 'ok': False})
+
+        # JustETF
+        try:
+            wkn = pm.just_etf_request.isin2wkn(isin)
+            results.append({'provider': 'JustETF', 'value': wkn, 'ok': True})
+        except Exception as e:
+            results.append({'provider': 'JustETF', 'value': 'n/a', 'ok': False})
+
+        # AlleAktien
+        try:
+            wkn = pm.alle_aktien_request.isin2wkn(isin)
+            results.append({'provider': 'AlleAktien', 'value': wkn, 'ok': True})
+        except Exception as e:
+            results.append({'provider': 'AlleAktien', 'value': 'n/a', 'ok': False})
+
+    else:
+        return JsonResponse({'error': f'Unbekannte Aktion: {action}'}, status=400)
+
+    return JsonResponse({'results': results})
+
+
 @login_required
 def fintech_index(request):
     return render(request, 'fintech/index.html')
+
+
+@staff_member_required
+def trigger_update_prices(request):
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+    try:
+        call_command('update_prices')
+        messages.success(request, 'Kurs-Update erfolgreich abgeschlossen.')
+    except Exception as e:
+        messages.error(request, f'Fehler beim Kurs-Update: {e}')
+    return redirect('fintech:fintech-index')
+
+
+@staff_member_required
+def trigger_cleanup(request):
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+    try:
+        call_command('clean_up')
+        messages.success(request, 'Cleanup erfolgreich abgeschlossen.')
+    except Exception as e:
+        messages.error(request, f'Fehler beim Cleanup: {e}')
+    return redirect('fintech:fintech-index')
 
 
 def portfolio_export(request):

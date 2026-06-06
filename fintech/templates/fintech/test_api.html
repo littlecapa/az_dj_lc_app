@@ -1,0 +1,170 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}API Test – Fintech{% endblock %}
+
+{% block content %}
+<style>
+    .result-row { padding: .5rem .75rem; border-radius: 6px; margin-bottom: .4rem; font-size: .9rem; }
+    .result-ok  { background: #d1fae5; color: #065f46; }
+    .result-na  { background: #f5f5f4; color: #78716c; }
+    .provider   { font-weight: 600; min-width: 220px; display: inline-block; }
+    .value      { font-family: monospace; }
+    #assetName  { font-size: .9rem; color: #6c757d; min-width: 200px; }
+    #assetName.found { color: #198754; font-weight: 600; }
+    #assetName.notfound { color: #dc3545; }
+    .spinner { display: none; }
+    .spinner.active { display: inline-block; }
+</style>
+
+<div class="container py-4" style="max-width:860px;">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <h2 class="mb-0">API Test</h2>
+        <a href="{% url 'fintech:fintech-index' %}" class="text-muted small">← Fintech</a>
+    </div>
+
+    <!-- ISIN + Name -->
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <div>
+            <label class="form-label fw-semibold mb-1">ISIN</label>
+            <input type="text" id="isinInput" class="form-control font-monospace"
+                   placeholder="z.B. DE0007030009" maxlength="12"
+                   style="width:160px;text-transform:uppercase;">
+        </div>
+        <div class="mt-3">
+            <span class="spinner-border spinner-border-sm text-secondary spinner" id="lookupSpinner"></span>
+            <span id="assetName">–</span>
+        </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="d-flex gap-2 mb-4 flex-wrap">
+        <button class="btn btn-primary"   onclick="runTest('price')">💶 Price</button>
+        <button class="btn btn-secondary" onclick="runTest('symbol')">🔗 Symbol</button>
+        <button class="btn btn-outline-secondary" onclick="runTest('wkn')">🔑 WKN</button>
+    </div>
+
+    <!-- Ergebnisse -->
+    <div id="resultArea" style="display:none;">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <h5 class="mb-0" id="resultTitle"></h5>
+            <span class="spinner-border spinner-border-sm text-primary spinner" id="runSpinner"></span>
+        </div>
+        <div id="resultList"></div>
+    </div>
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+let lookupTimer = null;
+
+// ── ISIN-Lookup ───────────────────────────────────────────────────────────
+document.getElementById('isinInput').addEventListener('input', function() {
+    const isin = this.value.toUpperCase();
+    this.value = isin;
+    clearTimeout(lookupTimer);
+    const nameEl    = document.getElementById('assetName');
+    const spinner   = document.getElementById('lookupSpinner');
+
+    if (isin.length < 12) {
+        nameEl.textContent = '–';
+        nameEl.className = '';
+        return;
+    }
+    spinner.classList.add('active');
+    lookupTimer = setTimeout(() => {
+        fetch(`{% url 'fintech:test-api-lookup' %}?isin=${encodeURIComponent(isin)}`)
+            .then(r => r.json())
+            .then(data => {
+                spinner.classList.remove('active');
+                if (data.name) {
+                    nameEl.textContent = `${data.name}  (${data.asset_class})`;
+                    nameEl.className = 'found';
+                } else {
+                    nameEl.textContent = 'Nicht in DB';
+                    nameEl.className = 'notfound';
+                }
+            })
+            .catch(() => { spinner.classList.remove('active'); });
+    }, 400);
+});
+
+// ── API Test ──────────────────────────────────────────────────────────────
+function runTest(action) {
+    const isin = document.getElementById('isinInput').value.trim().toUpperCase();
+    if (isin.length < 4) { alert('Bitte ISIN eingeben.'); return; }
+
+    const area    = document.getElementById('resultArea');
+    const list    = document.getElementById('resultList');
+    const title   = document.getElementById('resultTitle');
+    const spinner = document.getElementById('runSpinner');
+
+    const labels = { price: '💶 Price', symbol: '🔗 Symbol', wkn: '🔑 WKN' };
+    title.textContent = `${labels[action]} — ${isin}`;
+    list.innerHTML = '';
+    area.style.display = '';
+    spinner.classList.add('active');
+
+    fetch('{% url "fintech:test-api-run" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ isin, action }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        spinner.classList.remove('active');
+        list.__action = action;  // für den Render-Zweig merken
+        if (data.error) {
+            list.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+        const isPrice = list.__action === 'price';
+        if (isPrice) {
+            let html = `<table class="table table-sm table-hover" style="font-size:.88rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th>Provider</th>
+                        <th class="text-end">Kurs</th>
+                        <th>Währung</th>
+                        <th class="text-end">FX-Rate</th>
+                        <th class="text-muted" style="font-size:.75rem;">FX-Quelle</th>
+                        <th class="text-end">EUR</th>
+                    </tr>
+                </thead><tbody>`;
+            data.results.forEach(r => {
+                if (r.ok) {
+                    html += `<tr class="table-success">
+                        <td class="fw-semibold">${r.provider}</td>
+                        <td class="text-end font-monospace">${r.price}</td>
+                        <td><span class="badge bg-secondary">${r.currency}</span></td>
+                        <td class="text-end font-monospace">${r.fx_rate}</td>
+                        <td class="text-muted" style="font-size:.75rem;">${r.fx_src}</td>
+                        <td class="text-end font-monospace fw-bold">${r.eur} €</td>
+                    </tr>`;
+                } else {
+                    html += `<tr class="text-muted">
+                        <td>${r.provider}</td>
+                        <td colspan="5" class="text-center">n/a ${r.error ? '– ' + r.error : ''}</td>
+                    </tr>`;
+                }
+            });
+            html += '</tbody></table>';
+            list.innerHTML = html;
+        } else {
+            data.results.forEach(r => {
+                const cls = r.ok ? 'result-ok' : 'result-na';
+                list.innerHTML += `
+                    <div class="result-row ${cls}">
+                        <span class="provider">${r.provider}</span>
+                        <span class="value">${r.value}</span>
+                    </div>`;
+            });
+        }
+    })
+    .catch(err => {
+        spinner.classList.remove('active');
+        list.innerHTML = `<div class="alert alert-danger">Netzwerkfehler: ${err}</div>`;
+    });
+}
+</script>
+{% endblock %}

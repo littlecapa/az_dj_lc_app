@@ -205,6 +205,7 @@ DATABASES = {
         'OPTIONS': {
             'driver': 'ODBC Driver 18 for SQL Server',
             'extra_params': 'TrustServerCertificate=yes;'
+                            + ('' if os.getenv('DJANGO_ENV') == 'production' else 'Encrypt=no;')
         },
     }
 }
