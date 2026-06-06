@@ -26,6 +26,7 @@ def deduplicate_prices():
         .values('asset_id', 'date')
         .annotate(max_id=Max('id'), count=Count('id'))
         .filter(count__gt=1)
+        .order_by()   # Fix von Copilot. Nicht ohne Rücksprache löschen.
     )
 
     deleted_total = 0

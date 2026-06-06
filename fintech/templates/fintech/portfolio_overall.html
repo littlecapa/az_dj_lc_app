@@ -26,6 +26,11 @@
     .mode-toggle .label-r { color: #aaa; }
     .mode-toggle.day-mode .label-l { color: #aaa; }
     .mode-toggle.day-mode .label-r { color: #1a73e8; }
+    th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.sortable:hover { background: #e9ecef; }
+    th.sortable::after { content: ' ⇅'; color: #adb5bd; font-size: .75em; }
+    th.sort-asc::after  { content: ' ▲'; color: #495057; }
+    th.sort-desc::after { content: ' ▼'; color: #495057; }
 </style>
 
 <div class="container py-4">
@@ -84,22 +89,28 @@
             <thead class="table-light">
                 <tr>
                     <th>#</th>
-                    <th>Name / ISIN</th>
-                    <th>Kategorie</th>
+                    <th data-sort="name" class="sortable">Name / ISIN</th>
+                    <th data-sort="category" class="sortable">Kategorie</th>
                     <th class="text-end">Menge</th>
                     <th class="text-end col-gesamt">Einstand</th>
                     <th class="text-end">Aktuell</th>
-                    <th class="text-end col-gesamt">Investiert</th>
-                    <th class="text-end">Akt. Wert</th>
-                    <th class="text-end col-gesamt">G/V €</th>
-                    <th class="text-end col-gesamt">G/V %</th>
-                    <th class="text-end col-tag" style="display:none;">Tag €</th>
-                    <th class="text-end col-tag" style="display:none;">Tag %</th>
+                    <th data-sort="invested" class="sortable text-end col-gesamt">Investiert</th>
+                    <th data-sort="current" class="sortable text-end">Akt. Wert</th>
+                    <th data-sort="gain_abs" class="sortable text-end col-gesamt">G/V €</th>
+                    <th data-sort="simple" class="sortable text-end col-gesamt">G/V %</th>
+                    <th data-sort="day_abs" class="sortable text-end col-tag" style="display:none;">Tag €</th>
+                    <th data-sort="day" class="sortable text-end col-tag" style="display:none;">Tag %</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in rows %}
-                <tr data-simple="{{ row.simple|floatformat:4|default:'-9999' }}"
+                <tr data-name="{{ row.name|lower }}"
+                    data-category="{{ row.category|lower }}"
+                    data-invested="{{ row.invested|floatformat:4|default:'0' }}"
+                    data-current="{{ row.current|floatformat:4|default:'0' }}"
+                    data-gain_abs="{{ row.gain_abs|floatformat:4|default:'-9999' }}"
+                    data-simple="{{ row.simple|floatformat:4|default:'-9999' }}"
+                    data-day_abs="{{ row.day_abs|floatformat:4|default:'-9999' }}"
                     data-day="{{ row.day_perc|floatformat:4|default:'-9999' }}">
                     <td>
                         <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
@@ -229,5 +240,49 @@ sw.addEventListener('change', () => {
     localStorage.setItem(STORAGE_KEY, isDay ? 'tag' : 'gesamt');
     applyMode(isDay);
 });
+
+// ── Sortierbare Spalten ───────────────────────────────────────────────────
+let sortState = { col: 'simple', dir: 'desc' };
+
+function applySort(col, dir) {
+    const tbody = document.querySelector('table tbody');
+    if (!tbody) return;
+    const rows  = Array.from(tbody.querySelectorAll('tr'));
+    const isStr = ['name', 'category'].includes(col);
+
+    rows.sort((a, b) => {
+        const av = a.dataset[col] ?? '';
+        const bv = b.dataset[col] ?? '';
+        let cmp = isStr ? av.localeCompare(bv, 'de') : parseFloat(av) - parseFloat(bv);
+        return dir === 'asc' ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+
+    // Rang-Badges aktualisieren
+    tbody.querySelectorAll('tr').forEach((r, i) => {
+        const b = r.querySelector('.rank-badge');
+        if (!b) return;
+        b.textContent = i + 1;
+        b.className = 'rank-badge ' + (i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n');
+    });
+
+    // Header-Pfeile aktualisieren
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === col) th.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+    });
+}
+
+document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        const dir = (sortState.col === col && sortState.dir === 'desc') ? 'asc' : 'desc';
+        sortState = { col, dir };
+        applySort(col, dir);
+    });
+});
+
+// Initial sortieren
+applySort(sortState.col, sortState.dir);
 </script>
 {% endblock %}
