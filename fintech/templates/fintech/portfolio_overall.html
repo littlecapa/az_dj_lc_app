@@ -185,7 +185,7 @@
                     <td class="text-end" title="{% if row.week52_low %}52W-Tief: {{ row.week52_low }}{% endif %}">
                         {% if row.pct_from_low is not None %}
                         <span class="{% if row.pct_from_low >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
-                            +{{ row.pct_from_low|de_percent:1 }}
+                            {{ row.pct_from_low|de_percent:1 }}
                         </span>
                         {% else %}<span class="perf-neutral">–</span>{% endif %}
                     </td>
