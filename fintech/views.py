@@ -73,9 +73,9 @@ def _enrich_week52(rows: list) -> None:
                 rng = FiftyTwoWeekRange.objects.create(
                     asset_id=aid,
                     week52_high=Decimal(data['high']),
-                    week52_high_date=date.today(),
+                    week52_high_date=None,  # Yahoo liefert kein Datum
                     week52_low=Decimal(data['low']),
-                    week52_low_date=date.today(),
+                    week52_low_date=None,   # Yahoo liefert kein Datum
                     fetched_at=timezone.now(),
                 )
             except Exception as exc:

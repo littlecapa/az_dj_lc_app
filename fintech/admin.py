@@ -168,8 +168,8 @@ class HoldingsAdmin(admin.ModelAdmin):
             )
             return mark_safe(f'<table style="border-collapse:collapse;font-size:.92rem;">{html}</table>')
 
-        high_date = r.week52_high_date.strftime('%d.%m.%Y') if r.week52_high_date else '–'
-        low_date  = r.week52_low_date.strftime('%d.%m.%Y')  if r.week52_low_date  else '–'
+        high_date = r.week52_high_date.strftime('%d.%m.%Y') if r.week52_high_date else 'Datum unbekannt'
+        low_date  = r.week52_low_date.strftime('%d.%m.%Y')  if r.week52_low_date  else 'Datum unbekannt'
         fetched   = r.fetched_at.strftime('%d.%m.%Y %H:%M')
         cur_str   = obj.asset.currency
 
