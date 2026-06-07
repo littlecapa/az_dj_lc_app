@@ -100,7 +100,7 @@ QUELLE_MAPPING: dict[str, str] = {
     'organizeat':   'Eigenes',
 }
 
-GUELTIGE_QUELLEN = {'Chefkoch', 'OneNote', 'Papier', 'Buch', 'Familie', 'Eigenes', 'Screenshot'}
+GUELTIGE_QUELLEN = {'Chefkoch', 'OneNote', 'Ordner', 'Papier', 'Buch', 'Familie', 'Eigenes', 'Screenshot'}
 GUELTIGE_KATEGORIEN = {
     'fruehstueck', 'vorspeisen', 'suppen', 'vegetarisch',
     'fleisch', 'fisch', 'kartoffeln',

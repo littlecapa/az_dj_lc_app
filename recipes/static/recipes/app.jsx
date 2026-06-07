@@ -44,9 +44,8 @@ const KATEGORIEN = [
 ];
 const AUFWAND = ['niedrig', 'mittel', 'hoch'];
 const QUELLEN = ['OneNote', 'Chefkoch', 'Papier', 'Screenshot', 'Buch', 'Familie', 'Eigenes'];
-const SAISONS = ['Frühling', 'Sommer', 'Herbst', 'Winter', 'Ganzjährig'];
 
-const LEER = { id: null, name: '', kategorie: 'vegetarisch', aufwand: 'niedrig', saison: 'Ganzjährig', quelle: 'Eigenes', zutaten: '', notiz: '', link: '', liebling: false };
+const LEER = { id: null, name: '', kategorie: 'vegetarisch', aufwand: 'niedrig', quelle: 'Eigenes', zutaten: '', notiz: '', link: '', foto_url: '', liebling: false, tags: [] };
 const katLabel = k => KATEGORIEN.find(x => x.key === k)?.label || k;
 const katClass = k => `badge kat-${k || 'default'}`;
 
@@ -58,7 +57,6 @@ function App() {
   const [suche,    setSuche]    = useState('');
   const [katFilter,setKat]      = useState('');
   const [aufwandF, setAufwand]  = useState('');
-  const [saisonF,  setSaison]   = useState('');
   const [nurLiebling, setNurL]  = useState(false);
   const [sortierung, setSort]   = useState('name');
   const [ansicht,  setAnsicht]  = useState('liste');
@@ -79,18 +77,18 @@ function App() {
     if (suche)       r = r.filter(x => x.name.toLowerCase().includes(suche.toLowerCase()) || (x.zutaten || '').toLowerCase().includes(suche.toLowerCase()));
     if (katFilter)   r = r.filter(x => x.kategorie === katFilter);
     if (aufwandF)    r = r.filter(x => x.aufwand   === aufwandF);
-    if (saisonF)     r = r.filter(x => x.saison    === saisonF);
     if (nurLiebling) r = r.filter(x => x.liebling);
     return sortierung === 'name'
       ? [...r].sort((a, b) => a.name.localeCompare(b.name, 'de'))
       : [...r].sort((a, b) => b.id - a.id);
-  }, [rezepte, suche, katFilter, aufwandF, saisonF, nurLiebling, sortierung]);
+  }, [rezepte, suche, katFilter, aufwandF, nurLiebling, sortierung]);
 
   /* Aktionen */
   useEffect(() => { window.scrollTo(0, 0); }, [ansicht]);
 
   function oeffneNeu() { setFormular({ ...LEER }); setAnsicht('formular'); }
   function oeffneBearbeiten(r) { setFormular({ ...r }); setAnsicht('formular'); }
+  function oeffneDetail(r) { setAktiv(r); setAnsicht('detail'); }
 
   async function speichereFormular() {
     if (!formular.name.trim()) return;
@@ -151,55 +149,84 @@ function App() {
     </>
   );
 
-  /* ── Detail-Ansicht ── */
+  /* ── Detail-Ansicht (read-only, wie das Formular) ── */
   if (ansicht === 'detail' && aktiv) {
     const r = rezepte.find(x => x.id === aktiv.id) || aktiv;
+    const tagListe = r.tags_detail || [];
     return (
       <>
         <Header onNeu={oeffneNeu} />
         <div className="rz-container">
           <button className="detail-back" onClick={() => setAnsicht('liste')}>← Zurück zur Liste</button>
-          {r.foto_url && (
-            <img src={r.foto_url} alt={r.name}
-              style={{ width: '100%', maxHeight: '320px', objectFit: 'cover', borderRadius: '10px', marginBottom: '1.25rem' }}
-              onError={e => e.target.style.display='none'} />
-          )}
-          <div className="detail-header">
-            <div className="detail-title">{r.liebling ? '⭐ ' : ''}{r.name}</div>
-            {CFG.isAuthenticated && (
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn btn-ghost btn-sm" style={{ background: '#f5f5f4', color: '#44403c', border: '1px solid #d6d3d1' }} onClick={() => oeffneBearbeiten(r)}>Bearbeiten</button>
-                <button className="btn btn-danger btn-sm" onClick={() => loescheRezept(r.id)}>Löschen</button>
-              </div>
+          <div className="rz-form" style={{ maxWidth: '660px', margin: '0 auto' }}>
+            {/* Kopfzeile mit Titel und Aktions-Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+              <h2 style={{ margin: 0 }}>{r.liebling ? '⭐ ' : ''}{r.name}</h2>
+              {CFG.isAuthenticated && (
+                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, marginLeft: '1rem' }}>
+                  <button className="btn btn-ghost btn-sm" style={{ background: '#f5f5f4', color: '#44403c', border: '1px solid #d6d3d1' }} onClick={() => oeffneBearbeiten(r)}>✏ Bearbeiten</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => loescheRezept(r.id)}>Löschen</button>
+                </div>
+              )}
+            </div>
+
+            {/* Foto */}
+            {r.foto_url && (
+              <img src={r.foto_url} alt={r.name}
+                style={{ width: '100%', maxHeight: '320px', objectFit: 'cover', borderRadius: '10px', marginBottom: '1.25rem' }}
+                onError={e => e.target.style.display='none'} />
             )}
+
+            {/* Felder im gleichen Grid wie das Formular */}
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Kategorie</label>
+                <div className="form-readonly"><span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span></div>
+              </div>
+              <div className="form-group">
+                <label>Aufwand</label>
+                <div className="form-readonly"><span className="chip">🔥 {r.aufwand}</span></div>
+              </div>
+              {r.quelle && (
+                <div className="form-group">
+                  <label>Quelle</label>
+                  <div className="form-readonly">{r.quelle}</div>
+                </div>
+              )}
+              {r.link && (
+                <div className="form-group">
+                  <label>Link</label>
+                  <div className="form-readonly">
+                    <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ color: '#92400e' }}>{r.link}</a>
+                  </div>
+                </div>
+              )}
+              {tagListe.length > 0 && (
+                <div className="form-group full">
+                  <label>Tags</label>
+                  <div className="form-readonly" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {tagListe.map(t => <span key={t.id} className="badge badge-akzent">{t.name}</span>)}
+                  </div>
+                </div>
+              )}
+              {r.zutaten && (
+                <div className="form-group full">
+                  <label>Zutaten</label>
+                  <div className="form-readonly">
+                    <ul className="zutaten-list" style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                      {r.zutaten.split(',').map((z, i) => <li key={i}>{z.trim()}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              )}
+              {r.notiz && (
+                <div className="form-group full">
+                  <label>Zubereitung</label>
+                  <div className="form-readonly notiz-text" style={{ whiteSpace: 'pre-wrap' }}>{r.notiz}</div>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="detail-meta">
-            <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
-            <span className="chip">🔥 {r.aufwand}</span>
-            
-            <span className="chip">🌿 {r.saison}</span>
-            {r.quelle && <span className="badge badge-akzent">{r.quelle}</span>}
-          </div>
-          {r.zutaten && (
-            <div className="detail-section">
-              <h3>Zutaten</h3>
-              <ul className="zutaten-list">
-                {r.zutaten.split(',').map((z, i) => <li key={i}>{z.trim()}</li>)}
-              </ul>
-            </div>
-          )}
-          {r.notiz && (
-            <div className="detail-section">
-              <h3>Zubereitung</h3>
-              <p className="notiz-text">{r.notiz}</p>
-            </div>
-          )}
-          {r.link && (
-            <div className="detail-section">
-              <h3>Quelle</h3>
-              <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ color: '#92400e' }}>{r.link}</a>
-            </div>
-          )}
         </div>
       </>
     );
@@ -264,12 +291,8 @@ function App() {
             <option value="">Alle Aufwände</option>
             {AUFWAND.map(a => <option key={a}>{a}</option>)}
           </select>
-          <select className="rz-select" value={saisonF} onChange={e => setSaison(e.target.value)} style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem' }}>
-            <option value="">Alle Saisons</option>
-            {SAISONS.map(s => <option key={s}>{s}</option>)}
-          </select>
-          {(katFilter || aufwandF || saisonF || nurLiebling || suche) && (
-            <button className="tag-btn" onClick={() => { setKat(''); setAufwand(''); setSaison(''); setNurL(false); setSuche(''); }}>✕ Reset</button>
+          {(katFilter || aufwandF || nurLiebling || suche) && (
+            <button className="tag-btn" onClick={() => { setKat(''); setAufwand(''); setNurL(false); setSuche(''); }}>✕ Reset</button>
           )}
         </div>
         <div className="count-bar">{gefiltert.length} Rezept{gefiltert.length !== 1 ? 'e' : ''}</div>
@@ -277,14 +300,16 @@ function App() {
           ? <div className="empty-state">Keine Rezepte gefunden.<br /><span style={{ fontSize: '0.9rem', color: '#a8a29e' }}>Füge ein neues Rezept hinzu oder ändere die Filter.</span></div>
           : <div className="rezept-list">
               {gefiltert.map(r => (
-                <div className="rezept-card" key={r.id} onClick={() => { setAktiv(r); setAnsicht('detail'); }}>
+                <div className="rezept-card" key={r.id} onClick={() => oeffneDetail(r)}>
                   <span className="star">{r.liebling ? '⭐' : '·'}</span>
                   <div className="card-body">
                     <div className="card-title">{r.name}</div>
                     <div className="card-meta">
                       <span className={katClass(r.kategorie)}>{katLabel(r.kategorie)}</span>
                       <span className="chip">🔥 {r.aufwand}</span>
-                      <span className="chip">🌿 {r.saison}</span>
+                      {(r.tags_detail || []).slice(0, 5).map(t => (
+                        <span key={t.id} className="badge badge-akzent">{t.name}</span>
+                      ))}
                     </div>
                   </div>
                   {CFG.isAuthenticated && (
