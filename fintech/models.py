@@ -423,7 +423,7 @@ class FiftyTwoWeekRange(models.Model):
     )
     week52_high = models.DecimalField(
         max_digits=12, decimal_places=4,
-        help_text="52-Wochen-Hoch in Asset-Währung",
+        help_text="52-Wochen-Hoch in Yahoo-Währung",
     )
     week52_high_date = models.DateField(
         null=True, blank=True,
@@ -431,11 +431,19 @@ class FiftyTwoWeekRange(models.Model):
     )
     week52_low = models.DecimalField(
         max_digits=12, decimal_places=4,
-        help_text="52-Wochen-Tief in Asset-Währung",
+        help_text="52-Wochen-Tief in Yahoo-Währung",
     )
     week52_low_date = models.DateField(
         null=True, blank=True,
         help_text="Datum, an dem das 52-Wochen-Tief zuletzt aktualisiert wurde",
+    )
+    yahoo_currency = models.CharField(
+        max_length=10, blank=True, default='',
+        help_text="Währung laut Yahoo (kann von Asset-Währung abweichen, z.B. USD vs EUR)",
+    )
+    yahoo_current_price = models.DecimalField(
+        max_digits=12, decimal_places=4, null=True, blank=True,
+        help_text="Aktueller Kurs laut Yahoo (gleiche Währung wie 52W-Werte, für Prozentberechnung)",
     )
     fetched_at = models.DateTimeField(
         default=timezone.now,

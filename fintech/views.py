@@ -73,9 +73,11 @@ def _enrich_week52(rows: list) -> None:
                 rng = FiftyTwoWeekRange.objects.create(
                     asset_id=aid,
                     week52_high=Decimal(data['high']),
-                    week52_high_date=None,  # Yahoo liefert kein Datum
+                    week52_high_date=None,
                     week52_low=Decimal(data['low']),
-                    week52_low_date=None,   # Yahoo liefert kein Datum
+                    week52_low_date=None,
+                    yahoo_currency=data.get('currency', ''),
+                    yahoo_current_price=Decimal(data['current']) if data.get('current') else None,
                     fetched_at=timezone.now(),
                 )
             except Exception as exc:
@@ -83,18 +85,22 @@ def _enrich_week52(rows: list) -> None:
                 rng = None
 
         # Prozentuale Abweichungen berechnen
-        cur = row.get('current_price')
-        if rng and cur:
+        # Wichtig: yahoo_current_price verwenden (gleiche Währung wie 52W-Werte),
+        # nicht asset.current_price (oft EUR vom deutschen Handel, 52W-Werte in USD/GBp etc.)
+        if rng and rng.yahoo_current_price:
             try:
-                cur = Decimal(str(cur))
-                row['week52_high']     = rng.week52_high
-                row['week52_low']      = rng.week52_low
-                row['pct_from_high']   = (cur / rng.week52_high - 1) * 100   # negativ = unter Hoch
-                row['pct_from_low']    = (cur / rng.week52_low  - 1) * 100   # positiv = über Tief
+                cur = rng.yahoo_current_price
+                row['week52_high']   = rng.week52_high
+                row['week52_low']    = rng.week52_low
+                row['yahoo_currency'] = rng.yahoo_currency
+                row['pct_from_high'] = (cur / rng.week52_high - 1) * 100
+                row['pct_from_low']  = (cur / rng.week52_low  - 1) * 100
             except Exception:
                 row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
+                row['yahoo_currency'] = ''
         else:
             row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
+            row['yahoo_currency'] = ''
 
 
 @login_required

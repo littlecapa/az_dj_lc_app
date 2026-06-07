@@ -97,9 +97,11 @@ class Week52View(View):
             r = FiftyTwoWeekRange.objects.create(
                 asset=asset,
                 week52_high=high,
-                week52_high_date=None,  # Yahoo liefert kein Datum
+                week52_high_date=None,
                 week52_low=low,
-                week52_low_date=None,   # Yahoo liefert kein Datum
+                week52_low_date=None,
+                yahoo_currency=data.get("currency", ""),
+                yahoo_current_price=Decimal(data["current"]) if data.get("current") else None,
                 fetched_at=timezone.now(),
             )
             logger.info(f"52W range stored for {isin}: H={high} L={low}")

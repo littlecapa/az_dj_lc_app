@@ -104,11 +104,12 @@ class YahooFinanceRequest:
 
         try:
             meta = resp.json()["chart"]["result"][0]["meta"]
-            high = meta["fiftyTwoWeekHigh"]
-            low  = meta["fiftyTwoWeekLow"]
+            high    = meta["fiftyTwoWeekHigh"]
+            low     = meta["fiftyTwoWeekLow"]
             currency = meta["currency"]
+            current = meta["regularMarketPrice"]
         except (KeyError, IndexError, TypeError) as exc:
             raise KeyNotFoundWarning(f"Yahoo Finance: no 52W data for {symbol}: {exc}")
 
-        logger.info(f"Yahoo Finance 52W [{isin}]: H={high} L={low} {currency}")
-        return {"high": str(high), "low": str(low), "currency": currency}
+        logger.info(f"Yahoo Finance 52W [{isin}]: H={high} L={low} cur={current} {currency}")
+        return {"high": str(high), "low": str(low), "currency": currency, "current": str(current)}

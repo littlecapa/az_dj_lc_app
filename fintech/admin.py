@@ -171,7 +171,8 @@ class HoldingsAdmin(admin.ModelAdmin):
         high_date = r.week52_high_date.strftime('%d.%m.%Y') if r.week52_high_date else 'Datum unbekannt'
         low_date  = r.week52_low_date.strftime('%d.%m.%Y')  if r.week52_low_date  else 'Datum unbekannt'
         fetched   = r.fetched_at.strftime('%d.%m.%Y %H:%M')
-        cur_str   = obj.asset.currency
+        cur_str   = r.yahoo_currency or obj.asset.currency
+        cur = r.yahoo_current_price  # gleiche Währung wie 52W-Werte
 
         html = (
             price_row +
@@ -280,8 +281,8 @@ class FinConfigAdmin(admin.ModelAdmin):
 
 @admin.register(FiftyTwoWeekRange)
 class FiftyTwoWeekRangeAdmin(admin.ModelAdmin):
-    list_display  = ('asset', 'week52_high', 'week52_high_date', 'week52_low', 'week52_low_date', 'fetched_at')
-    list_filter   = ('fetched_at',)
+    list_display  = ('asset', 'yahoo_currency', 'week52_high', 'week52_high_date', 'week52_low', 'week52_low_date', 'yahoo_current_price', 'fetched_at')
+    list_filter   = ('fetched_at', 'yahoo_currency')
     search_fields = ('asset__isin', 'asset__symbol', 'asset__name')
     readonly_fields = ('fetched_at',)
 
