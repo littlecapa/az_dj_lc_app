@@ -100,6 +100,8 @@
                     <th data-sort="simple" class="sortable text-end col-gesamt">G/V %</th>
                     <th data-sort="day_abs" class="sortable text-end col-tag" style="display:none;">Tag €</th>
                     <th data-sort="day" class="sortable text-end col-tag" style="display:none;">Tag %</th>
+                    <th data-sort="pct_high" class="sortable text-end" title="Abstand zum 52W-Hoch">52W H %</th>
+                    <th data-sort="pct_low"  class="sortable text-end" title="Abstand zum 52W-Tief">52W T %</th>
                 </tr>
             </thead>
             <tbody>
@@ -111,7 +113,9 @@
                     data-gain_abs="{{ row.gain_abs|floatformat:4|default:'-9999' }}"
                     data-simple="{{ row.simple|floatformat:4|default:'-9999' }}"
                     data-day_abs="{{ row.day_abs|floatformat:4|default:'-9999' }}"
-                    data-day="{{ row.day_perc|floatformat:4|default:'-9999' }}">
+                    data-day="{{ row.day_perc|floatformat:4|default:'-9999' }}"
+                    data-pct_high="{{ row.pct_from_high|floatformat:4|default:'-9999' }}"
+                    data-pct_low="{{ row.pct_from_low|floatformat:4|default:'-9999' }}">
                     <td>
                         <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
                             {{ forloop.counter }}
@@ -171,6 +175,20 @@
                         </span>
                         {% else %}<span class="perf-neutral">–</span>{% endif %}
                     </td>
+                    <td class="text-end" title="{% if row.week52_high %}52W-Hoch: {{ row.week52_high }}{% endif %}">
+                        {% if row.pct_from_high is not None %}
+                        <span class="{% if row.pct_from_high >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            {{ row.pct_from_high|de_percent:1 }}
+                        </span>
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
+                    <td class="text-end" title="{% if row.week52_low %}52W-Tief: {{ row.week52_low }}{% endif %}">
+                        {% if row.pct_from_low is not None %}
+                        <span class="{% if row.pct_from_low >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                            +{{ row.pct_from_low|de_percent:1 }}
+                        </span>
+                        {% else %}<span class="perf-neutral">–</span>{% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -185,6 +203,7 @@
                     <td class="text-end {% if simple_total >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
                         {{ simple_total|de_percent:1 }}
                     </td>
+                    <td colspan="2"></td>
                 </tr>
                 <tr id="footerTag" style="display:none;">
                     <td colspan="5" class="text-start text-muted">Gesamt</td>
@@ -195,6 +214,7 @@
                     <td class="text-end {% if day_total_pct >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
                         {% if day_total_pct %}{{ day_total_pct|de_percent:2 }}{% endif %}
                     </td>
+                    <td colspan="2"></td>
                 </tr>
             </tfoot>
         </table>

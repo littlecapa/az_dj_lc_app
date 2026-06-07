@@ -8,7 +8,7 @@ from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange
 from .models_helper.category_class import CategoryClass
 from django.utils.text import slugify
 from django.http import Http404
@@ -35,6 +35,67 @@ def _is_api_key_valid(request) -> bool:
     if not api_key:
         return False
     return request.headers.get("X-Api-Key", "") == api_key
+
+def _enrich_week52(rows: list) -> None:
+    """
+    Ergänzt jede Row um week52_high, week52_low, pct_from_high, pct_from_low.
+    Holt fehlende oder abgelaufene Einträge live von Yahoo Finance und speichert sie.
+    Fehler pro Asset werden still als None gesetzt (Seite bleibt nutzbar).
+    """
+    from .apis.services.yahoo_finance import YahooFinanceRequest
+    from .apis.services.request_lib import KeyNotFoundWarning
+    from datetime import date
+
+    asset_ids = [r['asset_id'] for r in rows]
+
+    # Vorhandene Ranges in einem Dict laden
+    existing = {
+        r.asset_id: r
+        for r in FiftyTwoWeekRange.objects.filter(asset_id__in=asset_ids)
+    }
+
+    yahoo = YahooFinanceRequest()
+
+    for row in rows:
+        aid  = row['asset_id']
+        isin = row['isin']
+        rng  = existing.get(aid)
+
+        # Abgelaufen → löschen und neu holen
+        if rng and rng.is_expired():
+            rng.delete()
+            rng = None
+
+        # Fehlend → von Yahoo holen
+        if rng is None:
+            try:
+                data = yahoo.isin2week52(isin)
+                rng = FiftyTwoWeekRange.objects.create(
+                    asset_id=aid,
+                    week52_high=Decimal(data['high']),
+                    week52_high_date=date.today(),
+                    week52_low=Decimal(data['low']),
+                    week52_low_date=date.today(),
+                    fetched_at=timezone.now(),
+                )
+            except Exception as exc:
+                logger.warning(f"52W fetch failed for {isin}: {exc}")
+                rng = None
+
+        # Prozentuale Abweichungen berechnen
+        cur = row.get('current_price')
+        if rng and cur:
+            try:
+                cur = Decimal(str(cur))
+                row['week52_high']     = rng.week52_high
+                row['week52_low']      = rng.week52_low
+                row['pct_from_high']   = (cur / rng.week52_high - 1) * 100   # negativ = unter Hoch
+                row['pct_from_low']    = (cur / rng.week52_low  - 1) * 100   # positiv = über Tief
+            except Exception:
+                row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
+        else:
+            row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
+
 
 @login_required
 def portfolio_overall(request):
@@ -95,6 +156,9 @@ def portfolio_overall(request):
             'not_for_sale':   h.not_for_sale,
             'stake_recovered': h.stake_recovered,
         })
+
+    # ── 52-Wochen-Range: prüfen / nachladen / berechnen ──────────────────────
+    _enrich_week52(rows)
 
     # CSV-Export
     if request.GET.get('export') == 'csv':
