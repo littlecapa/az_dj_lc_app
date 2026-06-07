@@ -2,6 +2,18 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Tag'
+        verbose_name_plural = 'Tags'
+
+    def __str__(self):
+        return self.name
+
+
 class Rezept(models.Model):
 
     KATEGORIE_CHOICES = [
@@ -31,7 +43,7 @@ class Rezept(models.Model):
     aufwand    = models.CharField(max_length=20, choices=AUFWAND_CHOICES, default='niedrig')
     quelle     = models.CharField(max_length=100, blank=True)
     zutaten    = models.TextField(blank=True)
-    saison     = models.CharField(max_length=50, default='Ganzjährig')
+    tags       = models.ManyToManyField(Tag, blank=True, related_name='rezepte')
     notiz      = models.TextField(blank=True, verbose_name='Zubereitung')
     link       = models.URLField(blank=True)
     liebling   = models.BooleanField(default=False)
