@@ -8,6 +8,33 @@ from .models_helper.category_class import CategoryClass
 
 from django.utils import timezone
 from django.contrib.auth.models import User
+
+
+class FinConfig(models.Model):
+    """
+    Singleton-Tabelle für App-weite Konfigurationswerte.
+    Immer nur ein Datensatz (pk=1). Zugriff über FinConfig.get().
+    """
+    week52_no_date_ttl_days = models.PositiveIntegerField(
+        default=7,
+        verbose_name="52W-Range TTL ohne Datum (Tage)",
+        help_text=(
+            "Wie viele Tage ein 52W-Range-Eintrag ohne Datum (Yahoo liefert keins) "
+            "als gültig gilt, bevor er neu abgerufen wird."
+        ),
+    )
+
+    class Meta:
+        verbose_name = "Fintech-Konfiguration"
+        verbose_name_plural = "Fintech-Konfiguration"
+
+    def __str__(self):
+        return "Fintech-Konfiguration"
+
+    @classmethod
+    def get(cls) -> "FinConfig":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
     
 class Asset(models.Model):
     """
@@ -423,10 +450,15 @@ class FiftyTwoWeekRange(models.Model):
         return f"{self.asset.symbol or self.asset.isin}: H={self.week52_high} T={self.week52_low}"
 
     def is_expired(self) -> bool:
-        """True wenn die Daten älter als 52 Wochen sind."""
+        """True wenn die Daten abgelaufen sind.
+        - Ohne Datum (Yahoo liefert keins): TTL aus FinConfig (default 7 Tage)
+        - Mit Datum (von Price.save() gesetzt): nach 52 Wochen
+        """
         from datetime import timedelta
-        cutoff = timezone.now() - timedelta(weeks=52)
-        return self.fetched_at < cutoff
+        if self.week52_high_date is None or self.week52_low_date is None:
+            ttl_days = FinConfig.get().week52_no_date_ttl_days
+            return self.fetched_at < timezone.now() - timedelta(days=ttl_days)
+        return self.fetched_at < timezone.now() - timedelta(weeks=52)
 
 
 class NewsEvent(models.Model):

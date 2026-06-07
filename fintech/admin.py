@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
 from decimal import Decimal
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -267,6 +267,15 @@ class PortfolioSummaryAdmin(admin.ModelAdmin):
             'admin/fintech/portfolio_summary_changelist.html',
             context,
         )
+
+
+@admin.register(FinConfig)
+class FinConfigAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return not FinConfig.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(FiftyTwoWeekRange)
