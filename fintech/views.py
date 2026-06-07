@@ -8,7 +8,7 @@ from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent
 from .models_helper.category_class import CategoryClass
 from django.utils.text import slugify
 from django.http import Http404
@@ -983,4 +983,30 @@ def watchlist_detail(request, watchlist_name):
         "watchlist": wl,
         "entry_rows": entry_rows,
         "hypothetical": HYPOTHETICAL_INVESTMENT,
+    })
+
+
+@login_required
+def news(request):
+    if request.method == "POST":
+        pk = request.POST.get("mark_read")
+        if pk:
+            NewsEvent.objects.filter(pk=pk).update(is_read=True)
+        mark_all = request.POST.get("mark_all_read")
+        if mark_all:
+            NewsEvent.objects.filter(is_read=False).update(is_read=True)
+        return redirect("fintech:news")
+
+    show_all = request.GET.get("all") == "1"
+    qs = NewsEvent.objects.prefetch_related("assets")
+    if not show_all:
+        qs = qs.filter(is_read=False)
+
+    events = list(qs[:200])
+    unread_count = NewsEvent.objects.filter(is_read=False).count()
+
+    return render(request, "fintech/news.html", {
+        "events":      events,
+        "show_all":    show_all,
+        "unread_count": unread_count,
     })

@@ -1,0 +1,164 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Markt-News{% endblock %}
+
+{% block content %}
+<style>
+    .news-card {
+        background: #fff;
+        border: 1px solid #e3e6ea;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: .75rem;
+        transition: box-shadow .15s;
+    }
+    .news-card.unread {
+        border-left: 4px solid #e7c547;
+    }
+    .news-card.read {
+        opacity: .65;
+        border-left: 4px solid #e3e6ea;
+    }
+    .news-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,.08); }
+
+    .event-badge {
+        display: inline-block;
+        padding: .2rem .6rem;
+        border-radius: 5px;
+        font-size: .75rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        white-space: nowrap;
+    }
+    .badge-high { background: #dcfce7; color: #14532d; border: 1px solid #4ade80; }
+    .badge-low  { background: #fee2e2; color: #7f1d1d; border: 1px solid #fca5a5; }
+
+    .asset-chip {
+        display: inline-flex; align-items: center; gap: .3rem;
+        background: #f5f5f4; border: 1px solid #e3e6ea;
+        border-radius: 20px; padding: .15rem .6rem;
+        font-size: .78rem; color: #44403c;
+        text-decoration: none;
+    }
+    .asset-chip:hover { border-color: #a8a29e; color: #1c1917; }
+
+    .value-arrow {
+        font-size: .9rem; color: #78716c;
+    }
+    .val-old { text-decoration: line-through; color: #a8a29e; }
+    .val-new-high { color: #14532d; font-weight: 700; }
+    .val-new-low  { color: #7f1d1d; font-weight: 700; }
+
+    .ts { font-size: .75rem; color: #a8a29e; }
+
+    .toolbar-news {
+        display: flex; flex-wrap: wrap; align-items: center;
+        gap: .75rem; margin-bottom: 1.25rem;
+    }
+    .count-bubble {
+        background: #e7c547; color: #1c1917;
+        border-radius: 20px; padding: .15rem .6rem;
+        font-size: .78rem; font-weight: 700;
+    }
+    .empty-state {
+        text-align: center; padding: 4rem 1rem;
+        color: #78716c; font-size: 1.05rem;
+    }
+</style>
+
+<div class="container py-4">
+
+    <div class="toolbar-news">
+        <h2 class="mb-0">Markt-News</h2>
+
+        {% if unread_count > 0 %}
+            <span class="count-bubble">{{ unread_count }} ungelesen</span>
+        {% endif %}
+
+        {% if show_all %}
+            <a href="{% url 'fintech:news' %}" class="btn btn-sm btn-outline-secondary">Nur ungelesene</a>
+        {% else %}
+            <a href="{% url 'fintech:news' %}?all=1" class="btn btn-sm btn-outline-secondary">Alle anzeigen</a>
+        {% endif %}
+
+        {% if unread_count > 0 %}
+        <form method="post" style="margin:0;">
+            {% csrf_token %}
+            <button name="mark_all_read" value="1" class="btn btn-sm btn-outline-secondary">
+                ✓ Alle als gelesen markieren
+            </button>
+        </form>
+        {% endif %}
+
+        <a href="{% url 'fintech:portfolio-performance' %}" class="text-muted small ms-auto">← Portfolio</a>
+    </div>
+
+    {% if events %}
+        {% for ev in events %}
+        <div class="news-card {% if ev.is_read %}read{% else %}unread{% endif %}">
+            <div class="d-flex align-items-start gap-3 flex-wrap">
+
+                <!-- Badge + Wert -->
+                <div style="min-width: 120px;">
+                    {% if ev.event_type == 'new_high' %}
+                        <span class="event-badge badge-high">📈 Neues 52W-Hoch</span>
+                    {% else %}
+                        <span class="event-badge badge-low">📉 Neues 52W-Tief</span>
+                    {% endif %}
+                    <div class="mt-2">
+                        {% if ev.old_value %}
+                            <span class="val-old">{{ ev.old_value }}</span>
+                            <span class="value-arrow">→</span>
+                        {% endif %}
+                        <span class="{% if ev.event_type == 'new_high' %}val-new-high{% else %}val-new-low{% endif %}">
+                            {{ ev.new_value }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Assets -->
+                <div class="flex-grow-1">
+                    <div class="d-flex flex-wrap gap-1 mb-1">
+                        {% for asset in ev.assets.all %}
+                            <a class="asset-chip"
+                               href="{% if asset.asset_class == 'ETF' %}https://www.justetf.com/de/etf-profile.html?isin={{ asset.isin }}#uebersicht{% elif asset.symbol %}https://de.tradingview.com/symbols/{{ asset.symbol }}/{% else %}https://www.onvista.de/aktien/ISIN/{{ asset.isin }}{% endif %}"
+                               target="_blank" rel="noopener noreferrer">
+                                {% if asset.logo %}
+                                    <img src="{{ asset.logo }}" alt="" style="height:14px;width:14px;object-fit:contain;" onerror="this.style.display='none'">
+                                {% endif %}
+                                {{ asset.name }}
+                                <span style="color:#a8a29e;">{{ asset.isin }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                    <div class="ts">{{ ev.created_at|date:"d.m.Y H:i" }}</div>
+                </div>
+
+                <!-- Als gelesen markieren -->
+                {% if not ev.is_read %}
+                <form method="post" style="margin:0;flex-shrink:0;">
+                    {% csrf_token %}
+                    <button name="mark_read" value="{{ ev.pk }}"
+                            class="btn btn-sm btn-outline-secondary" title="Als gelesen markieren">
+                        ✓
+                    </button>
+                </form>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endfor %}
+
+    {% else %}
+        <div class="empty-state">
+            {% if show_all %}
+                Noch keine News-Events vorhanden.
+            {% else %}
+                Keine ungelesenen Events. <a href="{% url 'fintech:news' %}?all=1">Alle anzeigen →</a>
+            {% endif %}
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
