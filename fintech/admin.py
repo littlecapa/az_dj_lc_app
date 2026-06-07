@@ -88,11 +88,12 @@ class HoldingsAdmin(admin.ModelAdmin):
     search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
     autocomplete_fields = ('asset',)
     list_select_related = ('asset',)
-    readonly_fields = ('get_total_investment', 'get_current_value', 'created_at', 'updated_at')
+    readonly_fields = ('get_total_investment', 'get_current_value', 'created_at', 'updated_at', 'get_week52_info')
 
     fieldsets = (
         (None, {'fields': ('asset', 'quantity', 'category', 'not_for_sale', 'stake_recovered')}),
         ('Finanzen', {'fields': ('average_purchase_price', 'get_total_investment', 'get_current_value')}),
+        ('52-Wochen-Range', {'fields': ('get_week52_info',)}),
         ('Notizen', {'fields': ('notes',), 'classes': ('collapse',)}),
         ('Metadaten', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
     )
@@ -115,6 +116,57 @@ class HoldingsAdmin(admin.ModelAdmin):
             value_str = f"{value:.2f}"
             return format_html('{} {}', value_str, obj.asset.currency)
         return "–"
+
+    @admin.display(description='52-Wochen-Range')
+    def get_week52_info(self, obj):
+        try:
+            r = obj.asset.week52
+        except Exception:
+            return format_html('<span style="color:#aaa;">Noch nicht geladen — '
+                               'wird beim nächsten Aufruf von /fintech/overall/ automatisch befüllt.</span>')
+
+        if r.is_expired():
+            return format_html('<span style="color:#dc3545;">Abgelaufen (älter als 52 Wochen) — '
+                               'wird beim nächsten Seitenaufruf erneuert.</span>')
+
+        cur = obj.asset.current_price
+        def pct(cur, ref):
+            if cur and ref:
+                from decimal import Decimal
+                return (Decimal(str(cur)) / Decimal(str(ref)) - 1) * 100
+            return None
+
+        pct_high = pct(cur, r.week52_high)
+        pct_low  = pct(cur, r.week52_low)
+
+        def fmt_pct(v):
+            if v is None:
+                return '–'
+            sign = '+' if v >= 0 else ''
+            color = '#198754' if v >= 0 else '#dc3545'
+            return format_html('<span style="color:{};font-weight:600;">{}{:.1f} %</span>', color, sign, v)
+
+        high_date = r.week52_high_date.strftime('%d.%m.%Y') if r.week52_high_date else '–'
+        low_date  = r.week52_low_date.strftime('%d.%m.%Y')  if r.week52_low_date  else '–'
+        fetched   = r.fetched_at.strftime('%d.%m.%Y %H:%M')
+
+        return format_html(
+            '<table style="border-collapse:collapse;font-size:.92rem;">'
+            '<tr><td style="padding:.3rem 1.5rem .3rem 0;color:#6c757d;">52W-Hoch</td>'
+            '    <td style="padding:.3rem 1rem .3rem 0;font-weight:600;">{} {}</td>'
+            '    <td style="padding:.3rem 1rem .3rem 0;color:#6c757d;">({})</td>'
+            '    <td>{}</td></tr>'
+            '<tr><td style="padding:.3rem 1.5rem .3rem 0;color:#6c757d;">52W-Tief</td>'
+            '    <td style="padding:.3rem 1rem .3rem 0;font-weight:600;">{} {}</td>'
+            '    <td style="padding:.3rem 1rem .3rem 0;color:#6c757d;">({})</td>'
+            '    <td>{}</td></tr>'
+            '<tr><td colspan="4" style="padding-top:.5rem;font-size:.8rem;color:#aaa;">'
+            '    Abgerufen: {}</td></tr>'
+            '</table>',
+            r.week52_high, obj.asset.currency, high_date, fmt_pct(pct_high),
+            r.week52_low,  obj.asset.currency, low_date,  fmt_pct(pct_low),
+            fetched,
+        )
 
     @admin.display(description='Durchschnittspreis', ordering='average_purchase_price')
     def average_purchase_price_display(self, obj):
