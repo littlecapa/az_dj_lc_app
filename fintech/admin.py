@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
 from decimal import Decimal
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -186,7 +186,7 @@ class PortfolioSummaryAdmin(admin.ModelAdmin):
         return False
 
     def changelist_view(self, request, extra_context=None):
-        
+
         call_command('update_prices')  # Preise vor Anzeige aktualisieren
         context = dict(extra_context or {})
         context['portfolio'] = list(PortfolioSummary.objects.portfolio())
@@ -195,3 +195,20 @@ class PortfolioSummaryAdmin(admin.ModelAdmin):
             'admin/fintech/portfolio_summary_changelist.html',
             context,
         )
+
+
+@admin.register(FiftyTwoWeekRange)
+class FiftyTwoWeekRangeAdmin(admin.ModelAdmin):
+    list_display  = ('asset', 'week52_high', 'week52_high_date', 'week52_low', 'week52_low_date', 'fetched_at')
+    list_filter   = ('fetched_at',)
+    search_fields = ('asset__isin', 'asset__symbol', 'asset__name')
+    readonly_fields = ('fetched_at',)
+
+
+@admin.register(NewsEvent)
+class NewsEventAdmin(admin.ModelAdmin):
+    list_display  = ('__str__', 'event_type', 'new_value', 'old_value', 'is_read', 'created_at')
+    list_filter   = ('event_type', 'is_read', 'created_at')
+    list_editable = ('is_read',)
+    filter_horizontal = ('assets',)
+    readonly_fields = ('created_at',)

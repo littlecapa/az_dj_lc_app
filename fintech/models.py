@@ -224,12 +224,53 @@ class Price(models.Model):
         # Prüfen, ob dies der neueste Kurs ist
         latest_price = self.asset.prices.first() # Dank ordering='-timestamp' ist das der neueste
         if latest_price and (
-            self.asset.current_price_timestamp is None or 
+            self.asset.current_price_timestamp is None or
             latest_price.timestamp >= self.asset.current_price_timestamp
         ):
             self.asset.current_price = latest_price.current_price
             self.asset.current_price_timestamp = latest_price.timestamp
             self.asset.save(update_fields=['current_price', 'current_price_timestamp'])
+        # 52W-Hoch/Tief aktualisieren falls vorhanden
+        self._update_week52(self.current_price)
+
+    def _update_week52(self, price):
+        """Prüft ob der neue Kurs ein neues 52W-Hoch oder -Tief darstellt."""
+        try:
+            r = self.asset.week52
+        except Exception:
+            return  # Noch kein Range-Eintrag → nichts zu tun
+
+        if r.is_expired():
+            r.delete()
+            return
+
+        today = timezone.now().date()
+        changed = False
+
+        if price > r.week52_high:
+            event = NewsEvent.objects.create(
+                event_type=NewsEvent.EventType.NEW_HIGH,
+                old_value=r.week52_high,
+                new_value=price,
+            )
+            event.assets.add(self.asset)
+            r.week52_high = price
+            r.week52_high_date = today
+            changed = True
+
+        if price < r.week52_low:
+            event = NewsEvent.objects.create(
+                event_type=NewsEvent.EventType.NEW_LOW,
+                old_value=r.week52_low,
+                new_value=price,
+            )
+            event.assets.add(self.asset)
+            r.week52_low = price
+            r.week52_low_date = today
+            changed = True
+
+        if changed:
+            r.save(update_fields=['week52_high', 'week52_high_date', 'week52_low', 'week52_low_date'])
 
     class Meta:
         verbose_name = "Kurs"
@@ -340,3 +381,86 @@ class WatchlistEntry(models.Model):
         if self.asset.current_price and self.price_at_add:
             return ((self.asset.current_price / self.price_at_add) - 1) * 100
         return None
+
+
+class FiftyTwoWeekRange(models.Model):
+    """
+    52-Wochen-Hoch und -Tief für ein Asset.
+    Wird lazy über die Yahoo-Finance-API befüllt und in der DB gecacht.
+    Ablauf: fetched_at älter als 52 Wochen → Datensatz löschen und neu holen.
+    """
+    asset = models.OneToOneField(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name='week52',
+    )
+    week52_high = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        help_text="52-Wochen-Hoch in Asset-Währung",
+    )
+    week52_high_date = models.DateField(
+        null=True, blank=True,
+        help_text="Datum, an dem das 52-Wochen-Hoch zuletzt aktualisiert wurde",
+    )
+    week52_low = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        help_text="52-Wochen-Tief in Asset-Währung",
+    )
+    week52_low_date = models.DateField(
+        null=True, blank=True,
+        help_text="Datum, an dem das 52-Wochen-Tief zuletzt aktualisiert wurde",
+    )
+    fetched_at = models.DateTimeField(
+        default=timezone.now,
+        help_text="Zeitpunkt des letzten API-Abrufs",
+    )
+
+    class Meta:
+        verbose_name = "52-Wochen-Range"
+        verbose_name_plural = "52-Wochen-Ranges"
+
+    def __str__(self):
+        return f"{self.asset.symbol or self.asset.isin}: H={self.week52_high} T={self.week52_low}"
+
+    def is_expired(self) -> bool:
+        """True wenn die Daten älter als 52 Wochen sind."""
+        from datetime import timedelta
+        cutoff = timezone.now() - timedelta(weeks=52)
+        return self.fetched_at < cutoff
+
+
+class NewsEvent(models.Model):
+    """
+    Markt-Ereignis (z. B. neues 52W-Hoch/-Tief, später auch RSS-Feeds).
+    Kann mehreren Assets zugeordnet sein.
+    """
+    class EventType(models.TextChoices):
+        NEW_HIGH = 'new_high', 'Neues 52W-Hoch'
+        NEW_LOW  = 'new_low',  'Neues 52W-Tief'
+
+    assets = models.ManyToManyField(
+        Asset,
+        related_name='news_events',
+        blank=True,
+    )
+    event_type = models.CharField(
+        max_length=20, choices=EventType.choices,
+    )
+    old_value = models.DecimalField(
+        max_digits=12, decimal_places=4, null=True, blank=True,
+        help_text="Bisheriger Extremwert",
+    )
+    new_value = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        help_text="Neuer Extremwert",
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "News-Event"
+        verbose_name_plural = "News-Events"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_event_type_display()} @ {self.new_value} ({self.created_at:%Y-%m-%d})"

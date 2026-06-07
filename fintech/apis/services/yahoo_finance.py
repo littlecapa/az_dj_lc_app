@@ -32,6 +32,12 @@ class YahooFinanceRequest:
         logger.info(f"Request isin2name {isin} from Yahoo Finance")
         return self._fetch_name(isin)
 
+    def isin2week52(self, isin: str) -> dict:
+        """Return {'high': str, 'low': str, 'currency': str} for *isin*."""
+        logger.info(f"Request isin2week52 {isin} from Yahoo Finance")
+        symbol = self._isin2symbol(isin)
+        return self._symbol2week52(symbol, isin)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -88,3 +94,21 @@ class YahooFinanceRequest:
 
         logger.info(f"Yahoo Finance price [{isin}]: {price} {currency}")
         return str(price), currency
+
+    def _symbol2week52(self, symbol: str, isin: str) -> dict:
+        url  = CHART_URL.format(symbol=symbol)
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        if resp.status_code in (400, 404):
+            raise KeyNotFoundWarning(f"Yahoo Finance chart returned {resp.status_code} for {symbol}")
+        resp.raise_for_status()
+
+        try:
+            meta = resp.json()["chart"]["result"][0]["meta"]
+            high = meta["fiftyTwoWeekHigh"]
+            low  = meta["fiftyTwoWeekLow"]
+            currency = meta["currency"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise KeyNotFoundWarning(f"Yahoo Finance: no 52W data for {symbol}: {exc}")
+
+        logger.info(f"Yahoo Finance 52W [{isin}]: H={high} L={low} {currency}")
+        return {"high": str(high), "low": str(low), "currency": currency}

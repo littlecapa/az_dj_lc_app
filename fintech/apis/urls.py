@@ -9,6 +9,7 @@ from fintech.apis.watchlist_api import (
 )
 from fintech.apis.quicklink_api import QuickLinkImportView
 from fintech.apis.asset_api import AssetResolveNameView, AssetResolveNamesView, AssetUpdateView
+from fintech.apis.week52_api import Week52View, NewsListView, NewsMarkReadView
 
 app_name = "fintech"
 
@@ -36,4 +37,11 @@ urlpatterns = [
 
     # Asset manual update (PATCH)
     path("assets/<str:isin>",              AssetUpdateView.as_view(),        name="api-asset-update"),
+
+    # 52-Wochen-Range (lazy fetch + DB cache)
+    path("assets/<str:isin>/week52",       Week52View.as_view(),             name="api-week52"),
+
+    # News-Events
+    path("news",                           NewsListView.as_view(),           name="api-news"),
+    path("news/<int:pk>/read",             NewsMarkReadView.as_view(),       name="api-news-read"),
 ]
