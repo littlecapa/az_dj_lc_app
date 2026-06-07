@@ -157,9 +157,6 @@ def _map_quelle(raw: str) -> tuple[str, str]:
     raw = raw.strip()
     if raw.lower().startswith('http'):
         return 'Chefkoch', raw   # URL geht ins link-Feld
-    # "Ordner..." Muster → Papier
-    if raw.lower().startswith('ordner'):
-        return 'Papier', ''
     key = raw.lower()
     return QUELLE_MAPPING.get(key, raw if raw in GUELTIGE_QUELLEN else 'Eigenes'), ''
 

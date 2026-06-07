@@ -167,7 +167,8 @@ def portfolio_overall(request):
         writer = csv.writer(response, delimiter=';')
         writer.writerow(['Name', 'ISIN', 'Kategorie', 'Asset Class', 'Menge',
                          'Einstand €', 'Aktuell €', 'Investiert €', 'Wert €',
-                         'G/V €', 'G/V %', 'Tag €', 'Tag %'])
+                         'G/V €', 'G/V %', 'Tag €', 'Tag %',
+                         '52W-Hoch', '52W-Tief', 'Abst. 52W-H %', 'Abst. 52W-T %'])
         for r in sorted(rows, key=lambda x: x['simple'] if x['simple'] else Decimal('-999'), reverse=True):
             writer.writerow([
                 r['name'], r['isin'], r['category'], r['asset_class'],
@@ -180,6 +181,10 @@ def portfolio_overall(request):
                 f"{r['simple']:.2f}".replace('.', ',') if r['simple'] is not None else '',
                 str(r['day_abs'] or '').replace('.', ','),
                 f"{r['day_perc']:.2f}".replace('.', ',') if r['day_perc'] is not None else '',
+                str(r.get('week52_high') or '').replace('.', ','),
+                str(r.get('week52_low') or '').replace('.', ','),
+                f"{r['pct_from_high']:.2f}".replace('.', ',') if r.get('pct_from_high') is not None else '',
+                f"{r['pct_from_low']:.2f}".replace('.', ',') if r.get('pct_from_low') is not None else '',
             ])
         return response
 
