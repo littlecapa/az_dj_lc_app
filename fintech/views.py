@@ -68,25 +68,24 @@ def _enrich_symbols(rows: list) -> None:
             logger.warning(f"Symbol lookup failed for {isin}: {exc}")
 
 
+from .libs.currency_utils import to_eur as _to_eur
+
+
 def _enrich_week52(rows: list) -> None:
     """
     Ergänzt jede Row um week52_high, week52_low, pct_from_high, pct_from_low.
+    Alle Werte werden in EUR gespeichert und verglichen.
     Holt fehlende oder abgelaufene Einträge live von Yahoo Finance und speichert sie.
     Fehler pro Asset werden still als None gesetzt (Seite bleibt nutzbar).
     """
     from .apis.services.yahoo_finance import YahooFinanceRequest
-    from .apis.services.request_lib import KeyNotFoundWarning
-    from datetime import date
+    from .apis.services.comdirect_finance import ComdirectFinanceRequest
 
     asset_ids = [r['asset_id'] for r in rows]
-
-    # Vorhandene Ranges in einem Dict laden
     existing = {
         r.asset_id: r
         for r in FiftyTwoWeekRange.objects.filter(asset_id__in=asset_ids)
     }
-
-    from .apis.services.comdirect_finance import ComdirectFinanceRequest
 
     yahoo     = YahooFinanceRequest()
     comdirect = ComdirectFinanceRequest()
@@ -95,6 +94,27 @@ def _enrich_week52(rows: list) -> None:
         aid  = row['asset_id']
         isin = row['isin']
         rng  = existing.get(aid)
+
+        # Blacklist-Eintrag: nie löschen, nie neu holen — aber vorhandene Werte anzeigen
+        if rng and rng.skip_yahoo:
+            # Prozentberechnung mit manuell eingetragenen Werten (falls vorhanden)
+            if rng.week52_high and rng.week52_low:
+                try:
+                    cur = row.get('current_price')
+                    if cur:
+                        row['week52_high']   = rng.week52_high
+                        row['week52_low']    = rng.week52_low
+                        row['pct_from_high'] = (Decimal(str(cur)) / rng.week52_high - 1) * 100
+                        row['pct_from_low']  = (Decimal(str(cur)) / rng.week52_low  - 1) * 100
+                    else:
+                        row['week52_high'] = rng.week52_high
+                        row['week52_low']  = rng.week52_low
+                        row['pct_from_high'] = row['pct_from_low'] = None
+                except Exception:
+                    row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
+            else:
+                row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
+            continue
 
         # Abgelaufen → löschen und neu holen
         if rng and rng.is_expired():
@@ -106,14 +126,12 @@ def _enrich_week52(rows: list) -> None:
             data     = None
             provider = None
 
-            # Versuch 1: Yahoo Finance
             try:
                 data     = yahoo.isin2week52(isin)
                 provider = 'yahoo'
             except Exception as exc:
                 logger.warning(f"Yahoo 52W failed for {isin}: {exc} — trying Comdirect")
 
-            # Versuch 2: Comdirect (Fallback)
             if data is None:
                 try:
                     data     = comdirect.isin2week52(isin)
@@ -123,38 +141,37 @@ def _enrich_week52(rows: list) -> None:
 
             if data is not None:
                 try:
+                    currency = data.get('currency', 'EUR')
+                    high_eur = _to_eur(data['high'], currency)
+                    low_eur  = _to_eur(data['low'],  currency)
                     rng = FiftyTwoWeekRange.objects.create(
                         asset_id=aid,
-                        week52_high=Decimal(data['high']),
+                        week52_high=high_eur,
                         week52_high_date=None,
-                        week52_low=Decimal(data['low']),
+                        week52_low=low_eur,
                         week52_low_date=None,
-                        yahoo_currency=data.get('currency', ''),
-                        yahoo_current_price=Decimal(data['current']) if data.get('current') else None,
                         fetched_at=timezone.now(),
                     )
-                    logger.info(f"52W stored for {isin} via {provider} (symbol={data.get('symbol','?')}): H={data['high']} L={data['low']}")
+                    logger.info(f"52W stored for {isin} via {provider}: H={high_eur} L={low_eur} EUR (orig {currency})")
                 except Exception as exc:
                     logger.warning(f"52W DB save failed for {isin}: {exc}")
                     rng = None
 
-        # Prozentuale Abweichungen berechnen
-        # Wichtig: yahoo_current_price verwenden (gleiche Währung wie 52W-Werte),
-        # nicht asset.current_price (oft EUR vom deutschen Handel, 52W-Werte in USD/GBp etc.)
-        if rng and rng.yahoo_current_price:
+        # Prozentuale Abweichungen berechnen — alles in EUR, current_price aus Asset
+        if rng:
             try:
-                cur = rng.yahoo_current_price
-                row['week52_high']   = rng.week52_high
-                row['week52_low']    = rng.week52_low
-                row['yahoo_currency'] = rng.yahoo_currency
-                row['pct_from_high'] = (cur / rng.week52_high - 1) * 100
-                row['pct_from_low']  = (cur / rng.week52_low  - 1) * 100
+                cur = row.get('current_price')  # EUR aus Asset-Tabelle
+                if cur and rng.week52_high and rng.week52_low:
+                    row['week52_high']   = rng.week52_high
+                    row['week52_low']    = rng.week52_low
+                    row['pct_from_high'] = (Decimal(str(cur)) / rng.week52_high - 1) * 100
+                    row['pct_from_low']  = (Decimal(str(cur)) / rng.week52_low  - 1) * 100
+                else:
+                    row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
             except Exception:
                 row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
-                row['yahoo_currency'] = ''
         else:
             row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
-            row['yahoo_currency'] = ''
 
 
 @login_required
@@ -448,18 +465,18 @@ def test_api_run(request):
         asset = Asset.objects.filter(isin=isin).first()
 
         def _week52_row(provider, data, source='live'):
-            high = float(data['high']); low = float(data['low'])
-            cur  = float(data['current']) if data.get('current') else None
-            pct_h = (cur / high - 1) * 100 if (cur and high) else None
-            pct_l = (cur / low  - 1) * 100 if (cur and low)  else None
+            currency = data.get('currency', '?')
+            try:
+                high_eur = _to_eur(data['high'], currency)
+                low_eur  = _to_eur(data['low'],  currency)
+            except Exception as e:
+                return {'provider': provider, 'ok': False, 'error': f'EUR-Umrechnung: {e}'}
             return {
                 'provider': provider, 'ok': True,
-                'high': f"{high:.4f}", 'low': f"{low:.4f}",
-                'cur':  f"{cur:.4f}" if cur else '–',
-                'currency': data.get('currency', '?'),
-                'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
-                'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
-                'source': source,
+                'high': f"{high_eur:.4f}", 'low': f"{low_eur:.4f}",
+                'cur': '–', 'currency': 'EUR',
+                'pct_high': '–', 'pct_low': '–',
+                'source': f'{source} (orig {currency})',
             }
 
         # Yahoo Finance
@@ -492,20 +509,18 @@ def test_api_run(request):
                 try:
                     if existing_rng:
                         existing_rng.delete()
+                    currency = best_data.get('currency', 'EUR')
                     FiftyTwoWeekRange.objects.create(
                         asset=asset,
-                        week52_high=_Dec(best_data['high']),
+                        week52_high=_to_eur(best_data['high'], currency),
                         week52_high_date=None,
-                        week52_low=_Dec(best_data['low']),
+                        week52_low=_to_eur(best_data['low'], currency),
                         week52_low_date=None,
-                        yahoo_currency=best_data.get('currency', ''),
-                        yahoo_current_price=_Dec(best_data['current']) if best_data.get('current') else None,
                         fetched_at=timezone.now(),
                     )
                     provider_used = 'Yahoo Finance' if yahoo_data else 'Comdirect'
-                    results.append({'provider': '✅ In DB gespeichert', 'ok': True,
-                                    'high': '–', 'low': '–', 'cur': '–',
-                                    'currency': best_data.get('currency', ''),
+                    results.append({'provider': '✅ In DB gespeichert (EUR)', 'ok': True,
+                                    'high': '–', 'low': '–', 'cur': '–', 'currency': 'EUR',
                                     'pct_high': '–', 'pct_low': '–',
                                     'source': f'via {provider_used}'})
                 except Exception as e:
@@ -514,9 +529,10 @@ def test_api_run(request):
         # DB-Cache anzeigen
         if asset:
             try:
-                r = asset.week52  # frisch laden
-                cur_f = float(r.yahoo_current_price) if r.yahoo_current_price else None
-                high_f = float(r.week52_high); low_f = float(r.week52_low)
+                r = asset.week52
+                cur_f  = float(asset.current_price) if asset.current_price else None
+                high_f = float(r.week52_high)
+                low_f  = float(r.week52_low)
                 pct_h = (cur_f / high_f - 1) * 100 if (cur_f and high_f) else None
                 pct_l = (cur_f / low_f  - 1) * 100 if (cur_f and low_f)  else None
                 expired_flag = ' ⚠ abgelaufen' if r.is_expired() else ''
@@ -525,7 +541,7 @@ def test_api_run(request):
                     'ok': not r.is_expired(),
                     'high': f"{high_f:.4f}", 'low': f"{low_f:.4f}",
                     'cur':  f"{cur_f:.4f}" if cur_f else '–',
-                    'currency': r.yahoo_currency or '?',
+                    'currency': 'EUR',
                     'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
                     'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
                     'source': f"DB ({r.fetched_at.strftime('%d.%m.%Y %H:%M')})",
@@ -568,28 +584,16 @@ def trigger_refresh_week52(request):
         return HttpResponseNotAllowed(['POST'])
     try:
         deleted = 0
+        skipped = 0
         from .models import FiftyTwoWeekRange
-        from decimal import Decimal
         for r in FiftyTwoWeekRange.objects.all():
-            reason = None
-            try:
-                high = float(r.week52_high)
-                low  = float(r.week52_low)
-                cur  = float(r.yahoo_current_price) if r.yahoo_current_price else None
-                if cur is not None and cur > high * 1.20:
-                    reason = 'current > high*1.2'
-                elif cur is not None and high > cur * 5.0:
-                    reason = 'high > current*5'
-                elif low > 0 and high / low > 8.0:
-                    reason = f'high/low={high/low:.1f} > 8'
-                elif r.is_expired():
-                    reason = 'expired'
-            except Exception:
-                reason = 'parse error'
-            if reason:
+            if r.skip_yahoo:
+                skipped += 1
+                continue  # Blacklist-Einträge nie löschen
+            if r.is_expired():
                 r.delete()
                 deleted += 1
-        messages.success(request, f'52W-Refresh: {deleted} Einträge gelöscht. Werden beim nächsten Overall-Aufruf neu geladen.')
+        messages.success(request, f'52W-Refresh: {deleted} Einträge gelöscht (wird neu geladen), {skipped} Blacklist-Einträge behalten.')
     except Exception as e:
         messages.error(request, f'Fehler beim 52W-Refresh: {e}')
     return redirect('fintech:fintech-index')

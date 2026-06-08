@@ -111,22 +111,22 @@ class Week52View(View):
                 )
 
             try:
-                high = Decimal(data["high"])
-                low  = Decimal(data["low"])
-            except (InvalidOperation, KeyError) as exc:
-                return JsonResponse({"error": "Parse Error", "detail": str(exc)}, status=502)
+                from fintech.libs.currency_utils import to_eur as _to_eur
+                currency = data.get("currency", "EUR")
+                high_eur = _to_eur(data["high"], currency)
+                low_eur  = _to_eur(data["low"],  currency)
+            except (InvalidOperation, KeyError, Exception) as exc:
+                return JsonResponse({"error": "Parse/EUR-Umrechnung Error", "detail": str(exc)}, status=502)
 
             r = FiftyTwoWeekRange.objects.create(
                 asset=asset,
-                week52_high=high,
+                week52_high=high_eur,
                 week52_high_date=None,
-                week52_low=low,
+                week52_low=low_eur,
                 week52_low_date=None,
-                yahoo_currency=data.get("currency", ""),
-                yahoo_current_price=Decimal(data["current"]) if data.get("current") else None,
                 fetched_at=timezone.now(),
             )
-            logger.info(f"52W range stored for {isin} via {provider}: H={high} L={low}")
+            logger.info(f"52W range stored for {isin} via {provider}: H={high_eur} L={low_eur} EUR (orig {currency})")
 
         return JsonResponse({
             "isin":            isin,

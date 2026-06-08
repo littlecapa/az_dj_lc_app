@@ -267,19 +267,17 @@ class Price(models.Model):
         except Exception:
             return  # Noch kein Range-Eintrag → nichts zu tun
 
+        if r.skip_yahoo:
+            return  # Blacklist-Eintrag → nicht anfassen
+
         if r.is_expired():
             r.delete()
             return
 
-        # Währungscheck: nur vergleichen wenn Preis (EUR aus Price-Tabelle) und
-        # 52W-Werte in derselben Währung sind. Für ausländische Aktien (HK, NO, DK, GB...)
-        # liefert Yahoo HKD/NOK/DKK/GBP, die DB-Kurse sind aber EUR vom deutschen Handel.
-        # Ein Vergleich EUR < HKD würde fälschlicherweise das 52W-Tief überschreiben.
-        yahoo_ccy = (r.yahoo_currency or '').upper()
-        asset_ccy = (self.asset.currency or 'EUR').upper()
-        if yahoo_ccy and yahoo_ccy != asset_ccy:
-            return  # Währungen passen nicht → kein Update möglich
+        if r.week52_high is None or r.week52_low is None:
+            return  # Noch keine Werte (skip_yahoo war mal True oder Fetch ausstehend)
 
+        # Beide Werte sind jetzt in EUR → direkter Vergleich möglich
         today = timezone.now().date()
         changed = False
 
@@ -421,18 +419,24 @@ class WatchlistEntry(models.Model):
 
 class FiftyTwoWeekRange(models.Model):
     """
-    52-Wochen-Hoch und -Tief für ein Asset.
+    52-Wochen-Hoch und -Tief für ein Asset, alle Werte in EUR.
     Wird lazy über die Yahoo-Finance-API befüllt und in der DB gecacht.
-    Ablauf: fetched_at älter als 52 Wochen → Datensatz löschen und neu holen.
+    Ablauf: fetched_at älter als TTL → Datensatz löschen und neu holen.
     """
     asset = models.OneToOneField(
         Asset,
         on_delete=models.CASCADE,
         related_name='week52',
     )
+    skip_yahoo = models.BooleanField(
+        default=False,
+        help_text="True = Yahoo-Abfrage sperren (z.B. ETFs ohne sinnvolle 52W-Daten). "
+                  "Wird bei Refresh nicht gelöscht.",
+    )
     week52_high = models.DecimalField(
         max_digits=12, decimal_places=4,
-        help_text="52-Wochen-Hoch in Yahoo-Währung",
+        null=True, blank=True,
+        help_text="52-Wochen-Hoch in EUR",
     )
     week52_high_date = models.DateField(
         null=True, blank=True,
@@ -440,19 +444,12 @@ class FiftyTwoWeekRange(models.Model):
     )
     week52_low = models.DecimalField(
         max_digits=12, decimal_places=4,
-        help_text="52-Wochen-Tief in Yahoo-Währung",
+        null=True, blank=True,
+        help_text="52-Wochen-Tief in EUR",
     )
     week52_low_date = models.DateField(
         null=True, blank=True,
         help_text="Datum, an dem das 52-Wochen-Tief zuletzt aktualisiert wurde",
-    )
-    yahoo_currency = models.CharField(
-        max_length=10, blank=True, default='',
-        help_text="Währung laut Yahoo (kann von Asset-Währung abweichen, z.B. USD vs EUR)",
-    )
-    yahoo_current_price = models.DecimalField(
-        max_digits=12, decimal_places=4, null=True, blank=True,
-        help_text="Aktueller Kurs laut Yahoo (gleiche Währung wie 52W-Werte, für Prozentberechnung)",
     )
     fetched_at = models.DateTimeField(
         default=timezone.now,
@@ -464,6 +461,8 @@ class FiftyTwoWeekRange(models.Model):
         verbose_name_plural = "52-Wochen-Ranges"
 
     def __str__(self):
+        if self.skip_yahoo:
+            return f"{self.asset.symbol or self.asset.isin}: (Yahoo gesperrt)"
         return f"{self.asset.symbol or self.asset.isin}: H={self.week52_high} T={self.week52_low}"
 
     def is_expired(self) -> bool:

@@ -171,17 +171,16 @@ class HoldingsAdmin(admin.ModelAdmin):
         high_date = r.week52_high_date.strftime('%d.%m.%Y') if r.week52_high_date else 'Datum unbekannt'
         low_date  = r.week52_low_date.strftime('%d.%m.%Y')  if r.week52_low_date  else 'Datum unbekannt'
         fetched   = r.fetched_at.strftime('%d.%m.%Y %H:%M')
-        cur_str   = r.yahoo_currency or obj.asset.currency
-        cur = r.yahoo_current_price  # gleiche Währung wie 52W-Werte
+        cur = obj.asset.current_price  # EUR aus Asset-Tabelle
 
         html = (
             price_row +
             f'<tr><td style="padding:.3rem 1.5rem .3rem 0;color:#6c757d;">52W-Hoch</td>'
-            f'<td style="padding:.3rem 1rem .3rem 0;font-weight:600;">{r.week52_high} {cur_str}</td>'
+            f'<td style="padding:.3rem 1rem .3rem 0;font-weight:600;">{r.week52_high} EUR</td>'
             f'<td style="padding:.3rem 1rem .3rem 0;color:#aaa;">({high_date})</td>'
             f'<td>{_pct_html(cur, r.week52_high)}</td></tr>'
             f'<tr><td style="padding:.3rem 1.5rem .3rem 0;color:#6c757d;">52W-Tief</td>'
-            f'<td style="padding:.3rem 1rem .3rem 0;font-weight:600;">{r.week52_low} {cur_str}</td>'
+            f'<td style="padding:.3rem 1rem .3rem 0;font-weight:600;">{r.week52_low} EUR</td>'
             f'<td style="padding:.3rem 1rem .3rem 0;color:#aaa;">({low_date})</td>'
             f'<td>{_pct_html(cur, r.week52_low)}</td></tr>'
             f'<tr><td colspan="4" style="padding-top:.5rem;font-size:.8rem;color:#aaa;">'
@@ -281,9 +280,10 @@ class FinConfigAdmin(admin.ModelAdmin):
 
 @admin.register(FiftyTwoWeekRange)
 class FiftyTwoWeekRangeAdmin(admin.ModelAdmin):
-    list_display  = ('asset', 'yahoo_currency', 'week52_high', 'week52_high_date', 'week52_low', 'week52_low_date', 'yahoo_current_price', 'fetched_at')
-    list_filter   = ('fetched_at', 'yahoo_currency')
-    search_fields = ('asset__isin', 'asset__symbol', 'asset__name')
+    list_display   = ('asset', 'skip_yahoo', 'week52_high', 'week52_high_date', 'week52_low', 'week52_low_date', 'fetched_at')
+    list_filter    = ('skip_yahoo', 'fetched_at')
+    list_editable  = ('skip_yahoo',)
+    search_fields  = ('asset__isin', 'asset__symbol', 'asset__name')
     readonly_fields = ('fetched_at',)
 
 
