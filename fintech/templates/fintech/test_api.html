@@ -119,8 +119,8 @@ function runTest(action) {
             list.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
             return;
         }
-        const action = list.__action;
-        if (action === 'price') {
+        const currentAction = list.__action;
+        if (currentAction === 'price') {
             let html = `<table class="table table-sm table-hover" style="font-size:.88rem;">
                 <thead class="table-light">
                     <tr>
@@ -151,7 +151,7 @@ function runTest(action) {
             });
             html += '</tbody></table>';
             list.innerHTML = html;
-        } else if (action === 'week52') {
+        } else if (currentAction === 'week52') {
             let html = `<table class="table table-sm table-hover" style="font-size:.88rem;">
                 <thead class="table-light">
                     <tr>
