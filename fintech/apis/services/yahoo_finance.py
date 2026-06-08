@@ -33,10 +33,12 @@ class YahooFinanceRequest:
         return self._fetch_name(isin)
 
     def isin2week52(self, isin: str) -> dict:
-        """Return {'high': str, 'low': str, 'currency': str} for *isin*."""
+        """Return {'high': str, 'low': str, 'currency': str, 'symbol': str} for *isin*."""
         logger.info(f"Request isin2week52 {isin} from Yahoo Finance")
         symbol = self._isin2symbol(isin)
-        return self._symbol2week52(symbol, isin)
+        result = self._symbol2week52(symbol, isin)
+        result['symbol'] = symbol  # Symbol mitgeben, damit Caller es in DB speichern kann
+        return result
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -63,10 +65,32 @@ class YahooFinanceRequest:
         if isin in self._symbol_cache:
             return self._symbol_cache[isin]
 
+        # DB-Lookup zuerst: Asset.symbol verwenden wenn vorhanden (spart Yahoo-API-Call)
+        try:
+            from fintech.models import Asset as _Asset
+            asset = _Asset.objects.filter(isin=isin).only('symbol').first()
+            if asset and asset.symbol:
+                symbol = asset.symbol
+                self._symbol_cache[isin] = symbol
+                logger.info(f"Yahoo Finance: {isin} → {symbol} (aus DB)")
+                return symbol
+        except Exception:
+            pass  # kein Django-Kontext (z.B. Tests) → ignorieren
+
+        # Yahoo Search als Fallback
         quote  = self._search(isin)
         symbol = quote["symbol"]
         self._symbol_cache[isin] = symbol
-        logger.info(f"Yahoo Finance: {isin} → {symbol}")
+        logger.info(f"Yahoo Finance: {isin} → {symbol} (Yahoo Search)")
+
+        # Symbol in DB persistieren, damit nächster Aufruf DB-Lookup nutzt
+        try:
+            from fintech.models import Asset as _Asset
+            _Asset.objects.filter(isin=isin, symbol__isnull=True).update(symbol=symbol)
+            _Asset.objects.filter(isin=isin, symbol='').update(symbol=symbol)
+        except Exception:
+            pass  # Silent – DB-Update ist best-effort
+
         return symbol
 
     def _fetch_name(self, isin: str) -> str:

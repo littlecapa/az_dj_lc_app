@@ -90,6 +90,14 @@ def _enrich_week52(rows: list) -> None:
                     logger.warning(f"Comdirect 52W failed for {isin}: {exc}")
 
             if data is not None:
+                # Symbol in Asset persistieren (falls aus Yahoo und noch nicht gesetzt)
+                if data.get('symbol') and provider == 'yahoo':
+                    try:
+                        Asset.objects.filter(pk=aid, symbol__isnull=True).update(symbol=data['symbol'])
+                        Asset.objects.filter(pk=aid, symbol='').update(symbol=data['symbol'])
+                    except Exception as sym_exc:
+                        logger.warning(f"Symbol save failed for {isin}: {sym_exc}")
+
                 try:
                     rng = FiftyTwoWeekRange.objects.create(
                         asset_id=aid,
@@ -101,7 +109,7 @@ def _enrich_week52(rows: list) -> None:
                         yahoo_current_price=Decimal(data['current']) if data.get('current') else None,
                         fetched_at=timezone.now(),
                     )
-                    logger.info(f"52W stored for {isin} via {provider}: H={data['high']} L={data['low']}")
+                    logger.info(f"52W stored for {isin} via {provider} (symbol={data.get('symbol','?')}): H={data['high']} L={data['low']}")
                 except Exception as exc:
                     logger.warning(f"52W DB save failed for {isin}: {exc}")
                     rng = None
@@ -395,63 +403,103 @@ def test_api_run(request):
         from .apis.services.yahoo_finance import YahooFinanceRequest
         from .apis.services.comdirect_finance import ComdirectFinanceRequest
         from .models import FiftyTwoWeekRange
+        from decimal import Decimal as _Dec
 
-        # Yahoo Finance
-        try:
-            data = YahooFinanceRequest().isin2week52(isin)
-            high = float(data['high']); low = float(data['low']); cur = float(data['current'] or 0)
-            pct_h = (cur / high - 1) * 100 if high else None
-            pct_l = (cur / low  - 1) * 100 if low  else None
-            results.append({
-                'provider': 'Yahoo Finance',
-                'ok': True,
-                'high': f"{high:.2f}",
-                'low':  f"{low:.2f}",
-                'cur':  f"{cur:.2f}",
+        save_to_db = body.get('save_to_db', False)
+        asset = Asset.objects.filter(isin=isin).first()
+
+        def _week52_row(provider, data, source='live'):
+            high = float(data['high']); low = float(data['low'])
+            cur  = float(data['current']) if data.get('current') else None
+            pct_h = (cur / high - 1) * 100 if (cur and high) else None
+            pct_l = (cur / low  - 1) * 100 if (cur and low)  else None
+            return {
+                'provider': provider, 'ok': True,
+                'high': f"{high:.4f}", 'low': f"{low:.4f}",
+                'cur':  f"{cur:.4f}" if cur else '–',
                 'currency': data.get('currency', '?'),
                 'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
                 'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
-                'source': 'live',
-            })
+                'source': source,
+            }
+
+        # Yahoo Finance
+        yahoo_data = None
+        try:
+            yahoo_data = YahooFinanceRequest().isin2week52(isin)
+            results.append(_week52_row('Yahoo Finance', yahoo_data))
         except Exception as e:
             results.append({'provider': 'Yahoo Finance', 'ok': False, 'error': str(e)})
 
         # Comdirect
+        comdirect_data = None
         try:
-            data = ComdirectFinanceRequest().isin2week52(isin)
-            high = float(data['high']); low = float(data['low']); cur = float(data['current'] or 0)
-            pct_h = (cur / high - 1) * 100 if high else None
-            pct_l = (cur / low  - 1) * 100 if low  else None
-            results.append({
-                'provider': 'Comdirect',
-                'ok': True,
-                'high': f"{high:.2f}",
-                'low':  f"{low:.2f}",
-                'cur':  f"{cur:.2f}",
-                'currency': data.get('currency', '?'),
-                'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
-                'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
-                'source': 'live',
-            })
+            comdirect_data = ComdirectFinanceRequest().isin2week52(isin)
+            results.append(_week52_row('Comdirect', comdirect_data))
         except Exception as e:
             results.append({'provider': 'Comdirect', 'ok': False, 'error': str(e)})
 
-        # DB-Cache (aktuell gespeicherter Wert)
-        asset = Asset.objects.filter(isin=isin).first()
+        # Symbol in Asset.symbol persistieren (Yahoo liefert Symbol mit)
+        if yahoo_data and yahoo_data.get('symbol') and asset:
+            try:
+                updated = Asset.objects.filter(pk=asset.pk, symbol__isnull=True).update(symbol=yahoo_data['symbol'])
+                if not updated:
+                    Asset.objects.filter(pk=asset.pk, symbol='').update(symbol=yahoo_data['symbol'])
+                    updated = 1
+                if updated:
+                    results.append({'provider': f"✅ Symbol '{yahoo_data['symbol']}' in DB gespeichert", 'ok': True,
+                                    'high': '–', 'low': '–', 'cur': '–', 'currency': '–',
+                                    'pct_high': '–', 'pct_low': '–', 'source': 'Asset.symbol'})
+            except Exception as e:
+                logger.warning(f"Symbol persist failed for {isin}: {e}")
+
+        # In DB speichern (erster erfolgreicher Provider), wenn gewünscht oder kein Eintrag vorhanden
+        best_data = yahoo_data or comdirect_data
+        if best_data and asset:
+            existing_rng = None
+            try:
+                existing_rng = asset.week52
+            except FiftyTwoWeekRange.DoesNotExist:
+                pass
+
+            should_save = save_to_db or (existing_rng is None) or existing_rng.is_expired()
+            if should_save:
+                try:
+                    if existing_rng:
+                        existing_rng.delete()
+                    FiftyTwoWeekRange.objects.create(
+                        asset=asset,
+                        week52_high=_Dec(best_data['high']),
+                        week52_high_date=None,
+                        week52_low=_Dec(best_data['low']),
+                        week52_low_date=None,
+                        yahoo_currency=best_data.get('currency', ''),
+                        yahoo_current_price=_Dec(best_data['current']) if best_data.get('current') else None,
+                        fetched_at=timezone.now(),
+                    )
+                    provider_used = 'Yahoo Finance' if yahoo_data else 'Comdirect'
+                    results.append({'provider': '✅ In DB gespeichert', 'ok': True,
+                                    'high': '–', 'low': '–', 'cur': '–',
+                                    'currency': best_data.get('currency', ''),
+                                    'pct_high': '–', 'pct_low': '–',
+                                    'source': f'via {provider_used}'})
+                except Exception as e:
+                    results.append({'provider': '❌ DB-Speichern fehlgeschlagen', 'ok': False, 'error': str(e)})
+
+        # DB-Cache anzeigen
         if asset:
             try:
-                r = asset.week52
-                cur = float(r.yahoo_current_price) if r.yahoo_current_price else None
-                high = float(r.week52_high); low = float(r.week52_low)
-                pct_h = (cur / high - 1) * 100 if (cur and high) else None
-                pct_l = (cur / low  - 1) * 100 if (cur and low)  else None
+                r = asset.week52  # frisch laden
+                cur_f = float(r.yahoo_current_price) if r.yahoo_current_price else None
+                high_f = float(r.week52_high); low_f = float(r.week52_low)
+                pct_h = (cur_f / high_f - 1) * 100 if (cur_f and high_f) else None
+                pct_l = (cur_f / low_f  - 1) * 100 if (cur_f and low_f)  else None
                 expired_flag = ' ⚠ abgelaufen' if r.is_expired() else ''
                 results.append({
                     'provider': f'DB-Cache{expired_flag}',
                     'ok': not r.is_expired(),
-                    'high': f"{high:.2f}",
-                    'low':  f"{low:.2f}",
-                    'cur':  f"{cur:.2f}" if cur else '–',
+                    'high': f"{high_f:.4f}", 'low': f"{low_f:.4f}",
+                    'cur':  f"{cur_f:.4f}" if cur_f else '–',
                     'currency': r.yahoo_currency or '?',
                     'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
                     'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
@@ -460,7 +508,7 @@ def test_api_run(request):
             except FiftyTwoWeekRange.DoesNotExist:
                 results.append({'provider': 'DB-Cache', 'ok': False, 'error': 'Kein Eintrag in DB'})
         else:
-            results.append({'provider': 'DB-Cache', 'ok': False, 'error': 'ISIN nicht in DB'})
+            results.append({'provider': 'DB-Cache', 'ok': False, 'error': 'ISIN nicht in Assets-DB'})
 
     else:
         return JsonResponse({'error': f'Unbekannte Aktion: {action}'}, status=400)
