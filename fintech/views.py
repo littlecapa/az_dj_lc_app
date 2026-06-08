@@ -36,6 +36,38 @@ def _is_api_key_valid(request) -> bool:
         return False
     return request.headers.get("X-Api-Key", "") == api_key
 
+def _enrich_symbols(rows: list) -> None:
+    """
+    Füllt Asset.symbol für alle Rows, die noch kein Symbol haben, via OpenFIGI nach.
+    Das Symbol wird normalisiert gespeichert (TradingView-URL-Format, z.B. "HKEX-9880").
+    Max. 5 neue Lookups pro Seitenaufruf, um die OpenFIGI-API nicht zu überlasten.
+    """
+    from .apis.services.openfigi import OpenFigiService
+
+    missing = [r for r in rows if not r.get('symbol')]
+    if not missing:
+        return
+
+    svc = OpenFigiService()
+    fetched = 0
+    max_per_request = 5
+
+    for row in missing:
+        if fetched >= max_per_request:
+            break
+        isin = row['isin']
+        try:
+            symbol = svc.isin2symbol(isin)
+            if symbol:
+                tv_symbol = symbol.replace(':', '-').replace('.', '-')
+                Asset.objects.filter(pk=row['asset_id']).update(symbol=tv_symbol)
+                row['symbol'] = tv_symbol
+                logger.info(f"Symbol auto-fetched for {isin}: {symbol} → {tv_symbol}")
+                fetched += 1
+        except Exception as exc:
+            logger.warning(f"Symbol lookup failed for {isin}: {exc}")
+
+
 def _enrich_week52(rows: list) -> None:
     """
     Ergänzt jede Row um week52_high, week52_low, pct_from_high, pct_from_low.
@@ -90,14 +122,6 @@ def _enrich_week52(rows: list) -> None:
                     logger.warning(f"Comdirect 52W failed for {isin}: {exc}")
 
             if data is not None:
-                # Symbol in Asset persistieren (falls aus Yahoo und noch nicht gesetzt)
-                if data.get('symbol') and provider == 'yahoo':
-                    try:
-                        Asset.objects.filter(pk=aid, symbol__isnull=True).update(symbol=data['symbol'])
-                        Asset.objects.filter(pk=aid, symbol='').update(symbol=data['symbol'])
-                    except Exception as sym_exc:
-                        logger.warning(f"Symbol save failed for {isin}: {sym_exc}")
-
                 try:
                     rng = FiftyTwoWeekRange.objects.create(
                         asset_id=aid,
@@ -192,6 +216,9 @@ def portfolio_overall(request):
             'not_for_sale':   h.not_for_sale,
             'stake_recovered': h.stake_recovered,
         })
+
+    # ── Fehlende Symbole via OpenFIGI nachfüllen ─────────────────────────────
+    _enrich_symbols(rows)
 
     # ── 52-Wochen-Range: prüfen / nachladen / berechnen ──────────────────────
     _enrich_week52(rows)
@@ -369,6 +396,18 @@ def test_api_run(request):
                     'value': best or 'n/a',
                     'ok': bool(best),
                 })
+                # In Asset.symbol speichern — normalisiert für TradingView-URLs:
+                # "HKEX:9880" → "HKEX-9880",  "9880.HK" → "9880-HK"
+                if best:
+                    tv_symbol = best.replace(':', '-').replace('.', '-')
+                    asset = Asset.objects.filter(isin=isin).first()
+                    if asset:
+                        old_symbol = asset.symbol or ''
+                        asset.symbol = tv_symbol
+                        asset.save(update_fields=['symbol'])
+                        label = f'{old_symbol} → {tv_symbol}' if (old_symbol and old_symbol != tv_symbol) else tv_symbol
+                        results.append({'provider': '✅ Asset.symbol gespeichert',
+                                        'value': label, 'ok': True})
             else:
                 results.append({'provider': 'OpenFIGI', 'value': 'n/a', 'ok': False})
         except Exception as e:
@@ -438,20 +477,6 @@ def test_api_run(request):
             results.append(_week52_row('Comdirect', comdirect_data))
         except Exception as e:
             results.append({'provider': 'Comdirect', 'ok': False, 'error': str(e)})
-
-        # Symbol in Asset.symbol persistieren (Yahoo liefert Symbol mit)
-        if yahoo_data and yahoo_data.get('symbol') and asset:
-            try:
-                updated = Asset.objects.filter(pk=asset.pk, symbol__isnull=True).update(symbol=yahoo_data['symbol'])
-                if not updated:
-                    Asset.objects.filter(pk=asset.pk, symbol='').update(symbol=yahoo_data['symbol'])
-                    updated = 1
-                if updated:
-                    results.append({'provider': f"✅ Symbol '{yahoo_data['symbol']}' in DB gespeichert", 'ok': True,
-                                    'high': '–', 'low': '–', 'cur': '–', 'currency': '–',
-                                    'pct_high': '–', 'pct_low': '–', 'source': 'Asset.symbol'})
-            except Exception as e:
-                logger.warning(f"Symbol persist failed for {isin}: {e}")
 
         # In DB speichern (erster erfolgreicher Provider), wenn gewünscht oder kein Eintrag vorhanden
         best_data = yahoo_data or comdirect_data

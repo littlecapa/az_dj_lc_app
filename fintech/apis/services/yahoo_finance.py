@@ -62,35 +62,16 @@ class YahooFinanceRequest:
         return quotes[0]
 
     def _isin2symbol(self, isin: str) -> str:
+        """ISIN → Yahoo-Ticker-Symbol (z.B. '9880.HK', 'RHM.DE').
+        Hinweis: Das ist das Yahoo-Format, NICHT das TradingView-Format (HKEX:9880).
+        Asset.symbol speichert TradingView-Symbole — diese dürfen hier nicht verwendet werden."""
         if isin in self._symbol_cache:
             return self._symbol_cache[isin]
 
-        # DB-Lookup zuerst: Asset.symbol verwenden wenn vorhanden (spart Yahoo-API-Call)
-        try:
-            from fintech.models import Asset as _Asset
-            asset = _Asset.objects.filter(isin=isin).only('symbol').first()
-            if asset and asset.symbol:
-                symbol = asset.symbol
-                self._symbol_cache[isin] = symbol
-                logger.info(f"Yahoo Finance: {isin} → {symbol} (aus DB)")
-                return symbol
-        except Exception:
-            pass  # kein Django-Kontext (z.B. Tests) → ignorieren
-
-        # Yahoo Search als Fallback
         quote  = self._search(isin)
         symbol = quote["symbol"]
         self._symbol_cache[isin] = symbol
-        logger.info(f"Yahoo Finance: {isin} → {symbol} (Yahoo Search)")
-
-        # Symbol in DB persistieren, damit nächster Aufruf DB-Lookup nutzt
-        try:
-            from fintech.models import Asset as _Asset
-            _Asset.objects.filter(isin=isin, symbol__isnull=True).update(symbol=symbol)
-            _Asset.objects.filter(isin=isin, symbol='').update(symbol=symbol)
-        except Exception:
-            pass  # Silent – DB-Update ist best-effort
-
+        logger.info(f"Yahoo Finance: {isin} → {symbol}")
         return symbol
 
     def _fetch_name(self, isin: str) -> str:
