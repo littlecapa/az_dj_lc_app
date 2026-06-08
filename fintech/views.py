@@ -391,6 +391,77 @@ def test_api_run(request):
         except Exception as e:
             results.append({'provider': 'AlleAktien', 'value': 'n/a', 'ok': False})
 
+    elif action == 'week52':
+        from .apis.services.yahoo_finance import YahooFinanceRequest
+        from .apis.services.comdirect_finance import ComdirectFinanceRequest
+        from .models import FiftyTwoWeekRange
+
+        # Yahoo Finance
+        try:
+            data = YahooFinanceRequest().isin2week52(isin)
+            high = float(data['high']); low = float(data['low']); cur = float(data['current'] or 0)
+            pct_h = (cur / high - 1) * 100 if high else None
+            pct_l = (cur / low  - 1) * 100 if low  else None
+            results.append({
+                'provider': 'Yahoo Finance',
+                'ok': True,
+                'high': f"{high:.2f}",
+                'low':  f"{low:.2f}",
+                'cur':  f"{cur:.2f}",
+                'currency': data.get('currency', '?'),
+                'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
+                'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
+                'source': 'live',
+            })
+        except Exception as e:
+            results.append({'provider': 'Yahoo Finance', 'ok': False, 'error': str(e)})
+
+        # Comdirect
+        try:
+            data = ComdirectFinanceRequest().isin2week52(isin)
+            high = float(data['high']); low = float(data['low']); cur = float(data['current'] or 0)
+            pct_h = (cur / high - 1) * 100 if high else None
+            pct_l = (cur / low  - 1) * 100 if low  else None
+            results.append({
+                'provider': 'Comdirect',
+                'ok': True,
+                'high': f"{high:.2f}",
+                'low':  f"{low:.2f}",
+                'cur':  f"{cur:.2f}",
+                'currency': data.get('currency', '?'),
+                'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
+                'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
+                'source': 'live',
+            })
+        except Exception as e:
+            results.append({'provider': 'Comdirect', 'ok': False, 'error': str(e)})
+
+        # DB-Cache (aktuell gespeicherter Wert)
+        asset = Asset.objects.filter(isin=isin).first()
+        if asset:
+            try:
+                r = asset.week52
+                cur = float(r.yahoo_current_price) if r.yahoo_current_price else None
+                high = float(r.week52_high); low = float(r.week52_low)
+                pct_h = (cur / high - 1) * 100 if (cur and high) else None
+                pct_l = (cur / low  - 1) * 100 if (cur and low)  else None
+                expired_flag = ' ⚠ abgelaufen' if r.is_expired() else ''
+                results.append({
+                    'provider': f'DB-Cache{expired_flag}',
+                    'ok': not r.is_expired(),
+                    'high': f"{high:.2f}",
+                    'low':  f"{low:.2f}",
+                    'cur':  f"{cur:.2f}" if cur else '–',
+                    'currency': r.yahoo_currency or '?',
+                    'pct_high': f"{pct_h:+.1f} %" if pct_h is not None else '–',
+                    'pct_low':  f"{pct_l:+.1f} %" if pct_l is not None else '–',
+                    'source': f"DB ({r.fetched_at.strftime('%d.%m.%Y %H:%M')})",
+                })
+            except FiftyTwoWeekRange.DoesNotExist:
+                results.append({'provider': 'DB-Cache', 'ok': False, 'error': 'Kein Eintrag in DB'})
+        else:
+            results.append({'provider': 'DB-Cache', 'ok': False, 'error': 'ISIN nicht in DB'})
+
     else:
         return JsonResponse({'error': f'Unbekannte Aktion: {action}'}, status=400)
 

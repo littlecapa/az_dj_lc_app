@@ -42,6 +42,7 @@
         <button class="btn btn-primary"   onclick="runTest('price')">💶 Price</button>
         <button class="btn btn-secondary" onclick="runTest('symbol')">🔗 Symbol</button>
         <button class="btn btn-outline-secondary" onclick="runTest('wkn')">🔑 WKN</button>
+        <button class="btn btn-outline-primary"   onclick="runTest('week52')">📊 52W Hoch/Tief</button>
     </div>
 
     <!-- Ergebnisse -->
@@ -99,7 +100,7 @@ function runTest(action) {
     const title   = document.getElementById('resultTitle');
     const spinner = document.getElementById('runSpinner');
 
-    const labels = { price: '💶 Price', symbol: '🔗 Symbol', wkn: '🔑 WKN' };
+    const labels = { price: '💶 Price', symbol: '🔗 Symbol', wkn: '🔑 WKN', week52: '📊 52W Hoch/Tief' };
     title.textContent = `${labels[action]} — ${isin}`;
     list.innerHTML = '';
     area.style.display = '';
@@ -118,8 +119,8 @@ function runTest(action) {
             list.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
             return;
         }
-        const isPrice = list.__action === 'price';
-        if (isPrice) {
+        const action = list.__action;
+        if (action === 'price') {
             let html = `<table class="table table-sm table-hover" style="font-size:.88rem;">
                 <thead class="table-light">
                     <tr>
@@ -145,6 +146,42 @@ function runTest(action) {
                     html += `<tr class="text-muted">
                         <td>${r.provider}</td>
                         <td colspan="5" class="text-center">n/a ${r.error ? '– ' + r.error : ''}</td>
+                    </tr>`;
+                }
+            });
+            html += '</tbody></table>';
+            list.innerHTML = html;
+        } else if (action === 'week52') {
+            let html = `<table class="table table-sm table-hover" style="font-size:.88rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th>Provider / Quelle</th>
+                        <th>Währung</th>
+                        <th class="text-end">Aktuell</th>
+                        <th class="text-end">52W Hoch</th>
+                        <th class="text-end">52W H %</th>
+                        <th class="text-end">52W Tief</th>
+                        <th class="text-end">52W T %</th>
+                        <th class="text-muted" style="font-size:.75rem;">Stand</th>
+                    </tr>
+                </thead><tbody>`;
+            data.results.forEach(r => {
+                if (r.ok) {
+                    const rowCls = r.source.startsWith('DB') ? 'table-info' : 'table-success';
+                    html += `<tr class="${rowCls}">
+                        <td class="fw-semibold">${r.provider}</td>
+                        <td><span class="badge bg-secondary">${r.currency}</span></td>
+                        <td class="text-end font-monospace">${r.cur}</td>
+                        <td class="text-end font-monospace">${r.high}</td>
+                        <td class="text-end font-monospace">${r.pct_high}</td>
+                        <td class="text-end font-monospace">${r.low}</td>
+                        <td class="text-end font-monospace">${r.pct_low}</td>
+                        <td class="text-muted" style="font-size:.75rem;">${r.source}</td>
+                    </tr>`;
+                } else {
+                    html += `<tr class="text-muted">
+                        <td>${r.provider}</td>
+                        <td colspan="7" class="text-center">n/a ${r.error ? '– ' + r.error : ''}</td>
                     </tr>`;
                 }
             });
