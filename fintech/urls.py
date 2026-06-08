@@ -12,6 +12,7 @@ urlpatterns = [
     path('test_api/lookup/', views.test_api_lookup, name="test-api-lookup"),
     path('trigger/update-prices/', views.trigger_update_prices, name="trigger-update-prices"),
     path('trigger/cleanup/', views.trigger_cleanup, name="trigger-cleanup"),
+    path('trigger/refresh-week52/', views.trigger_refresh_week52, name="trigger-refresh-week52"),
     path('api/', include('fintech.apis.urls')),
     path("export", views.portfolio_export, name="portfolio-export"),
     path("export_watchlist", views.watchlist_export, name="watchlist-export"),

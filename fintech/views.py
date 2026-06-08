@@ -416,6 +416,42 @@ def trigger_update_prices(request):
 
 
 @staff_member_required
+def trigger_refresh_week52(request):
+    """Löscht alle abgelaufenen/ungültigen 52W-Einträge, damit sie beim nächsten
+    Aufruf von /fintech/overall/ frisch von Yahoo/Comdirect geholt werden."""
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+    try:
+        deleted = 0
+        from .models import FiftyTwoWeekRange
+        from decimal import Decimal
+        for r in FiftyTwoWeekRange.objects.all():
+            reason = None
+            try:
+                high = float(r.week52_high)
+                low  = float(r.week52_low)
+                cur  = float(r.yahoo_current_price) if r.yahoo_current_price else None
+                if cur is not None and cur > high * 1.20:
+                    reason = 'current > high*1.2'
+                elif cur is not None and high > cur * 5.0:
+                    reason = 'high > current*5'
+                elif low > 0 and high / low > 8.0:
+                    reason = f'high/low={high/low:.1f} > 8'
+                elif r.is_expired():
+                    reason = 'expired'
+            except Exception:
+                reason = 'parse error'
+            if reason:
+                r.delete()
+                deleted += 1
+        messages.success(request, f'52W-Refresh: {deleted} Einträge gelöscht. Werden beim nächsten Overall-Aufruf neu geladen.')
+    except Exception as e:
+        messages.error(request, f'Fehler beim 52W-Refresh: {e}')
+    return redirect('fintech:fintech-index')
+
+
+@staff_member_required
 def trigger_cleanup(request):
     if request.method != 'POST':
         from django.http import HttpResponseNotAllowed

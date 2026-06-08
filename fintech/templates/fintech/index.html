@@ -132,6 +132,17 @@
             </a>
         </div>
         <div class="col-md-4">
+            <form method="post" action="{% url 'fintech:trigger-refresh-week52' %}"
+                  onsubmit="return confirm('52W-Werte zurücksetzen? Alle ungültigen/abgelaufenen Einträge werden gelöscht und beim nächsten Overall-Aufruf neu geladen.')">
+                {% csrf_token %}
+                <button type="submit" class="ft-card w-100 border-0 text-start">
+                    <div class="ft-icon">📊</div>
+                    <div class="ft-title">52W-Werte aktualisieren</div>
+                    <div class="ft-desc">Löscht ungültige 52W-Hoch/Tief-Einträge. Werden beim nächsten Overall-Aufruf neu geladen.</div>
+                </button>
+            </form>
+        </div>
+        <div class="col-md-4">
             <form method="post" action="{% url 'fintech:trigger-cleanup' %}"
                   onsubmit="return confirm('Cleanup starten? Doppelte Kurseinträge werden gelöscht.')">
                 {% csrf_token %}
