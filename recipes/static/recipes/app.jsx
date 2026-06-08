@@ -45,7 +45,7 @@ const KATEGORIEN = [
 const AUFWAND = ['niedrig', 'mittel', 'hoch'];
 const QUELLEN = ['OneNote', 'Chefkoch', 'Papier', 'Screenshot', 'Buch', 'Familie', 'Eigenes'];
 
-const LEER = { id: null, name: '', kategorie: 'vegetarisch', aufwand: 'niedrig', quelle: 'Eigenes', zutaten: '', notiz: '', link: '', foto_url: '', liebling: false, tags: [] };
+const LEER = { id: null, name: '', kategorie: 'vegetarisch', aufwand: 'niedrig', quelle: 'Eigenes', zutaten: '', notiz: '', link: '', foto_url: '', liebling: false, tags: [], tags_input: '' };
 const katLabel = k => KATEGORIEN.find(x => x.key === k)?.label || k;
 const katClass = k => `badge kat-${k || 'default'}`;
 
@@ -57,6 +57,7 @@ function App() {
   const [suche,    setSuche]    = useState('');
   const [katFilter,setKat]      = useState('');
   const [aufwandF, setAufwand]  = useState('');
+  const [tagFilter, setTagF]    = useState('');
   const [nurLiebling, setNurL]  = useState(false);
   const [sortierung, setSort]   = useState('name');
   const [ansicht,  setAnsicht]  = useState('liste');
@@ -74,20 +75,27 @@ function App() {
   /* Filter + Sort */
   const gefiltert = useMemo(() => {
     let r = rezepte;
-    if (suche)       r = r.filter(x => x.name.toLowerCase().includes(suche.toLowerCase()) || (x.zutaten || '').toLowerCase().includes(suche.toLowerCase()));
+    if (suche)       r = r.filter(x => x.name.toLowerCase().includes(suche.toLowerCase())
+                                    || (x.zutaten || '').toLowerCase().includes(suche.toLowerCase())
+                                    || (x.tags_detail || []).some(t => t.name.toLowerCase().includes(suche.toLowerCase())));
     if (katFilter)   r = r.filter(x => x.kategorie === katFilter);
     if (aufwandF)    r = r.filter(x => x.aufwand   === aufwandF);
+    if (tagFilter)   r = r.filter(x => (x.tags_detail || []).some(t => t.name.toLowerCase().includes(tagFilter.toLowerCase())));
     if (nurLiebling) r = r.filter(x => x.liebling);
     return sortierung === 'name'
       ? [...r].sort((a, b) => a.name.localeCompare(b.name, 'de'))
       : [...r].sort((a, b) => b.id - a.id);
-  }, [rezepte, suche, katFilter, aufwandF, nurLiebling, sortierung]);
+  }, [rezepte, suche, katFilter, aufwandF, tagFilter, nurLiebling, sortierung]);
 
   /* Aktionen */
   useEffect(() => { window.scrollTo(0, 0); }, [ansicht]);
 
   function oeffneNeu() { setFormular({ ...LEER }); setAnsicht('formular'); }
-  function oeffneBearbeiten(r) { setFormular({ ...r }); setAnsicht('formular'); }
+  function oeffneBearbeiten(r) {
+    const tags_input = (r.tags_detail || []).map(t => t.name).join('; ');
+    setFormular({ ...r, tags_input });
+    setAnsicht('formular');
+  }
   function oeffneDetail(r) { setAktiv(r); setAnsicht('detail'); }
 
   async function speichereFormular() {
@@ -250,6 +258,11 @@ function App() {
               <div className="form-group"><label>Foto-URL (optional)</label><input type="url" value={formular.foto_url || ''} onChange={set('foto_url')} placeholder="https://drive.google.com/uc?id=…" /></div>
               <div className="form-group full"><label>Zutaten (kommagetrennt)</label><input type="text" value={formular.zutaten} onChange={set('zutaten')} placeholder="Linsen, Karotten, Zwiebel, …" /></div>
               <div className="form-group full"><label>Zubereitung</label><textarea value={formular.notiz} onChange={set('notiz')} placeholder="Schritt-für-Schritt oder freie Notizen …" rows={5} /></div>
+              <div className="form-group full">
+                <label>Tags <span style={{ fontWeight: 'normal', color: '#78716c', fontSize: '.82rem' }}>(getrennt durch ";")</span></label>
+                <input type="text" value={formular.tags_input || ''} onChange={set('tags_input')}
+                       placeholder="z.B. vegan; schnell; Sommer; Lieblinge" />
+              </div>
               <div className="form-group full"><label className="liebling-toggle"><input type="checkbox" checked={formular.liebling} onChange={set('liebling')} /> ⭐ Als Lieblingsrezept markieren</label></div>
             </div>
             <div className="form-actions">
@@ -291,8 +304,10 @@ function App() {
             <option value="">Alle Aufwände</option>
             {AUFWAND.map(a => <option key={a}>{a}</option>)}
           </select>
-          {(katFilter || aufwandF || nurLiebling || suche) && (
-            <button className="tag-btn" onClick={() => { setKat(''); setAufwand(''); setNurL(false); setSuche(''); }}>✕ Reset</button>
+          <input type="text" className="rz-select" value={tagFilter} onChange={e => setTagF(e.target.value)}
+                 placeholder="Tag filtern …" style={{ fontSize: '0.82rem', padding: '0.25rem 0.6rem', minWidth: '110px' }} />
+          {(katFilter || aufwandF || tagFilter || nurLiebling || suche) && (
+            <button className="tag-btn" onClick={() => { setKat(''); setAufwand(''); setTagF(''); setNurL(false); setSuche(''); }}>✕ Reset</button>
           )}
         </div>
         <div className="count-bar">{gefiltert.length} Rezept{gefiltert.length !== 1 ? 'e' : ''}</div>
