@@ -30,6 +30,7 @@ from django.utils import timezone
 
 from ..models import Asset, FiftyTwoWeekRange, NewsEvent
 from .services.yahoo_finance import YahooFinanceRequest
+from .services.comdirect_finance import ComdirectFinanceRequest
 from .services.request_lib import KeyNotFoundWarning
 
 logger = logging.getLogger(__name__)
@@ -78,15 +79,36 @@ class Week52View(View):
         except FiftyTwoWeekRange.DoesNotExist:
             r = None
 
-        # Bei Bedarf von Yahoo holen
+        # Bei Bedarf holen: Yahoo zuerst, Comdirect als Fallback
         if r is None:
+            _comdirect = ComdirectFinanceRequest()
+            data     = None
+            provider = None
+
+            # Versuch 1: Yahoo
             try:
-                data = _yahoo.isin2week52(isin)
+                data     = _yahoo.isin2week52(isin)
+                provider = "yahoo"
             except KeyNotFoundWarning as exc:
-                return JsonResponse({"error": "Not Found", "detail": str(exc)}, status=404)
+                logger.warning(f"Yahoo 52W not found for {isin}: {exc} — trying Comdirect")
             except Exception as exc:
-                logger.error(f"Yahoo Finance 52W error for {isin}: {exc}")
-                return JsonResponse({"error": "Service Unavailable", "detail": str(exc)}, status=503)
+                logger.error(f"Yahoo Finance 52W error for {isin}: {exc} — trying Comdirect")
+
+            # Versuch 2: Comdirect
+            if data is None:
+                try:
+                    data     = _comdirect.isin2week52(isin)
+                    provider = "comdirect"
+                except KeyNotFoundWarning as exc:
+                    pass  # Beide Provider haben versagt → 404
+                except Exception as exc:
+                    logger.error(f"Comdirect 52W error for {isin}: {exc}")
+
+            if data is None:
+                return JsonResponse(
+                    {"error": "Not Found", "detail": f"No 52W data found for {isin} (tried Yahoo + Comdirect)."},
+                    status=404,
+                )
 
             try:
                 high = Decimal(data["high"])
@@ -104,7 +126,7 @@ class Week52View(View):
                 yahoo_current_price=Decimal(data["current"]) if data.get("current") else None,
                 fetched_at=timezone.now(),
             )
-            logger.info(f"52W range stored for {isin}: H={high} L={low}")
+            logger.info(f"52W range stored for {isin} via {provider}: H={high} L={low}")
 
         return JsonResponse({
             "isin":            isin,

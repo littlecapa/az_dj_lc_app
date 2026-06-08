@@ -54,7 +54,10 @@ def _enrich_week52(rows: list) -> None:
         for r in FiftyTwoWeekRange.objects.filter(asset_id__in=asset_ids)
     }
 
-    yahoo = YahooFinanceRequest()
+    from .apis.services.comdirect_finance import ComdirectFinanceRequest
+
+    yahoo     = YahooFinanceRequest()
+    comdirect = ComdirectFinanceRequest()
 
     for row in rows:
         aid  = row['asset_id']
@@ -66,23 +69,42 @@ def _enrich_week52(rows: list) -> None:
             rng.delete()
             rng = None
 
-        # Fehlend → von Yahoo holen
+        # Fehlend → von Yahoo holen, bei Fehler Comdirect als Fallback
         if rng is None:
+            data     = None
+            provider = None
+
+            # Versuch 1: Yahoo Finance
             try:
-                data = yahoo.isin2week52(isin)
-                rng = FiftyTwoWeekRange.objects.create(
-                    asset_id=aid,
-                    week52_high=Decimal(data['high']),
-                    week52_high_date=None,
-                    week52_low=Decimal(data['low']),
-                    week52_low_date=None,
-                    yahoo_currency=data.get('currency', ''),
-                    yahoo_current_price=Decimal(data['current']) if data.get('current') else None,
-                    fetched_at=timezone.now(),
-                )
+                data     = yahoo.isin2week52(isin)
+                provider = 'yahoo'
             except Exception as exc:
-                logger.warning(f"52W fetch failed for {isin}: {exc}")
-                rng = None
+                logger.warning(f"Yahoo 52W failed for {isin}: {exc} — trying Comdirect")
+
+            # Versuch 2: Comdirect (Fallback)
+            if data is None:
+                try:
+                    data     = comdirect.isin2week52(isin)
+                    provider = 'comdirect'
+                except Exception as exc:
+                    logger.warning(f"Comdirect 52W failed for {isin}: {exc}")
+
+            if data is not None:
+                try:
+                    rng = FiftyTwoWeekRange.objects.create(
+                        asset_id=aid,
+                        week52_high=Decimal(data['high']),
+                        week52_high_date=None,
+                        week52_low=Decimal(data['low']),
+                        week52_low_date=None,
+                        yahoo_currency=data.get('currency', ''),
+                        yahoo_current_price=Decimal(data['current']) if data.get('current') else None,
+                        fetched_at=timezone.now(),
+                    )
+                    logger.info(f"52W stored for {isin} via {provider}: H={data['high']} L={data['low']}")
+                except Exception as exc:
+                    logger.warning(f"52W DB save failed for {isin}: {exc}")
+                    rng = None
 
         # Prozentuale Abweichungen berechnen
         # Wichtig: yahoo_current_price verwenden (gleiche Währung wie 52W-Werte),

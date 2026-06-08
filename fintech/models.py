@@ -271,6 +271,15 @@ class Price(models.Model):
             r.delete()
             return
 
+        # Währungscheck: nur vergleichen wenn Preis (EUR aus Price-Tabelle) und
+        # 52W-Werte in derselben Währung sind. Für ausländische Aktien (HK, NO, DK, GB...)
+        # liefert Yahoo HKD/NOK/DKK/GBP, die DB-Kurse sind aber EUR vom deutschen Handel.
+        # Ein Vergleich EUR < HKD würde fälschlicherweise das 52W-Tief überschreiben.
+        yahoo_ccy = (r.yahoo_currency or '').upper()
+        asset_ccy = (self.asset.currency or 'EUR').upper()
+        if yahoo_ccy and yahoo_ccy != asset_ccy:
+            return  # Währungen passen nicht → kein Update möglich
+
         today = timezone.now().date()
         changed = False
 

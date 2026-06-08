@@ -92,6 +92,11 @@ class YahooFinanceRequest:
         except (KeyError, IndexError, TypeError) as exc:
             raise KeyNotFoundWarning(f"Yahoo Finance: unexpected chart response for {symbol}: {exc}")
 
+        # GBp (Pence) → GBP (Pfund) normalisieren
+        if currency == "GBp":
+            price    = price / 100
+            currency = "GBP"
+
         logger.info(f"Yahoo Finance price [{isin}]: {price} {currency}")
         return str(price), currency
 
@@ -111,5 +116,49 @@ class YahooFinanceRequest:
         except (KeyError, IndexError, TypeError) as exc:
             raise KeyNotFoundWarning(f"Yahoo Finance: no 52W data for {symbol}: {exc}")
 
-        logger.info(f"Yahoo Finance 52W [{isin}]: H={high} L={low} cur={current} {currency}")
+        # GBp (Pence) → GBP (Pfund) normalisieren: Yahoo gibt UK-Kurse in Pence zurück.
+        # 1 GBP = 100 GBp → alle Werte durch 100 teilen, Währung auf "GBP" setzen.
+        if currency == "GBp":
+            high    = high    / 100
+            low     = low     / 100
+            current = current / 100
+            currency = "GBP"
+            logger.info(f"Yahoo Finance 52W [{isin}]: GBp→GBP normalisiert")
+
+        logger.info(f"Yahoo Finance 52W [{isin}]: symbol={symbol} cur={current} {currency} 52H={high} 52T={low}")
+
+        # Plausibilitätsprüfung: 52W-Daten verwerfen wenn offensichtlich fehlerhaft.
+        # Yahoo liefert manchmal kaputte Werte für dünn gehandelte Listings (.SG, .L etc.),
+        # erkennbar an zwei Mustern:
+        #   1. current > high * 1.2  → Kurs über dem angeblichen 52W-Hoch (unmöglich)
+        #   2. high > current * 5    → 52W-Hoch >5x über aktuellem Kurs (Reverse-Split-Artefakt
+        #                              oder falsche Zeitreihe — z.B. HSTE.L: 65.99 vs. 6.61)
+        try:
+            f_cur  = float(current)
+            f_high = float(high)
+            f_low  = float(low)
+            # Check 1: Kurs über 52W-Hoch (physisch unmöglich, fehlerhafte .SG-Daten)
+            if f_cur > f_high * 1.20:
+                raise KeyNotFoundWarning(
+                    f"Yahoo 52W invalid for {symbol}: current={f_cur} > high={f_high}*1.2"
+                )
+            # Check 2: 52W-Hoch >5x aktueller Kurs (Reverse-Split-Artefakt, z.B. HSTE.L)
+            if f_high > f_cur * 5.0:
+                raise KeyNotFoundWarning(
+                    f"Yahoo 52W invalid for {symbol}: high={f_high} > current={f_cur}*5"
+                )
+            # Check 3: 52W-Spanne >8x (high/low-Ratio) → Daten aus spärlich gehandeltem
+            # Sekundärlisting (z.B. Stuttgart .SG für NO/DK Aktien), 52W-Tief unrealistisch.
+            # Equinor Stuttgart: high=38, low=3.15 → ratio=12.1 → INVALID
+            # Equinor Oslo:      high=422, low=226 → ratio=1.9  → OK
+            if f_low > 0 and f_high / f_low > 8.0:
+                raise KeyNotFoundWarning(
+                    f"Yahoo 52W invalid for {symbol}: high/low={f_high/f_low:.1f} > 8 "
+                    f"(likely sparse secondary listing)"
+                )
+        except KeyNotFoundWarning:
+            raise
+        except (TypeError, ValueError):
+            pass
+
         return {"high": str(high), "low": str(low), "currency": currency, "current": str(current)}
