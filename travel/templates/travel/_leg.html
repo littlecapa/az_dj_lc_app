@@ -1,0 +1,30 @@
+<div class="flight-leg">
+    {% if leg.airline_logo %}
+        <img src="{{ leg.airline_logo }}" alt="{{ leg.airline }}" class="airline-logo">
+    {% endif %}
+    <div style="min-width: 120px;">
+        <div class="airport-code"
+             title="{{ leg.departure_airport_name }}"
+             data-bs-toggle="tooltip">{{ leg.departure_airport }}</div>
+        <div class="flight-time">{{ leg.departure_time }}</div>
+    </div>
+    <div class="text-center flex-grow-1">
+        <div class="arrow">──────────▶</div>
+        <div class="duration-badge">{{ leg.duration }} min</div>
+        {% if leg.flight_number %}
+            <div class="flight-time">{{ leg.airline }} {{ leg.flight_number }}</div>
+        {% endif %}
+        {% if leg.airplane %}
+            <div class="flight-time">{{ leg.airplane }}</div>
+        {% endif %}
+    </div>
+    <div style="min-width: 120px; text-align: right;">
+        <div class="airport-code"
+             title="{{ leg.arrival_airport_name }}"
+             data-bs-toggle="tooltip">{{ leg.arrival_airport }}</div>
+        <div class="flight-time">{{ leg.arrival_time }}</div>
+        {% if leg.overnight %}
+            <span class="overnight-badge">Nachtflug</span>
+        {% endif %}
+    </div>
+</div>

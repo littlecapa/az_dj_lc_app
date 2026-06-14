@@ -1,0 +1,360 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Flugsuche{% endblock %}
+
+{% block content %}
+<style>
+    .flight-card {
+        border: 1px solid #e3e6ea; border-radius: 12px;
+        padding: 1.25rem; background: #fff;
+        margin-bottom: 1rem;
+        transition: box-shadow .15s;
+    }
+    .flight-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    .flight-card.best { border-left: 4px solid #198754; }
+    .flight-price {
+        font-size: 1.5rem; font-weight: 700; color: #198754;
+    }
+    .flight-leg {
+        display: flex; align-items: center; gap: 1rem;
+        padding: .5rem 0;
+        border-bottom: 1px dashed #dee2e6;
+    }
+    .flight-leg:last-child { border-bottom: none; }
+    .airport-code { font-size: 1.2rem; font-weight: 700; }
+    .flight-time  { font-size: .85rem; color: #6c757d; }
+    .airline-logo { width: 32px; height: 32px; object-fit: contain; }
+    .duration-badge {
+        font-size: .78rem; color: #6c757d;
+        background: #f8f9fa; border-radius: 20px;
+        padding: .15rem .6rem;
+    }
+    .overnight-badge {
+        font-size: .72rem; background: #fff3cd; color: #856404;
+        border-radius: 4px; padding: .1rem .4rem;
+    }
+    .best-badge {
+        font-size: .72rem; background: #d1e7dd; color: #0a3622;
+        border-radius: 4px; padding: .1rem .5rem; font-weight: 600;
+    }
+    .leg-section-label {
+        font-size: .75rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; color: #6c757d; margin-bottom: .35rem;
+    }
+    .price-insight {
+        font-size: .82rem; color: #6c757d;
+    }
+    .section-label {
+        font-size: .72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; color: #6c757d;
+        margin: 1.5rem 0 .75rem;
+    }
+    .arrow { color: #adb5bd; }
+</style>
+
+<div class="container py-4">
+    <h2 class="mb-4">✈️ Flugsuche</h2>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <form method="get" action="{% url 'travel:flight-search' %}">
+                <div class="row g-3">
+
+                    <!-- Airports -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.departure_airport.label }}</label>
+                        {{ form.departure_airport }}
+                        {% if form.departure_airport.errors %}
+                            <div class="text-danger small">{{ form.departure_airport.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.arrival_airport.label }}</label>
+                        {{ form.arrival_airport }}
+                        {% if form.arrival_airport.errors %}
+                            <div class="text-danger small">{{ form.arrival_airport.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Class & Persons -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.travel_class.label }}</label>
+                        {{ form.travel_class }}
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.adults.label }}</label>
+                        {{ form.adults }}
+                        {% if form.adults.errors %}
+                            <div class="text-danger small">{{ form.adults.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Dates -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.outbound_date.label }}</label>
+                        {{ form.outbound_date }}
+                        {% if form.outbound_date.errors %}
+                            <div class="text-danger small">{{ form.outbound_date.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.return_date.label }}</label>
+                        {{ form.return_date }}
+                        {% if form.return_date.errors %}
+                            <div class="text-danger small">{{ form.return_date.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <!-- Direct only -->
+                    <div class="col-md-3 col-6 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            {{ form.direct_only }}
+                            <label class="form-check-label fw-semibold" for="{{ form.direct_only.id_for_label }}">
+                                {{ form.direct_only.label }}
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-3">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary px-4">
+                        🔍 Flüge suchen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    {% if results %}
+        {% with flights=results.flights insights=results.price_insights %}
+
+        {% if insights %}
+        <div class="price-insight mb-3">
+            {% if insights.lowest_price %}
+                Niedrigster Preis: <strong>{{ insights.lowest_price }} €</strong> &nbsp;|&nbsp;
+            {% endif %}
+            {% if insights.price_level %}
+                Preisniveau: <strong>{{ insights.price_level }}</strong>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if flights %}
+            <div class="section-label">{{ flights|length }} Flugergebnisse gefunden</div>
+
+            {% for flight in flights %}
+            <div class="flight-card {% if flight.is_best %}best{% endif %}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        {% if flight.is_best %}
+                            <span class="best-badge me-2">Bestes Angebot</span>
+                        {% endif %}
+                        {% if flight.total_duration %}
+                            <span class="duration-badge">
+                                Gesamt: {{ flight.total_duration }} min
+                            </span>
+                        {% endif %}
+                        {% if flight.carbon_emissions %}
+                            <span class="duration-badge ms-1">
+                                CO₂: {{ flight.carbon_emissions }} g
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="flight-price">
+                        {% if flight.price %}{{ flight.price }} €{% endif %}
+                    </div>
+                </div>
+
+                {% if flight.outbound_legs %}
+                <div class="leg-section-label">✈️ Hinflug</div>
+                {% for leg in flight.outbound_legs %}
+                {% include "travel/_leg.html" %}
+                {% endfor %}
+                {% endif %}
+
+                {% if results.is_roundtrip %}
+                <div class="leg-section-label mt-2">↩️ Rückflug</div>
+                <div class="return-section">
+                {% if flight.return_options is not None %}
+                    {% if flight.return_options %}
+                        {% for opt in flight.return_options %}
+                        <div class="return-option {% if forloop.first %}active{% endif %}">
+                            {% for leg in opt.legs %}
+                            {% include "travel/_leg.html" %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted small">Keine Rückflüge verfügbar.</div>
+                    {% endif %}
+                {% elif flight.departure_token %}
+                    <button class="btn btn-sm btn-outline-secondary load-return-btn"
+                            data-token="{{ flight.departure_token }}">
+                        Rückflüge laden
+                    </button>
+                    <div class="return-flights-container mt-2"></div>
+                {% else %}
+                    <div class="text-muted small">Kein Token verfügbar.</div>
+                {% endif %}
+                </div>
+                {% endif %}
+
+            </div>
+            {% endfor %}
+
+        {% else %}
+            <div class="alert alert-info">Keine Flüge gefunden.</div>
+        {% endif %}
+
+        {% endwith %}
+    {% endif %}
+
+</div>
+
+{% if results.base_qs %}
+<div id="flight-base-qs" data-qs="{{ results.base_qs }}" style="display:none"></div>
+{% endif %}
+
+<script>
+// AJAX: Rückflüge auf Knopfdruck laden
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.load-return-btn');
+    if (!btn) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Wird geladen…';
+    const container = btn.nextElementSibling;
+    const token = encodeURIComponent(btn.dataset.token);
+    const baseQsEl = document.getElementById('flight-base-qs');
+    const baseQs = baseQsEl ? baseQsEl.dataset.qs : '';
+    const url = '{% url "travel:return-flights-ajax" %}?' + baseQs + '&token=' + token;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = '<div class="text-danger small">' + data.error + '</div>';
+                btn.remove();
+                return;
+            }
+            if (!data.return_options || data.return_options.length === 0) {
+                container.innerHTML = '<div class="text-muted small">Keine Rückflüge gefunden.</div>';
+                btn.remove();
+                return;
+            }
+            container.innerHTML = data.return_options.map(opt => renderReturnOption(opt)).join('');
+            initTooltips(container);
+            btn.remove();
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="text-danger small">Fehler beim Laden.</div>';
+            btn.disabled = false;
+            btn.textContent = 'Rückflüge laden';
+        });
+});
+
+function renderLeg(leg) {
+    var logo = leg.airline_logo
+        ? '<img src="' + leg.airline_logo + '" alt="' + (leg.airline || '') + '" class="airline-logo">'
+        : '';
+    var flightNo = leg.flight_number
+        ? '<div class="flight-time">' + (leg.airline || '') + ' ' + leg.flight_number + '</div>'
+        : '';
+    var airplane = leg.airplane
+        ? '<div class="flight-time">' + leg.airplane + '</div>'
+        : '';
+    var overnight = leg.overnight ? '<span class="overnight-badge">Nachtflug</span>' : '';
+    var depName = leg.departure_airport_name || '';
+    var arrName = leg.arrival_airport_name || '';
+    return '<div class="flight-leg">'
+        + logo
+        + '<div style="min-width:120px">'
+        +   '<div class="airport-code" title="' + depName + '" data-bs-toggle="tooltip">' + (leg.departure_airport || '') + '</div>'
+        +   '<div class="flight-time">' + (leg.departure_time || '') + '</div>'
+        + '</div>'
+        + '<div class="text-center flex-grow-1">'
+        +   '<div class="arrow">──────────▶</div>'
+        +   '<div class="duration-badge">' + (leg.duration ? leg.duration + ' min' : '') + '</div>'
+        +   flightNo + airplane
+        + '</div>'
+        + '<div style="min-width:120px;text-align:right">'
+        +   '<div class="airport-code" title="' + arrName + '" data-bs-toggle="tooltip">' + (leg.arrival_airport || '') + '</div>'
+        +   '<div class="flight-time">' + (leg.arrival_time || '') + '</div>'
+        +   overnight
+        + '</div>'
+        + '</div>';
+}
+
+function renderReturnOption(opt) {
+    return (opt.legs || []).map(renderLeg).join('');
+}
+
+// Airport-Code Lookup
+(function () {
+    var lookupUrl = '{% url "travel:airport-lookup" %}';
+
+    function attachLookup(inputId) {
+        var input = document.getElementById(inputId);
+        if (!input) return;
+
+        var hint = document.createElement('div');
+        hint.className = 'airport-hint text-muted small mt-1';
+        input.parentNode.appendChild(hint);
+
+        var timer;
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            var code = this.value.trim().toUpperCase();
+            if (code.length !== 3) { hint.textContent = ''; return; }
+            timer = setTimeout(function () {
+                fetch(lookupUrl + '?code=' + code)
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        hint.textContent = data.name
+                            ? data.name + ' (' + data.city + ', ' + data.country + ')'
+                            : (data.error || '');
+                    })
+                    .catch(function () { hint.textContent = ''; });
+            }, 250);
+        });
+    }
+
+    attachLookup('{{ form.departure_airport.id_for_label }}');
+    attachLookup('{{ form.arrival_airport.id_for_label }}');
+})();
+
+function initTooltips(root) {
+    (root || document).querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+        new bootstrap.Tooltip(el);
+    });
+}
+initTooltips();
+
+// Datepicker: Rückflug auf Hinflug-Monat springen
+(function () {
+    const outbound = document.getElementById('{{ form.outbound_date.id_for_label }}');
+    const ret      = document.getElementById('{{ form.return_date.id_for_label }}');
+    if (!outbound || !ret) return;
+
+    outbound.addEventListener('change', function () {
+        const val = this.value;
+        if (!val) return;
+        ret.min = val;
+        if (!ret.value) {
+            ret.value = val;   // navigiert den Picker zum richtigen Monat
+        } else if (ret.value < val) {
+            ret.value = val;   // Rückflug war vor Hinflug — korrigieren
+        }
+    });
+})();
+</script>
+{% endblock %}

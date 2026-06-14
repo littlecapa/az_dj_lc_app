@@ -1,0 +1,39 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Travel – Übersicht{% endblock %}
+
+{% block content %}
+<style>
+    .tv-card {
+        display: flex; flex-direction: column;
+        border: 1px solid #e3e6ea; border-radius: 12px;
+        padding: 1.5rem; background: #fff;
+        text-decoration: none; color: inherit;
+        transition: box-shadow .15s, border-color .15s, transform .1s;
+        height: 100%;
+    }
+    .tv-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,.1);
+        border-color: #ced4da;
+        transform: translateY(-2px);
+        color: inherit;
+    }
+    .tv-icon  { font-size: 2rem; margin-bottom: .75rem; }
+    .tv-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
+    .tv-desc  { font-size: .85rem; color: #6c757d; flex: 1; }
+</style>
+
+<div class="container py-5">
+    <h2 class="mb-4">✈️ Travel</h2>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="{% url 'travel:flight-search' %}" class="tv-card">
+                <div class="tv-icon">🔍</div>
+                <div class="tv-title">Flugsuche</div>
+                <div class="tv-desc">Günstige Flüge via Google Flights suchen – mit Datumsflexibilität und Direktflug-Filter.</div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

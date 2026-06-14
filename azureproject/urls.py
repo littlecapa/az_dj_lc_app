@@ -10,6 +10,7 @@ urlpatterns = [
     path('rezepte/', include('recipes.urls')),
     path('fintech/', include('fintech.urls')),
     path('health/', include('health.urls')),
+    path('travel/', include('travel.urls')),
     path('admin/', admin.site.urls),
     path('robots.txt', 
          lambda request: HttpResponse(
