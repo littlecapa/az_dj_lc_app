@@ -122,7 +122,7 @@
                             {% endfor %}
                         {% endif %}
                         {% if r.stops > 0 %}
-                            &nbsp;·&nbsp; {{ r.stops }} Zwischenstopp{{ r.stops|pluralize:"","s" }}
+                            &nbsp;·&nbsp; {{ r.stops }} Zwischenstopp{% if r.stops != 1 %}s{% endif %}
                         {% endif %}
                     </div>
                 </div>

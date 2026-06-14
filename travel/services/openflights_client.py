@@ -35,20 +35,45 @@ _DATA_DIR = Path(__file__).parent.parent / 'data'
 # --- Module-level caches (loaded once at import) ---
 
 def _load_airlines():
-    airlines = {}
+    """
+    Build two lookups:
+      - by_id[airline_id]   → airline dict  (used when routes.dat has numeric IDs)
+      - by_iata[iata_code]  → airline dict  (prefer the entry whose name does NOT
+                               contain 'Cargo', 'Technik', 'Systems', 'CityLine'
+                               so that e.g. LH resolves to Lufthansa, not Lufthansa Cargo)
+    """
+    by_id = {}
+    by_iata_candidates = {}  # iata → list of dicts
+
     path = _DATA_DIR / 'airlines.dat'
     with open(path, encoding='utf-8', errors='replace') as f:
         for row in csv.reader(f):
             if len(row) < 8:
                 continue
+            airline_id = row[0].strip()
             iata = row[3].strip()
-            if iata and iata != r'\N' and iata != '-':
-                airlines[iata] = {
-                    'name': row[1].strip(),
-                    'country': row[6].strip(),
-                    'active': row[7].strip() == 'Y',
-                }
-    return airlines
+            if not iata or iata in (r'\N', '-'):
+                iata = None
+            entry = {
+                'name': row[1].strip(),
+                'country': row[6].strip(),
+                'active': row[7].strip() == 'Y',
+            }
+            if airline_id.lstrip('-').isdigit():
+                by_id[airline_id] = entry
+            if iata:
+                by_iata_candidates.setdefault(iata, []).append(entry)
+
+    # For each IATA code with multiple candidates, prefer the "main" carrier
+    _subsidiary_keywords = ('cargo', 'technik', 'systems', 'cityline', 'express',
+                            'regional', 'connect', 'link', 'shuttle')
+    by_iata = {}
+    for iata, candidates in by_iata_candidates.items():
+        main = [c for c in candidates
+                if not any(kw in c['name'].lower() for kw in _subsidiary_keywords)]
+        by_iata[iata] = (main or candidates)[0]
+
+    return by_id, by_iata
 
 
 def _load_routes():
@@ -80,9 +105,10 @@ def _load_routes():
     return routes
 
 
-_AIRLINES = _load_airlines()
+_AIRLINES_BY_ID, _AIRLINES_BY_IATA = _load_airlines()
 _ROUTES = _load_routes()
-logger.info('OpenFlights loaded: %d airlines, %d route pairs', len(_AIRLINES), len(_ROUTES))
+logger.info('OpenFlights loaded: %d airlines, %d route pairs',
+            len(_AIRLINES_BY_IATA), len(_ROUTES))
 
 
 def search_routes(dep_iata, arr_iata, direct_only=True):
@@ -114,7 +140,7 @@ def search_routes(dep_iata, arr_iata, direct_only=True):
             continue
         seen.add(code)
 
-        airline_info = _AIRLINES.get(code, {})
+        airline_info = _AIRLINES_BY_IATA.get(code, {})
         results.append({
             'airline_iata': code,
             'airline_name': airline_info.get('name', code),
