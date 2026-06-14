@@ -100,6 +100,7 @@ FMP_API_KEY = os.getenv('FMP_API_KEY')
 FINTECH_API_KEY = os.getenv('FINTECH_API_KEY')
 
 SERPAPI_KEY = os.getenv('SERPAPI_KEY')
+AVIATIONSTACK_KEY = os.getenv('AVIATIONSTACK_KEY')
 
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']

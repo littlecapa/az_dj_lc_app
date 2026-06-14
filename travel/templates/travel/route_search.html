@@ -1,0 +1,215 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Routensuche{% endblock %}
+
+{% block content %}
+<style>
+    .route-card {
+        border: 1px solid #e3e6ea; border-radius: 10px;
+        padding: 1rem 1.25rem; background: #fff;
+        margin-bottom: .6rem;
+        display: flex; align-items: center; gap: 1rem;
+    }
+    .airline-iata {
+        font-size: 1.1rem; font-weight: 700;
+        min-width: 48px; text-align: center;
+        background: #f0f4ff; border-radius: 6px;
+        padding: .25rem .5rem; color: #2c5ee8;
+    }
+    .airline-name { font-weight: 600; font-size: .95rem; }
+    .airline-meta { font-size: .8rem; color: #6c757d; }
+    .equipment-badge {
+        font-size: .72rem; background: #f8f9fa; border: 1px solid #dee2e6;
+        border-radius: 4px; padding: .1rem .4rem; margin-right: .25rem;
+    }
+    .inactive-badge {
+        font-size: .72rem; background: #fff3cd; color: #856404;
+        border-radius: 4px; padding: .1rem .4rem;
+    }
+    .section-label {
+        font-size: .72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; color: #6c757d;
+        margin: 1.5rem 0 .75rem;
+    }
+    .live-card {
+        border: 1px solid #e3e6ea; border-radius: 10px;
+        padding: .75rem 1.25rem; background: #fff;
+        margin-bottom: .5rem;
+        display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    }
+    .status-badge {
+        font-size: .72rem; border-radius: 4px; padding: .15rem .5rem; font-weight: 600;
+    }
+    .status-active    { background: #d1e7dd; color: #0a3622; }
+    .status-scheduled { background: #cfe2ff; color: #084298; }
+    .status-landed    { background: #e2e3e5; color: #383d41; }
+    .status-cancelled { background: #f8d7da; color: #842029; }
+</style>
+
+<div class="container py-4">
+    <h2 class="mb-4">🗺️ Routensuche</h2>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <form method="get" action="{% url 'travel:route-search' %}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.departure_airport.label }}</label>
+                        {{ form.departure_airport }}
+                        <div class="airport-hint text-muted small mt-1"></div>
+                        {% if form.departure_airport.errors %}
+                            <div class="text-danger small">{{ form.departure_airport.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold">{{ form.arrival_airport.label }}</label>
+                        {{ form.arrival_airport }}
+                        <div class="airport-hint text-muted small mt-1"></div>
+                        {% if form.arrival_airport.errors %}
+                            <div class="text-danger small">{{ form.arrival_airport.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3 col-6 d-flex flex-column gap-2 justify-content-end pb-1">
+                        <div class="form-check">
+                            {{ form.direct_only }}
+                            <label class="form-check-label" for="{{ form.direct_only.id_for_label }}">
+                                {{ form.direct_only.label }}
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.show_live }}
+                            <label class="form-check-label" for="{{ form.show_live.id_for_label }}">
+                                {{ form.show_live.label }}
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <button type="submit" class="btn btn-primary w-100">🔍 Suchen</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    {% if routes is not None %}
+        {% if routes %}
+            <div class="section-label">
+                {{ routes|length }} Airline{{ routes|length|pluralize }} auf der Route
+                {{ request.GET.departure_airport }} → {{ request.GET.arrival_airport }}
+            </div>
+
+            {% for r in routes %}
+            <div class="route-card">
+                <div class="airline-iata">{{ r.airline_iata }}</div>
+                <div class="flex-grow-1">
+                    <div class="airline-name">
+                        {{ r.airline_name }}
+                        {% if not r.active %}
+                            <span class="inactive-badge ms-1">inaktiv</span>
+                        {% endif %}
+                    </div>
+                    <div class="airline-meta">
+                        {{ r.country }}
+                        {% if r.equipment %}
+                            &nbsp;·&nbsp;
+                            {% for eq in r.equipment %}
+                                <span class="equipment-badge">{{ eq }}</span>
+                            {% endfor %}
+                        {% endif %}
+                        {% if r.stops > 0 %}
+                            &nbsp;·&nbsp; {{ r.stops }} Zwischenstopp{{ r.stops|pluralize:"","s" }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+        {% else %}
+            <div class="alert alert-info">
+                Keine Routen gefunden für
+                {{ request.GET.departure_airport }} → {{ request.GET.arrival_airport }}.
+            </div>
+        {% endif %}
+    {% endif %}
+
+    {% if live_flights is not None %}
+        <div class="section-label">Heutige Flüge (Aviationstack)</div>
+        {% if live_flights %}
+            {% for f in live_flights %}
+            <div class="live-card">
+                <div style="min-width:80px">
+                    <div style="font-weight:700">{{ f.flight_number }}</div>
+                    <div class="airline-meta">{{ f.airline_name }}</div>
+                </div>
+                <div>
+                    <div class="airline-meta">Abflug</div>
+                    <div>{{ f.departure_scheduled|slice:":16"|default:"–" }}</div>
+                    {% if f.departure_actual and f.departure_actual != f.departure_scheduled %}
+                        <div class="airline-meta">Aktuell: {{ f.departure_actual|slice:":16" }}</div>
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="airline-meta">Ankunft</div>
+                    <div>{{ f.arrival_scheduled|slice:":16"|default:"–" }}</div>
+                    {% if f.arrival_actual and f.arrival_actual != f.arrival_scheduled %}
+                        <div class="airline-meta">Aktuell: {{ f.arrival_actual|slice:":16" }}</div>
+                    {% endif %}
+                </div>
+                {% if f.aircraft_type %}
+                <div><span class="equipment-badge">{{ f.aircraft_type }}</span></div>
+                {% endif %}
+                <div>
+                    <span class="status-badge
+                        {% if f.status == 'active' %}status-active
+                        {% elif f.status == 'scheduled' %}status-scheduled
+                        {% elif f.status == 'landed' %}status-landed
+                        {% elif f.status == 'cancelled' %}status-cancelled
+                        {% endif %}">
+                        {{ f.status|default:"–" }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">Keine Flüge heute gefunden.</div>
+        {% endif %}
+    {% endif %}
+
+</div>
+
+<script>
+(function () {
+    var lookupUrl = '{% url "travel:airport-lookup" %}';
+
+    function attachLookup(input) {
+        if (!input) return;
+        var hint = input.closest('.col-md-3, .col-6').querySelector('.airport-hint');
+        if (!hint) return;
+        var timer;
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            var code = this.value.trim().toUpperCase();
+            if (code.length !== 3) { hint.textContent = ''; return; }
+            timer = setTimeout(function () {
+                fetch(lookupUrl + '?code=' + code)
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        hint.textContent = d.name
+                            ? d.name + ' (' + d.city + ', ' + d.country + ')'
+                            : (d.error || '');
+                    })
+                    .catch(function () { hint.textContent = ''; });
+            }, 250);
+        });
+    }
+
+    attachLookup(document.getElementById('{{ form.departure_airport.id_for_label }}'));
+    attachLookup(document.getElementById('{{ form.arrival_airport.id_for_label }}'));
+})();
+</script>
+{% endblock %}

@@ -4,8 +4,10 @@ import airportsdata
 
 from django.shortcuts import render
 from django.http import JsonResponse
-from .forms import FlightSearchForm
+from .forms import FlightSearchForm, RouteSearchForm
 from .services.serpapi_client import search_flights, fetch_return_flights, account_status
+from .services.openflights_client import search_routes
+from .services.aviationstack_client import get_live_flights
 
 _airports = airportsdata.load('IATA')
 
@@ -51,6 +53,40 @@ def flight_search(request):
     return render(request, 'travel/flight_search.html', {
         'form': form,
         'results': results,
+        'error': error,
+    })
+
+
+def route_search(request):
+    form = RouteSearchForm(request.GET or None)
+    routes = None
+    live_flights = None
+    error = None
+
+    if request.GET and form.is_valid():
+        cd = form.cleaned_data
+        dep = cd['departure_airport']
+        arr = cd['arrival_airport']
+
+        try:
+            routes = search_routes(dep, arr, direct_only=cd['direct_only'])
+        except Exception as e:
+            logger.exception('Routensuche fehlgeschlagen')
+            error = f'Routensuche fehlgeschlagen: {e}'
+
+        if cd.get('show_live') and not error:
+            try:
+                live_flights = get_live_flights(dep, arr)
+            except ValueError as e:
+                error = str(e)
+            except Exception as e:
+                logger.exception('Aviationstack-Abfrage fehlgeschlagen')
+                error = f'Live-Flüge nicht verfügbar: {e}'
+
+    return render(request, 'travel/route_search.html', {
+        'form': form,
+        'routes': routes,
+        'live_flights': live_flights,
         'error': error,
     })
 

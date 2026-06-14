@@ -68,3 +68,40 @@ class FlightSearchForm(forms.Form):
         if ret and outbound and ret < outbound:
             self.add_error('return_date', 'Rückflugdatum muss nach dem Hinflugdatum liegen.')
         return cleaned
+
+
+_AIRPORT_WIDGET = {
+    'class': 'form-control text-uppercase',
+    'maxlength': '3',
+    'style': 'text-transform: uppercase;',
+}
+
+
+class RouteSearchForm(forms.Form):
+    departure_airport = forms.CharField(
+        label='Startflughafen',
+        max_length=3,
+        widget=forms.TextInput(attrs={**_AIRPORT_WIDGET, 'placeholder': 'z.B. FRA'}),
+    )
+    arrival_airport = forms.CharField(
+        label='Zielflughafen',
+        max_length=3,
+        widget=forms.TextInput(attrs={**_AIRPORT_WIDGET, 'placeholder': 'z.B. BKK'}),
+    )
+    direct_only = forms.BooleanField(
+        label='Nur Direktverbindungen',
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+    show_live = forms.BooleanField(
+        label='Heutige Flüge anzeigen (Aviationstack)',
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+
+    def clean_departure_airport(self):
+        return self.cleaned_data['departure_airport'].upper()
+
+    def clean_arrival_airport(self):
+        return self.cleaned_data['arrival_airport'].upper()
