@@ -10,7 +10,7 @@ AVIATIONSTACK_URL = 'http://api.aviationstack.com/v1'
 def _resolve_api_key(api_key):
     if api_key:
         return api_key
-    key = os.environ.get('AVIATIONSTACK_KEY')
+    key = os.environ.get('AVIATIONSTACK_API_KEY')
     if key:
         return key
     try:
