@@ -5,7 +5,7 @@ import airportsdata
 from django.shortcuts import render
 from django.http import JsonResponse
 from .forms import FlightSearchForm
-from .services.serpapi_client import search_flights, fetch_return_flights
+from .services.serpapi_client import search_flights, fetch_return_flights, account_status
 
 _airports = airportsdata.load('IATA')
 
@@ -13,7 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 def index(request):
-    return render(request, 'travel/index.html')
+    status = None
+    status_error = None
+    try:
+        status = account_status()
+    except Exception as e:
+        status_error = str(e)
+    return render(request, 'travel/index.html', {
+        'status': status,
+        'status_error': status_error,
+    })
 
 
 def flight_search(request):

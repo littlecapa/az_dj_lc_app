@@ -25,6 +25,33 @@ def _resolve_api_key(api_key):
     return key
 
 
+def account_status(api_key=None):
+    """Fetch SerpAPI account usage — does NOT count toward monthly quota."""
+    key = _resolve_api_key(api_key)
+    try:
+        resp = requests.get(
+            'https://serpapi.com/account.json',
+            params={'api_key': key},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        logger.error('SerpAPI account status request failed: %s', e)
+        raise
+
+    return {
+        'plan_name': data.get('plan_name'),
+        'plan_searches_left': data.get('plan_searches_left'),
+        'plan_monthly_price': data.get('plan_monthly_price'),
+        'searches_per_month': data.get('searches_per_month'),
+        'this_month_usage': data.get('this_month_usage'),
+        'account_email': data.get('account_email'),
+        'extra_credits': data.get('extra_credits', 0),
+        'last_hour_searches': data.get('searches_per_time_period', 0),
+    }
+
+
 def search_flights(
     departure_id,
     arrival_id,

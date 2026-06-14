@@ -22,16 +22,64 @@
     .tv-icon  { font-size: 2rem; margin-bottom: .75rem; }
     .tv-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
     .tv-desc  { font-size: .85rem; color: #6c757d; flex: 1; }
+
+    .quota-bar-wrap {
+        background: #e9ecef; border-radius: 20px; height: 10px; margin: .4rem 0;
+    }
+    .quota-bar {
+        height: 10px; border-radius: 20px;
+        transition: width .4s ease;
+    }
+    .quota-label {
+        font-size: .78rem; color: #6c757d;
+        display: flex; justify-content: space-between;
+    }
 </style>
 
 <div class="container py-5">
     <h2 class="mb-4">✈️ Travel</h2>
+
+    <!-- SerpAPI Status Widget -->
+    <div class="mb-4">
+        {% if status_error %}
+            <div class="alert alert-warning py-2 small">
+                SerpAPI-Status nicht verfügbar: {{ status_error }}
+            </div>
+        {% elif status %}
+            {% with used=status.this_month_usage total=status.searches_per_month left=status.plan_searches_left %}
+            {% if total %}
+                {% widthratio used total 100 as pct %}
+                <div class="card border-0 shadow-sm" style="max-width:420px">
+                    <div class="card-body py-3 px-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-semibold small">SerpAPI – {{ status.plan_name|default:"Free" }}</span>
+                            <span class="small text-muted">{{ status.account_email }}</span>
+                        </div>
+                        <div class="quota-label">
+                            <span>{{ used }} von {{ total }} Suchen verbraucht</span>
+                            <span>{{ left }} übrig</span>
+                        </div>
+                        <div class="quota-bar-wrap">
+                            <div class="quota-bar {% if pct >= 90 %}bg-danger{% elif pct >= 70 %}bg-warning{% else %}bg-success{% endif %}"
+                                 style="width: {{ pct }}%"></div>
+                        </div>
+                        {% if status.extra_credits %}
+                            <div class="small text-muted mt-1">+ {{ status.extra_credits }} Extra-Credits</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            {% endwith %}
+        {% endif %}
+    </div>
+
+    <!-- Feature Cards -->
     <div class="row g-3">
         <div class="col-md-4">
             <a href="{% url 'travel:flight-search' %}" class="tv-card">
                 <div class="tv-icon">🔍</div>
                 <div class="tv-title">Flugsuche</div>
-                <div class="tv-desc">Günstige Flüge via Google Flights suchen – mit Datumsflexibilität und Direktflug-Filter.</div>
+                <div class="tv-desc">Günstige Flüge via Google Flights suchen – mit Direktflug-Filter und Rückflug-Optionen.</div>
             </a>
         </div>
     </div>
