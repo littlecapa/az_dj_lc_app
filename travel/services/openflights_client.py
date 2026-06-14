@@ -94,11 +94,13 @@ def _load_routes():
             if r'\N' in (airline, dep, arr):
                 continue
 
+            codeshare = row[6].strip() == 'Y'
             key = (dep, arr)
             if key not in routes:
                 routes[key] = []
             routes[key].append({
                 'airline_iata': airline,
+                'codeshare': codeshare,
                 'stops': int(stops) if stops.isdigit() else 0,
                 'equipment': [e.strip() for e in equipment.split()] if equipment else [],
             })
@@ -113,33 +115,37 @@ logger.info('OpenFlights loaded: %d airlines, %d route pairs',
 
 def search_routes(dep_iata, arr_iata, direct_only=True):
     """
-    Return airlines operating between dep_iata and arr_iata.
+    Return operated routes between dep_iata and arr_iata with codeshares resolved.
 
-    Args:
-        dep_iata:    Departure airport IATA code (e.g. 'FRA')
-        arr_iata:    Arrival airport IATA code (e.g. 'BKK')
-        direct_only: If True, only return non-stop routes (stops == 0)
+    Codeshare entries (flag Y) are NOT shown as separate rows — they are collected
+    and attached to the operating airline's entry as `codeshare_codes`.
 
     Returns:
         list of dicts:
-            airline_iata, airline_name, country, active, equipment, stops
+            airline_iata, airline_name, country, active, equipment, stops,
+            codeshare_codes (list of IATA codes that market this flight)
     """
     dep = dep_iata.upper()
     arr = arr_iata.upper()
 
     raw = _ROUTES.get((dep, arr), [])
 
-    results = []
-    seen = set()
+    operators = {}   # iata → entry dict
+    codeshares = []  # iata codes that are pure codeshares
 
     for entry in raw:
         if direct_only and entry['stops'] > 0:
             continue
         code = entry['airline_iata']
-        if code in seen:
-            continue
-        seen.add(code)
+        if entry['codeshare']:
+            codeshares.append(code)
+        else:
+            if code not in operators:
+                operators[code] = entry
 
+    # Build result list — one row per operator
+    results = []
+    for code, entry in operators.items():
         airline_info = _AIRLINES_BY_IATA.get(code, {})
         results.append({
             'airline_iata': code,
@@ -148,7 +154,14 @@ def search_routes(dep_iata, arr_iata, direct_only=True):
             'active': airline_info.get('active', True),
             'equipment': entry['equipment'],
             'stops': entry['stops'],
+            'codeshare_codes': [],  # filled below
         })
+
+    # Attach codeshare codes to the result list (no reliable per-operator mapping
+    # in routes.dat, so we list them once under all operators or as a shared block)
+    codeshare_set = sorted(set(c for c in codeshares if c not in operators))
+    for r in results:
+        r['codeshare_codes'] = codeshare_set
 
     results.sort(key=lambda r: (not r['active'], r['airline_name']))
     return results

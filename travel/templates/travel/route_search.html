@@ -125,6 +125,14 @@
                             &nbsp;·&nbsp; {{ r.stops }} Zwischenstopp{% if r.stops != 1 %}s{% endif %}
                         {% endif %}
                     </div>
+                    {% if r.codeshare_codes %}
+                    <div class="airline-meta mt-1">
+                        Codeshare:
+                        {% for cs in r.codeshare_codes %}
+                            <span class="equipment-badge" style="color:#6c757d">{{ cs }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
