@@ -76,13 +76,6 @@ class Asset(models.Model):
         help_text="Art des Assets"
     )
 
-    asset_class = models.CharField(
-        max_length=10,
-        choices=AssetClass.choices,
-        default=AssetClass.STOCK,
-        help_text="Art des Assets"
-    )
-    
     currency = models.CharField(
         max_length=3,
         default='EUR',

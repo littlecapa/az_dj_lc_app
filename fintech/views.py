@@ -10,6 +10,7 @@ from .models import Price
 from django.db.models import OuterRef, Subquery
 from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange
 from .models_helper.category_class import CategoryClass
+from .models_helper.asset_class import AssetClass
 from django.utils.text import slugify
 from django.http import Http404
 from .apis.services.openfigi import OpenFigiService
@@ -765,54 +766,70 @@ def watchlist_import(request):
             errors.append(f"Eintrag {idx} ({isin}): 'watchlist' fehlt.")
             details.append({"isin": isin, "watchlist": "–", "status": "error", "price_at_add": None})
             continue
-
-        # Asset suchen oder neu anlegen
-        if not dry_run:
-            asset, asset_created = Asset.objects.get_or_create(
-                isin=isin,
-                defaults={"name": asset_name, "asset_class": asset_class},
+        if not AssetClass.is_valid(asset_class):
+            errors.append(
+                f"Eintrag {idx} ({isin}): 'asset_class' ungültig: '{asset_class}'. "
+                f"Erlaubt: {', '.join(AssetClass.values)}."
             )
-            if asset_created:
-                logger.info(f"Watchlist-Import: neues Asset angelegt: {isin} ({asset_name})")
-        else:
-            # Dry-Run: nur prüfen ob Asset existiert
-            asset = Asset.objects.filter(isin=isin).first()
-            asset_created = asset is None
+            details.append({"isin": isin, "watchlist": watchlist_name, "status": "error", "price_at_add": None})
+            continue
 
-        if not dry_run:
-            # Watchlist anlegen falls nicht vorhanden
-            watchlist, _ = Watchlist.objects.get_or_create(
-                name=watchlist_name,
-                user=request.user,
-            )
-
-            existing = WatchlistEntry.objects.filter(watchlist=watchlist, asset=asset).first()
-            if existing:
-                # Nur notes und source aktualisieren
-                existing.notes  = notes
-                existing.source = source
-                existing.save(update_fields=["notes", "source"])
-                updated += 1
-                details.append({"isin": isin, "watchlist": watchlist_name, "status": "updated", "price_at_add": existing.price_at_add})
+        try:
+            # Asset suchen oder neu anlegen
+            if not dry_run:
+                asset, asset_created = Asset.objects.get_or_create(
+                    isin=isin,
+                    defaults={"name": asset_name, "asset_class": asset_class},
+                )
+                if asset_created:
+                    logger.info(f"Watchlist-Import: neues Asset angelegt: {isin} ({asset_name})")
             else:
-                entry = WatchlistEntry(watchlist=watchlist, asset=asset, source=source, notes=notes)
-                entry.save()   # price_at_add wird in save() auto-befüllt
-                created += 1
-                details.append({"isin": isin, "watchlist": watchlist_name, "status": "created", "price_at_add": entry.price_at_add})
-        else:
-            # Dry-Run: nur prüfen ob Eintrag schon existiert
-            wl_exists = Watchlist.objects.filter(name=watchlist_name, user=request.user).first()
-            already_in = (
-                WatchlistEntry.objects.filter(watchlist=wl_exists, asset=asset).exists()
-                if (wl_exists and asset) else False
-            )
-            status = "updated" if already_in else "created"
-            if already_in:
-                updated += 1
+                # Dry-Run: nur prüfen ob Asset existiert
+                asset = Asset.objects.filter(isin=isin).first()
+                asset_created = asset is None
+
+            if not dry_run:
+                # Watchlist anlegen falls nicht vorhanden
+                watchlist, _ = Watchlist.objects.get_or_create(
+                    name=watchlist_name,
+                    user=request.user,
+                )
+
+                existing = WatchlistEntry.objects.filter(watchlist=watchlist, asset=asset).first()
+                if existing:
+                    # Nur notes und source aktualisieren
+                    existing.notes  = notes
+                    existing.source = source
+                    existing.save(update_fields=["notes", "source"])
+                    updated += 1
+                    details.append({"isin": isin, "watchlist": watchlist_name, "status": "updated", "price_at_add": existing.price_at_add})
+                else:
+                    entry = WatchlistEntry(watchlist=watchlist, asset=asset, source=source, notes=notes)
+                    entry.save()   # price_at_add wird in save() auto-befüllt
+                    created += 1
+                    details.append({"isin": isin, "watchlist": watchlist_name, "status": "created", "price_at_add": entry.price_at_add})
             else:
-                created += 1
-            current_price = asset.current_price if asset else None
-            details.append({"isin": isin, "watchlist": watchlist_name, "status": status, "price_at_add": current_price})
+                # Dry-Run: nur prüfen ob Eintrag schon existiert
+                wl_exists = Watchlist.objects.filter(name=watchlist_name, user=request.user).first()
+                existing = (
+                    WatchlistEntry.objects.filter(watchlist=wl_exists, asset=asset).first()
+                    if (wl_exists and asset) else None
+                )
+                status = "updated" if existing else "created"
+                if existing:
+                    updated += 1
+                    # Preis bleibt bei einem Update unverändert — Vorschau zeigt den
+                    # bestehenden price_at_add, nicht den aktuellen Kurs.
+                    preview_price = existing.price_at_add
+                else:
+                    created += 1
+                    preview_price = asset.current_price if asset else None
+                details.append({"isin": isin, "watchlist": watchlist_name, "status": status, "price_at_add": preview_price})
+        except Exception as exc:
+            logger.exception(f"Watchlist-Import: Fehler bei Eintrag {idx} ({isin})")
+            errors.append(f"Eintrag {idx} ({isin}): {exc}")
+            details.append({"isin": isin, "watchlist": watchlist_name, "status": "error", "price_at_add": None})
+            continue
 
     result = {
         "total":   total,
