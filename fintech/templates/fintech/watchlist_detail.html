@@ -36,6 +36,20 @@
         Annahme: {{ hypothetical|floatformat:0 }} € pro Position beim Einstieg
     </p>
 
+    {% if reset_result %}
+        {% if reset_result.failed %}
+            <div class="alert alert-warning">
+                Einstiegspreise zurückgesetzt: {{ reset_result.ok }} erfolgreich,
+                {{ reset_result.failed|length }} fehlgeschlagen
+                ({{ reset_result.failed|join:", " }}) — unten rot markiert.
+            </div>
+        {% else %}
+            <div class="alert alert-success">
+                Einstiegspreise für {{ reset_result.ok }} Eintrag(e) erfolgreich zurückgesetzt.
+            </div>
+        {% endif %}
+    {% endif %}
+
     {% if not entry_rows %}
         <p class="text-muted">Keine Einträge in dieser Watchlist.</p>
     {% else %}
@@ -61,7 +75,7 @@
             </thead>
             <tbody>
                 {% for row in entry_rows %}
-                <tr>
+                <tr {% if row.reset_failed %}class="table-danger"{% endif %}>
                     <td>
                         <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
                             {{ forloop.counter }}
@@ -129,6 +143,14 @@
             </tbody>
         </table>
     </div>
+
+    <form method="post"
+          action="{% url 'fintech:watchlist-reset-prices' watchlist.name %}"
+          onsubmit="return confirm('Wirklich für ALLE Einträge dieser Watchlist den Einstiegspreis auf den aktuellen Kurs zurücksetzen? Das kann nicht rückgängig gemacht werden.');"
+          class="mt-3">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">Reset Einstiegspreis</button>
+    </form>
     {% endif %}
 </div>
 {% endblock %}

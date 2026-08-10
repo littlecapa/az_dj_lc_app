@@ -34,7 +34,7 @@ from django.utils.decorators import method_decorator
 
 from ..models import Asset, Watchlist, WatchlistEntry
 from ..models_helper.asset_class import AssetClass
-from .services.provider_manager import ProviderManager
+from ..services import resolve_asset_with_price
 from .services.yahoo_finance import YahooFinanceRequest
 from .services.request_lib import KeyNotFoundWarning
 
@@ -43,8 +43,7 @@ logger = logging.getLogger(__name__)
 ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{10}$")
 
 # One shared instance per process
-_provider_manager = ProviderManager()
-_yahoo            = YahooFinanceRequest()
+_yahoo = YahooFinanceRequest()
 
 
 # ---------------------------------------------------------------------------
@@ -161,14 +160,17 @@ class WatchlistEntryCreateView(View):
             watchlist = Watchlist.objects.create(name=watchlist_name, user=user)
             logger.info(f"Watchlist '{watchlist_name}' wurde neu angelegt für {user.username}")
 
-        # --- Asset anlegen oder holen ---
+        # --- Asset anlegen oder holen (neu nur bei erfolgreichem Kurs-Abruf) ---
         asset_name = str(data.get("name", "")).strip() or isin
-        asset, asset_created = Asset.objects.get_or_create(
-            isin=isin,
-            defaults={"name": asset_name, "asset_class": asset_class},
-        )
-        if asset_created:
-            logger.info(f"Neues Asset angelegt: {isin} ({asset_name})")
+        resolution = resolve_asset_with_price(isin, asset_name, asset_class)
+        if resolution.asset is None:
+            return JsonResponse(
+                {"error": "Kurs-Abruf fehlgeschlagen", "detail": resolution.error, "isin": isin},
+                status=502,
+            )
+        asset = resolution.asset
+        asset_created = resolution.created
+        price_fetched = resolution.created  # neu angelegt ⇒ Kurs wurde gerade geholt
 
         # --- Namen auflösen falls noch nicht gesetzt ---
         if asset.name == isin:
@@ -179,26 +181,6 @@ class WatchlistEntryCreateView(View):
                 logger.info(f"Asset-Name aufgelöst: {isin} → '{real_name}'")
             except Exception as exc:
                 logger.warning(f"Name-Auflösung für {isin} fehlgeschlagen: {exc}")
-
-        # --- Kurs sicherstellen ---
-        price_fetched = False
-        if asset.current_price is None:
-            logger.info(f"Kein Kurs für {isin} — hole aktiv via ProviderManager")
-            try:
-                price = _provider_manager.isin2price(isin, asset.asset_class)
-                if price is not None:
-                    from ..models import Price
-                    from django.utils import timezone
-                    Price.objects.create(
-                        asset=asset,
-                        current_price=price,
-                        timestamp=timezone.now(),
-                    )
-                    asset.refresh_from_db()
-                    price_fetched = True
-                    logger.info(f"Kurs für {isin} geholt: {price}")
-            except Exception as exc:
-                logger.warning(f"Kurs-Abruf für {isin} fehlgeschlagen: {exc}")
 
         # --- Watchlist-Entry anlegen oder aktualisieren ---
         source = str(data.get("source", "")).strip()

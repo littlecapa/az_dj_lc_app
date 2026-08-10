@@ -21,6 +21,7 @@ from django.contrib import messages
 from django.core.management import call_command
 from django.views.decorators.cache import never_cache
 from django.utils import timezone
+from .services import resolve_asset_with_price, refresh_asset_price
 
 import logging
 
@@ -775,20 +776,21 @@ def watchlist_import(request):
             continue
 
         try:
-            # Asset suchen oder neu anlegen
-            if not dry_run:
-                asset, asset_created = Asset.objects.get_or_create(
-                    isin=isin,
-                    defaults={"name": asset_name, "asset_class": asset_class},
-                )
-                if asset_created:
-                    logger.info(f"Watchlist-Import: neues Asset angelegt: {isin} ({asset_name})")
-            else:
-                # Dry-Run: nur prüfen ob Asset existiert
-                asset = Asset.objects.filter(isin=isin).first()
-                asset_created = asset is None
+            # Asset suchen oder neu anlegen — ein NEUES Asset wird nur angelegt
+            # (bzw. im Dry-Run als anlegbar gewertet), wenn der Kurs-Abruf
+            # erfolgreich war. Schlägt er fehl, gilt der Eintrag als Fehler.
+            resolution = resolve_asset_with_price(isin, asset_name, asset_class, dry_run=dry_run)
+            if resolution.error:
+                errors.append(f"Eintrag {idx} ({isin}): {resolution.error}")
+                details.append({"isin": isin, "watchlist": watchlist_name, "status": "error", "price_at_add": None})
+                continue
 
             if not dry_run:
+                asset = resolution.asset  # garantiert gesetzt (sonst oben continue)
+                asset_created = resolution.created
+                if asset_created:
+                    logger.info(f"Watchlist-Import: neues Asset angelegt: {isin} ({asset_name})")
+
                 # Watchlist anlegen falls nicht vorhanden
                 watchlist, _ = Watchlist.objects.get_or_create(
                     name=watchlist_name,
@@ -811,19 +813,23 @@ def watchlist_import(request):
             else:
                 # Dry-Run: nur prüfen ob Eintrag schon existiert
                 wl_exists = Watchlist.objects.filter(name=watchlist_name, user=request.user).first()
-                existing = (
-                    WatchlistEntry.objects.filter(watchlist=wl_exists, asset=asset).first()
-                    if (wl_exists and asset) else None
-                )
+                if resolution.created:
+                    # Asset ist neu (Kurs-Abruf war erfolgreich) — kann noch keinen Eintrag haben
+                    existing = None
+                    preview_price = resolution.price
+                else:
+                    existing = (
+                        WatchlistEntry.objects.filter(watchlist=wl_exists, asset=resolution.asset).first()
+                        if wl_exists else None
+                    )
+                    # Preis bleibt bei einem Update unverändert — Vorschau zeigt den
+                    # bestehenden price_at_add, nicht den aktuellen Kurs.
+                    preview_price = existing.price_at_add if existing else resolution.price
                 status = "updated" if existing else "created"
                 if existing:
                     updated += 1
-                    # Preis bleibt bei einem Update unverändert — Vorschau zeigt den
-                    # bestehenden price_at_add, nicht den aktuellen Kurs.
-                    preview_price = existing.price_at_add
                 else:
                     created += 1
-                    preview_price = asset.current_price if asset else None
                 details.append({"isin": isin, "watchlist": watchlist_name, "status": status, "price_at_add": preview_price})
         except Exception as exc:
             logger.exception(f"Watchlist-Import: Fehler bei Eintrag {idx} ({isin})")
@@ -1253,6 +1259,9 @@ def watchlist_detail(request, watchlist_name):
     wl = get_object_or_404(Watchlist, name=watchlist_name)
     entries = wl.entries.select_related("asset").order_by("asset__name")
 
+    reset_result = request.session.pop("watchlist_reset_result", None)
+    failed_isins = set(reset_result["failed"]) if reset_result else set()
+
     entry_rows = []
     for entry in entries:
         perf = _entry_perf(entry)
@@ -1270,6 +1279,7 @@ def watchlist_detail(request, watchlist_name):
             "simple":        perf["simple_return"] * 100 if perf else None,
             "annualized":    perf["annualized"] * 100    if perf else None,
             "has_price":     perf is not None,
+            "reset_failed":  entry.asset.isin in failed_isins,
         })
 
     entry_rows.sort(
@@ -1281,7 +1291,38 @@ def watchlist_detail(request, watchlist_name):
         "watchlist": wl,
         "entry_rows": entry_rows,
         "hypothetical": HYPOTHETICAL_INVESTMENT,
+        "reset_result": reset_result,
     })
+
+
+@login_required
+def watchlist_reset_prices(request, watchlist_name):
+    """
+    Setzt für ALLE Einträge einer Watchlist den Einstiegspreis (price_at_add)
+    auf den aktuellen Kurs zurück. Holt dafür je Asset aktiv einen frischen
+    Kurs. Schlägt der Abruf für ein Asset fehl, bleibt dessen Einstiegspreis
+    unverändert und wird auf der Detailseite rot markiert.
+    """
+    if request.method != "POST":
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    wl = get_object_or_404(Watchlist, name=watchlist_name)
+    entries = wl.entries.select_related("asset")
+
+    ok = 0
+    failed_isins = []
+    for entry in entries:
+        price = refresh_asset_price(entry.asset)
+        if price is None:
+            failed_isins.append(entry.asset.isin)
+            continue
+        entry.price_at_add = price
+        entry.save(update_fields=["price_at_add"])
+        ok += 1
+
+    request.session["watchlist_reset_result"] = {"ok": ok, "failed": failed_isins}
+    return redirect("fintech:watchlist-detail", watchlist_name=watchlist_name)
 
 
 @login_required
