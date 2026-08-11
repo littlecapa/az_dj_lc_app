@@ -105,6 +105,12 @@ AVIATIONSTACK_KEY = os.getenv('AVIATIONSTACK_API_KEY')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
+# Jira Cloud (littlecapa.atlassian.net) — genutzt von core.jira_client
+JIRA_BASE_URL = os.getenv('JIRA_BASE_URL')
+JIRA_EMAIL = os.getenv('JIRA_EMAIL')
+JIRA_API_TOKEN = os.getenv('JIRA_API_TOKEN')
+JIRA_PROJECT_KEY = os.getenv('JIRA_PROJECT_KEY')
+
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 

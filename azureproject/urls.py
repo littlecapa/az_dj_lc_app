@@ -12,6 +12,7 @@ urlpatterns = [
     path('health/', include('health.urls')),
     path('travel/', include('travel.urls')),
     path('telegram/', include('telegram_app.urls')),
+    path('', include('core.urls')),
     path('admin/', admin.site.urls),
     path('robots.txt', 
          lambda request: HttpResponse(

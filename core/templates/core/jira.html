@@ -1,0 +1,86 @@
+{% extends "homepage/base_home.html" %}
+
+{% block title %}Jira{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 720px;">
+    <h2 class="mb-4">Jira — Tickets</h2>
+
+    {% if result %}
+        {% if result.ok %}
+            <div class="alert alert-success">
+                {{ result.message }}
+                {% if result.url %}
+                    <a href="{{ result.url }}" target="_blank" rel="noopener">{{ result.key }} öffnen &rarr;</a>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="alert alert-danger">
+                {{ result.message }}
+                {% if result.detail %}<div class="small mt-1">{{ result.detail }}</div>{% endif %}
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header">Neues Ticket anlegen</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="create">
+
+                <div class="mb-3">
+                    <label for="summary" class="form-label">Zusammenfassung *</label>
+                    <input type="text" class="form-control" id="summary" name="summary" required maxlength="255">
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Beschreibung</label>
+                    <textarea class="form-control" id="description" name="description" rows="4"></textarea>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="issue_type" class="form-label">Typ</label>
+                        <select class="form-select" id="issue_type" name="issue_type">
+                            {% for t in issue_types %}
+                                <option value="{{ t }}">{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="project_key" class="form-label">Projekt</label>
+                        <input type="text" class="form-control" id="project_key" name="project_key"
+                               value="{{ default_project_key }}" maxlength="20">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Ticket anlegen</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Kommentar zu bestehendem Ticket hinzufügen</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="comment">
+
+                <div class="mb-3">
+                    <label for="issue_key" class="form-label">Ticket-Key *</label>
+                    <input type="text" class="form-control" id="issue_key" name="issue_key"
+                           placeholder="z. B. FIN-123" required maxlength="20">
+                </div>
+
+                <div class="mb-3">
+                    <label for="comment" class="form-label">Kommentar *</label>
+                    <textarea class="form-control" id="comment" name="comment" rows="3" required></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-outline-primary">Kommentar hinzufügen</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
