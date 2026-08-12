@@ -13,6 +13,8 @@ from typing import NamedTuple, Optional
 from django.db import transaction
 from django.utils import timezone
 
+from core.jira_client import JiraClient, JiraApiError
+
 from .apis.services.provider_manager import ProviderManager
 from .models import Asset, Price
 
@@ -69,17 +71,61 @@ def resolve_asset_with_price(isin: str, name: str, asset_class: str, dry_run: bo
 def refresh_asset_price(asset: Asset) -> Optional[Decimal]:
     """Holt aktiv den aktuellen Kurs für ein bestehendes Asset und speichert ihn.
 
-    Gibt den neuen Kurs zurück, oder None wenn der Abruf fehlschlägt.
+    Ist asset.price_fetch_blocked gesetzt, wird gar nicht erst versucht (verhindert
+    Jira-Ticket-Duplikate). Schlägt der Abruf fehl, wird das Flag gesetzt und ein
+    Jira-Bug-Ticket angelegt (siehe flag_price_fetch_failure).
+
+    Gibt den neuen Kurs zurück, oder None (blockiert oder Fehler).
     """
+    if asset.price_fetch_blocked:
+        logger.info(f"Kurs-Abruf für {asset.isin} übersprungen (price_fetch_blocked=True)")
+        return None
+
     try:
         price = _provider_manager.isin2price(asset.isin, asset.asset_class)
     except Exception as exc:
         logger.warning(f"Kurs-Abruf für {asset.isin} fehlgeschlagen: {exc}")
+        flag_price_fetch_failure(asset, str(exc))
         return None
 
     if price is None:
         logger.warning(f"Kurs-Abruf für {asset.isin} lieferte keinen Kurs")
+        flag_price_fetch_failure(asset, "Alle Kursquellen lieferten keinen Preis (isin2price → None).")
         return None
 
     Price.objects.create(asset=asset, current_price=price, timestamp=timezone.now())
     return price
+
+
+def flag_price_fetch_failure(asset: Asset, error_detail: str) -> None:
+    """
+    Setzt asset.price_fetch_blocked und legt ein Jira-Bug-Ticket mit den
+    Fehlerdetails an. Solange das Flag gesetzt bleibt, überspringen
+    refresh_asset_price() und update_prices weitere Abrufversuche für dieses
+    Asset — verhindert Ticket-Duplikate bei wiederholten Fehlschlägen.
+
+    Schlägt die Jira-Anfrage selbst fehl (z. B. falsch konfiguriert), wird das
+    nur geloggt — das Flag bleibt in jedem Fall gesetzt.
+    """
+    asset.price_fetch_blocked = True
+    asset.save(update_fields=["price_fetch_blocked"])
+
+    try:
+        JiraClient().create_issue(
+            summary=f"Kurs-Abruf fehlgeschlagen: {asset.name} ({asset.isin})",
+            description=(
+                f"Für folgendes Asset konnte kein aktueller Kurs ermittelt werden:\n\n"
+                f"Name: {asset.name}\n"
+                f"ISIN: {asset.isin}\n"
+                f"Asset-Klasse: {asset.asset_class}\n"
+                f"Zeitpunkt: {timezone.now().strftime('%d.%m.%Y %H:%M:%S')}\n\n"
+                f"Fehler:\n{error_detail}\n\n"
+                f"price_fetch_blocked wurde automatisch auf True gesetzt — weitere "
+                f"automatische Abrufversuche sind für dieses Asset pausiert, bis das "
+                f"Feld im Django-Admin (Asset → {asset.isin}) manuell wieder auf False "
+                f"gesetzt wird."
+            ),
+            issue_type="Bug",
+        )
+    except JiraApiError as exc:
+        logger.error(f"Jira-Ticket für fehlgeschlagenen Kurs-Abruf {asset.isin} konnte nicht angelegt werden: {exc}")

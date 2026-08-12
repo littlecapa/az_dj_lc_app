@@ -34,18 +34,23 @@ class PriceAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class']
-    list_filter = ['asset_class', 'currency', 'exchange']
+    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'price_fetch_blocked']
+    list_filter = ['asset_class', 'currency', 'exchange', 'price_fetch_blocked']
+    list_editable = ['price_fetch_blocked']
     search_fields = ['isin', 'wkn', 'symbol', 'name']
     ordering = ('name',)
     inlines = [PriceInline]
     readonly_fields = ('created_at', 'updated_at', 'current_price', 'current_price_timestamp')
-    
+
     fieldsets = (
         ('Basisdaten', {'fields': ('name', 'symbol', 'asset_class', 'currency')}),
         ('Marktdaten (Cache)', {
-            'fields': ('current_price', 'current_price_timestamp'),
-            'description': 'Aktualisiert automatisch via Price-Trigger.'
+            'fields': ('current_price', 'current_price_timestamp', 'price_fetch_blocked'),
+            'description': (
+                'Preis wird automatisch via Price-Trigger aktualisiert. '
+                'price_fetch_blocked pausiert weitere Abrufe nach einem fehlgeschlagenen '
+                'Versuch (Jira-Ticket wurde angelegt) — nach Bearbeitung hier zurücksetzen.'
+            )
         }),
         ('Identifikation', {'fields': ('isin', 'wkn', 'exchange')}),
         ('Metadaten', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),

@@ -25,6 +25,7 @@ from django.db.models import Q
 from fintech.models import Asset, Price
 from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
+from fintech.services import flag_price_fetch_failure
 
 logger = logging.getLogger(__name__)
 
@@ -137,11 +138,24 @@ class Command(BaseCommand):
                     asset.isin,
                     asset.asset_class,
                 )
+            except Exception as exc:
+                # Echter Abruf-Fehler: price_fetch_blocked setzen + Jira-Ticket, damit
+                # nicht bei jedem weiteren Lauf erneut versucht (und getickett) wird.
+                await asyncio.to_thread(flag_price_fetch_failure, asset, str(exc))
+                return ("error", f"ERR {asset.isin} — {exc} (price_fetch_blocked gesetzt, Jira-Ticket angelegt)")
 
-                if price is None:
-                    return ("skip", f"MISS {asset.isin} — Provider lieferte keinen Preis")
+            if price is None:
+                await asyncio.to_thread(
+                    flag_price_fetch_failure, asset,
+                    "Alle Kursquellen lieferten keinen Preis (isin2price → None).",
+                )
+                return ("error", f"ERR {asset.isin} — kein Kurs verfügbar (price_fetch_blocked gesetzt, Jira-Ticket angelegt)")
 
+            try:
                 # Sanity-Check: zu starke Abweichung vom letzten bekannten Kurs?
+                # (Preis wurde geliefert, wird aber als unplausibel verworfen — kein
+                # Abruf-Fehler, daher kein price_fetch_blocked/Ticket. Nächster Lauf
+                # versucht es erneut.)
                 if asset.current_price is not None:
                     limit = MAX_CHANGE_PERC.get(asset.asset_class, Decimal("25"))
                     change = abs(price - asset.current_price) / asset.current_price * Decimal("100")
@@ -167,9 +181,10 @@ class Command(BaseCommand):
     @sync_to_async
     def _get_assets_to_update(self, isin_filter, asset_classes, cutoff):
         # Kurse holen für: Positionen mit Bestand > 0  ODER  Assets in einer Watchlist
+        # — blockierte Assets (offenes Jira-Ticket) werden übersprungen.
         qs = Asset.objects.filter(
             Q(holdings__quantity__gt=0) | Q(watchlistentry__isnull=False)
-        ).distinct()
+        ).exclude(price_fetch_blocked=True).distinct()
         if isin_filter:
             qs = qs.filter(isin=isin_filter.upper())
         if asset_classes:

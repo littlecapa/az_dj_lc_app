@@ -99,9 +99,18 @@ class Asset(models.Model):
         help_text="Letzter bekannter Kurs (Cache)"
     )
     current_price_timestamp = models.DateTimeField(
-        null=True, 
+        null=True,
         blank=True,
         help_text="Zeitpunkt des letzten Kurses"
+    )
+
+    price_fetch_blocked = models.BooleanField(
+        default=False,
+        help_text=(
+            "True = kein automatischer Kurs-Abruf mehr (es existiert bereits ein "
+            "offenes Jira-Bug-Ticket dazu). Nach Bearbeitung des Tickets manuell "
+            "wieder auf False setzen."
+        ),
     )
 
     logo = models.URLField(
