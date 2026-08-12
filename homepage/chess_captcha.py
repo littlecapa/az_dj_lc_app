@@ -31,13 +31,11 @@ def is_captcha_answer_correct(position: ChessPosition, answer: str) -> bool:
 
 def fen_to_board_rows(fen_placement: str) -> list:
     """
-    8 Zeilen (Rang 8 → Rang 1), je 8 Felder
-    {'piece_type': 'K'/'Q'/'R'/'B'/'N'/'P' oder '', 'color': 'w'/'b', 'light': bool}.
+    8 Zeilen (Rang 8 → Rang 1), je 8 Felder {'piece': FEN-Zeichen oder '', 'light': bool}.
 
-    piece_type ist immer Großbuchstaben (Figurenart); die Farbe steht separat
-    in 'color', damit das Template pro Figurenart nur EIN SVG-Symbol braucht
-    und es nur eingefärbt (nicht neu gezeichnet) wird — garantiert identische
-    Größe/Form für Weiß und Schwarz statt uneinheitlicher Font-Glyphen.
+    'piece' ist das rohe FEN-Zeichen (z.B. 'K' für weißen König, 'n' für
+    schwarzen Springer) und entspricht direkt der ID eines der 12 SVG-
+    <symbol>-Icons (piece-K, piece-k, ...) im Template — siehe dort.
     """
     rows = []
     for row_idx, rank_str in enumerate(fen_placement.split("/")):
@@ -48,13 +46,9 @@ def fen_to_board_rows(fen_placement: str) -> list:
             if char.isdigit():
                 for _ in range(int(char)):
                     file_idx += 1
-                    squares.append({"piece_type": "", "color": "", "light": (file_idx + rank) % 2 == 1})
+                    squares.append({"piece": "", "light": (file_idx + rank) % 2 == 1})
             else:
                 file_idx += 1
-                squares.append({
-                    "piece_type": char.upper(),
-                    "color": "w" if char.isupper() else "b",
-                    "light": (file_idx + rank) % 2 == 1,
-                })
+                squares.append({"piece": char, "light": (file_idx + rank) % 2 == 1})
         rows.append(squares)
     return rows

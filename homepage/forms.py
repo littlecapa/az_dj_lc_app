@@ -33,7 +33,7 @@ class ContactForm(forms.Form):
         max_length=3,
         widget=forms.TextInput(attrs={
             'class': 'form-control border-light shadow-sm py-3',
-            'placeholder': 'Zug',
+            'placeholder': 'Your Move',
             'maxlength': '3',
             'autocomplete': 'off',
         })
