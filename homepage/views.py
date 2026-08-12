@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import ContactForm
+from .chess_captcha import fen_to_board_rows, CAPTCHA_QUESTION
 from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink
 from django.contrib.auth.decorators import user_passes_test
 from django.views.generic import ListView, DetailView
@@ -206,7 +207,11 @@ def contact(request):
     else:
         form = ContactForm()
 
-    return render(request, 'homepage/contact.html', {'form': form})
+    return render(request, 'homepage/contact.html', {
+        'form': form,
+        'board_rows': fen_to_board_rows(),
+        'captcha_question': CAPTCHA_QUESTION,
+    })
 
 # Prüffunktion: Ist der User ein Admin?
 def is_admin(user):

@@ -73,6 +73,28 @@
         margin: 0.5rem 0 0 1.25rem;
         padding: 0;
     }
+
+    .captcha-board {
+        border-collapse: collapse;
+        border: 2px solid #333;
+    }
+
+    .captcha-board td {
+        width: 32px;
+        height: 32px;
+        text-align: center;
+        vertical-align: middle;
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+
+    .captcha-board td.light { background: #f0d9b5; }
+    .captcha-board td.dark  { background: #b58863; }
+
+    .btn-send:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
 </style>
 
 <div class="container" style="max-width: 900px;">
@@ -156,6 +178,32 @@
                     {% endif %}
                 </div>
 
+                <div class="mb-5">
+                    <label class="d-block mb-2" style="font-weight:600;">Human-Check (Anti-Spam)</label>
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:24px;">
+                        <table class="captcha-board">
+                            {% for row in board_rows %}
+                            <tr>
+                                {% for sq in row %}
+                                <td class="{% if sq.light %}light{% else %}dark{% endif %}">{{ sq.piece }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </table>
+                        <div>
+                            <p class="mb-2">{{ captcha_question }}</p>
+                            {{ form.captcha_answer }}
+                            {% if form.captcha_answer.errors %}
+                                <div class="field-error">
+                                    {% for error in form.captcha_answer.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
                 {% if form.non_field_errors %}
                     <div class="field-error mb-4">
                         {% for error in form.non_field_errors %}
@@ -165,9 +213,27 @@
                 {% endif %}
 
                 <div class="text-center">
-                    <button type="submit" class="btn btn-send">Send</button>
+                    <button type="submit" class="btn btn-send" id="contact-submit-btn" disabled>Send</button>
                 </div>
             </form>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    var input = document.getElementById('id_captcha_answer');
+                    var submitBtn = document.getElementById('contact-submit-btn');
+                    var accepted = ['ra6', 'ta6'];
+
+                    function check() {
+                        var val = (input.value || '').trim().toLowerCase();
+                        submitBtn.disabled = accepted.indexOf(val) === -1;
+                    }
+
+                    if (input && submitBtn) {
+                        input.addEventListener('input', check);
+                        check();
+                    }
+                });
+            </script>
 
         </div>
     </div>
