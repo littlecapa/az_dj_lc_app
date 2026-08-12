@@ -10,6 +10,7 @@ urlpatterns = [
     path('my-chess-club/', views.my_chess_club, name='my_chess_club'),
     path('monitoring/', views.monitoring_view, name='monitoring'),
     path('historical-chess-mags/', views.historical_chess_mags, name='historical-chess-mags'),
+    path('historical-chess-mags/check/', views.check_historical_chess_mags, name='check-historical-chess-mags'),
     #
     # Blog
     #

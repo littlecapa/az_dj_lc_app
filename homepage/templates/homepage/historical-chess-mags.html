@@ -6,13 +6,36 @@
 <div class="container" style="max-width: 1000px; margin: 0 auto; padding: 50px 20px;">
     
     <!-- Header Bereich (wie zuvor) -->
-    <h1 style="font-family: serif; font-size: 3rem; margin-bottom: 30px;">
-        Historical Chess Magazines
-    </h1>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 30px;">
+        <h1 style="font-family: serif; font-size: 3rem; margin: 0;">
+            Historical Chess Magazines
+        </h1>
+        {% if request.user.is_authenticated %}
+        <form method="post" action="{% url 'homepage:check-historical-chess-mags' %}"
+              onsubmit="return confirm('Alle aktiven Magazin-Links prüfen? Nicht mehr erreichbare Links werden deaktiviert und als Jira-Ticket gemeldet.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Check</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if check_result %}
+        <div class="alert {% if check_result.deactivated %}alert-warning{% else %}alert-success{% endif %}" style="margin-bottom: 30px;">
+            <strong>Check abgeschlossen:</strong> {{ check_result.checked }} Link(s) geprüft,
+            {{ check_result.deactivated|length }} deaktiviert{% if check_result.unclear %}, {{ check_result.unclear|length }} nicht erreichbar (nicht geändert){% endif %}.
+            {% if check_result.deactivated %}
+                <ul style="margin: 10px 0 0 0;">
+                    {% for d in check_result.deactivated %}
+                        <li>{{ d.name }} — {{ d.reason }} (<a href="{{ d.link }}" target="_blank">Link</a>)</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    {% endif %}
 
     <h4 style="font-weight: normal; line-height: 1.6; color: #555; margin-bottom: 50px;">
-        Today, many historical chess magazines – dating back to the 1830s – are available online. 
-        On this page, I am sharing all sources known to me. 
+        Today, many historical chess magazines – dating back to the 1830s – are available online.
+        On this page, I am sharing all sources known to me.
         Please let me know if you know of additional sources, and I will be happy to update this list.
     </h4>
 

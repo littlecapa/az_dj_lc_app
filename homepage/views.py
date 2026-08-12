@@ -5,16 +5,26 @@ from .forms import ContactForm
 from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink
 from django.contrib.auth.decorators import user_passes_test
 from django.views.generic import ListView, DetailView
-from django.http import JsonResponse
-from django.template.loader import render_to_string 
+from django.http import JsonResponse, HttpResponseNotAllowed
+from django.template.loader import render_to_string
 from azure.monitor.query import LogsQueryClient
 from azure.identity import DefaultAzureCredential
 from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta
+from django.views.decorators.cache import never_cache
+from core.jira_client import JiraClient, JiraApiError
 import os, logging, time
+import requests
 
 logger = logging.getLogger(__name__)
+
+CHESS_MAG_CHECK_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+}
 
 class blog(ListView):
     model = BlogPost
@@ -55,6 +65,7 @@ class BlogDetailView(DetailView):
 def my_chess_club(request):
     return render(request, 'homepage/my_chess_club.html')
 
+@never_cache
 def historical_chess_mags(request):
     # Nur aktive Magazine holen
     active_mags = HistChessMagazine.objects.filter(is_active=True)
@@ -65,8 +76,77 @@ def historical_chess_mags(request):
         'english_mags': active_mags.filter(language='English'),
         'spanish_mags': active_mags.filter(language='Spanish'),
         'other_mags': active_mags.filter(language='Other'),
+        'check_result': request.session.pop('chess_mag_check_result', None),
     }
     return render(request, 'homepage/historical-chess-mags.html', context)
+
+
+@never_cache
+@login_required
+def check_historical_chess_mags(request):
+    """
+    Prüft alle aktiven HistChessMagazine-Links (ruft die Seite auf). Bei HTTP
+    4xx oder wenn die Seite 'Fehler'/'Error' enthält: is_active=False setzen
+    und ein Jira-Bug-Ticket mit den Details anlegen.
+    """
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    checked = 0
+    deactivated = []
+    unclear = []
+
+    for mag in HistChessMagazine.objects.filter(is_active=True):
+        checked += 1
+        try:
+            response = requests.get(
+                mag.link, headers=CHESS_MAG_CHECK_HEADERS, timeout=15, allow_redirects=True,
+            )
+        except requests.RequestException as exc:
+            logger.warning(f"Chess-Mag-Check: {mag.name} ({mag.link}) nicht erreichbar: {exc}")
+            unclear.append({"name": mag.name, "link": mag.link, "error": str(exc)})
+            continue
+
+        reason = None
+        if 400 <= response.status_code < 500:
+            reason = f"HTTP {response.status_code}"
+        elif "Fehler" in response.text or "Error" in response.text:
+            reason = "Seiteninhalt enthält 'Fehler'/'Error'"
+
+        if not reason:
+            continue
+
+        mag.is_active = False
+        mag.save(update_fields=["is_active"])
+        deactivated.append({"name": mag.name, "link": mag.link, "reason": reason})
+        logger.info(f"Chess-Mag deaktiviert: {mag.name} ({mag.link}) — {reason}")
+
+        try:
+            JiraClient().create_issue(
+                summary=f"Historical Chess Magazine Link tot: {mag.name}",
+                description=(
+                    f"Der Link eines Historical Chess Magazine ist nicht mehr aktuell:\n\n"
+                    f"Name: {mag.name}\n"
+                    f"Sprache: {mag.language}\n"
+                    f"Link: {mag.link}\n"
+                    f"Grund: {reason}\n"
+                    f"HTTP-Status: {response.status_code}\n"
+                    f"Zeitpunkt: {timezone.now().strftime('%d.%m.%Y %H:%M:%S')}\n\n"
+                    f"is_active wurde automatisch auf False gesetzt (Magazin ist damit "
+                    f"von /historical-chess-mags/ verschwunden). Nach Prüfung/Korrektur im "
+                    f"Django-Admin (Historical Chess Magazine → {mag.name}) wieder aktivieren."
+                ),
+                issue_type="Bug",
+            )
+        except JiraApiError as exc:
+            logger.error(f"Jira-Ticket für {mag.name} konnte nicht angelegt werden: {exc}")
+
+    request.session["chess_mag_check_result"] = {
+        "checked": checked,
+        "deactivated": deactivated,
+        "unclear": unclear,
+    }
+    return redirect("homepage:historical-chess-mags")
 
 def index(request):
     # Links gruppiert nach Kategorie, sortiert nach prio + name
