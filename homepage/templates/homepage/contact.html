@@ -77,24 +77,23 @@
     .captcha-board {
         border-collapse: collapse;
         border: 2px solid #333;
+        table-layout: fixed;
     }
 
     .captcha-board td {
-        width: 32px;
-        height: 32px;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        margin: 0;
         text-align: center;
         vertical-align: middle;
-        font-size: 1.4rem;
-        line-height: 1;
+        font-size: 28px;
+        line-height: 40px;
+        font-family: "DejaVu Sans", "Noto Sans Symbols2", "Segoe UI Symbol", sans-serif;
     }
 
     .captcha-board td.light { background: #f0d9b5; }
     .captcha-board td.dark  { background: #b58863; }
-
-    .btn-send:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-    }
 </style>
 
 <div class="container" style="max-width: 900px;">
@@ -179,7 +178,7 @@
                 </div>
 
                 <div class="mb-5">
-                    <label class="d-block mb-2" style="font-weight:600;">Human-Check (Anti-Spam)</label>
+                    <label class="d-block mb-2" style="font-weight:600;">I am a Chess Player</label>
                     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:24px;">
                         <table class="captcha-board">
                             {% for row in board_rows %}
@@ -213,27 +212,9 @@
                 {% endif %}
 
                 <div class="text-center">
-                    <button type="submit" class="btn btn-send" id="contact-submit-btn" disabled>Send</button>
+                    <button type="submit" class="btn btn-send">Send</button>
                 </div>
             </form>
-
-            <script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    var input = document.getElementById('id_captcha_answer');
-                    var submitBtn = document.getElementById('contact-submit-btn');
-                    var accepted = ['ra6', 'ta6'];
-
-                    function check() {
-                        var val = (input.value || '').trim().toLowerCase();
-                        submitBtn.disabled = accepted.indexOf(val) === -1;
-                    }
-
-                    if (input && submitBtn) {
-                        input.addEventListener('input', check);
-                        check();
-                    }
-                });
-            </script>
 
         </div>
     </div>

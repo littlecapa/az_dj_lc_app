@@ -1,7 +1,5 @@
 from django import forms
 
-from .chess_captcha import is_captcha_answer_correct
-
 
 class ContactForm(forms.Form):
     name = forms.CharField(
@@ -35,14 +33,8 @@ class ContactForm(forms.Form):
         max_length=3,
         widget=forms.TextInput(attrs={
             'class': 'form-control border-light shadow-sm py-3',
-            'placeholder': 'z.B. Ra6',
+            'placeholder': 'Zug',
             'maxlength': '3',
             'autocomplete': 'off',
         })
     )
-
-    def clean_captcha_answer(self):
-        answer = self.cleaned_data.get('captcha_answer', '')
-        if not is_captcha_answer_correct(answer):
-            raise forms.ValidationError("Falsche Antwort — bitte den besten Zug für Weiß angeben.")
-        return answer

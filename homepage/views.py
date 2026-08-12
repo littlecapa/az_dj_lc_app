@@ -2,8 +2,8 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import ContactForm
-from .chess_captcha import fen_to_board_rows, CAPTCHA_QUESTION
-from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink
+from .chess_captcha import fen_to_board_rows, get_random_position, is_captcha_answer_correct, CAPTCHA_QUESTION
+from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink, ChessPosition
 from django.contrib.auth.decorators import user_passes_test
 from django.views.generic import ListView, DetailView
 from django.http import JsonResponse, HttpResponseNotAllowed
@@ -17,6 +17,7 @@ from django.views.decorators.cache import never_cache
 from core.jira_client import JiraClient, JiraApiError
 import os, logging, time
 import requests
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ CHESS_MAG_CHECK_HEADERS = {
         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     )
 }
+# Seiten mit mindestens so viel sichtbarem Text gelten als "echter Inhalt" —
+# ein enthaltenes "Fehler"/"Error" wird dann nicht mehr als Abbruchgrund gewertet.
+SHORT_PAGE_TEXT_THRESHOLD = 500
 
 class blog(ListView):
     model = BlogPost
@@ -87,11 +91,23 @@ def historical_chess_mags(request):
 def check_historical_chess_mags(request):
     """
     Prüft alle aktiven HistChessMagazine-Links (ruft die Seite auf). Bei HTTP
-    4xx oder wenn die Seite 'Fehler'/'Error' enthält: is_active=False setzen
-    und ein Jira-Bug-Ticket mit den Details anlegen.
+    4xx (außer 403, siehe unten) oder wenn eine KURZE Seite (< SHORT_PAGE_TEXT_
+    THRESHOLD Zeichen sichtbarer Text) 'Fehler'/'Error' enthält: is_active=False
+    setzen und ein Jira-Bug-Ticket anlegen.
+
+    HTTP 403 wird nicht als Fehler gewertet (Bot-/WAF-Schutz-Fehlalarme),
+    sondern nur als "unclear" gemeldet. Umfangreiche Seiten mit viel echtem
+    Inhalt lösen auch bei enthaltenem 'Fehler'/'Error' keinen Abbruch aus
+    (z.B. JS-Apps, die eine ungenutzte Fehler-Vorlage mitliefern).
     """
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
+
+    # TEMPORÄR: setzt vor jedem Check alle Magazine (auch zuvor deaktivierte)
+    # wieder auf is_active=True, damit vorherige Fehlalarme nicht manuell im
+    # Admin zurückgesetzt werden müssen. Wieder entfernen, sobald die
+    # Prüf-Logik sich als zuverlässig genug erwiesen hat.
+    HistChessMagazine.objects.update(is_active=True)
 
     checked = 0
     deactivated = []
@@ -108,11 +124,37 @@ def check_historical_chess_mags(request):
             unclear.append({"name": mag.name, "link": mag.link, "error": str(exc)})
             continue
 
+        if response.status_code == 403:
+            # Viele Seiten (Bot-/WAF-Schutz, z.B. Cloudflare) blocken Requests ohne
+            # echten Browser mit 403, obwohl der Link für Menschen funktioniert.
+            # Nicht deaktivieren, nur zur manuellen Prüfung melden.
+            logger.info(f"Chess-Mag-Check: {mag.name} ({mag.link}) — HTTP 403 (evtl. Bot-Schutz), nicht deaktiviert")
+            unclear.append({"name": mag.name, "link": mag.link, "error": "HTTP 403 (evtl. Bot-Schutz)"})
+            continue
+
         reason = None
         if 400 <= response.status_code < 500:
             reason = f"HTTP {response.status_code}"
-        elif "Fehler" in response.text or "Error" in response.text:
-            reason = "Seiteninhalt enthält 'Fehler'/'Error'"
+        else:
+            # Nur sichtbaren Text prüfen, nicht den kompletten HTML/JS-Payload —
+            # viele Seiten (React/Angular-Apps) betten Wörter wie "Error" in ihre
+            # JS-Konfiguration/Übersetzungstabellen ein, ohne dass ein Fehler vorliegt.
+            soup = BeautifulSoup(response.text, "html.parser")
+            for tag in soup(["script", "style"]):
+                tag.decompose()
+            visible_text = " ".join(soup.get_text().split())
+
+            # Plausi: echte Fehlerseiten ("404 – Seite nicht gefunden") sind fast
+            # immer kurz. Enthält eine umfangreiche Seite mit viel echtem Inhalt
+            # das Wort "Fehler"/"Error" (z.B. eine mitgelieferte, aber ungenutzte
+            # Fehler-Vorlage einer JS-App), ist das kein verlässliches Signal mehr.
+            if len(visible_text) < SHORT_PAGE_TEXT_THRESHOLD and (
+                "Fehler" in visible_text or "Error" in visible_text
+            ):
+                reason = (
+                    f"Kurze Seite ({len(visible_text)} Zeichen sichtbarer Text) "
+                    f"enthält 'Fehler'/'Error'"
+                )
 
         if not reason:
             continue
@@ -167,7 +209,18 @@ def contact(request):
     if request.method == 'POST':
         form = ContactForm(request.POST)
 
+        # Captcha-Stellung stammt aus der Session (beim letzten Seitenaufruf gesetzt) —
+        # nicht aus einem Hidden-Field im Request, sonst könnte ein Bot per manipuliertem
+        # Feld immer dieselbe ihm bekannte Stellung "erzwingen" statt der tatsächlich
+        # angezeigten.
+        captcha_fen = request.session.get('captcha_fen')
+        position = ChessPosition.objects.filter(pk=captcha_fen).first() if captcha_fen else None
+
         if form.is_valid():
+            if position is None or not is_captcha_answer_correct(position, form.cleaned_data['captcha_answer']):
+                form.add_error('captcha_answer', 'Falsche Antwort — bitte den besten Zug für Weiß angeben.')
+
+        if not form.errors:
             email = form.cleaned_data['email']
             name = form.cleaned_data.get('name', '')
             message = form.cleaned_data.get('message', '')
@@ -207,9 +260,14 @@ def contact(request):
     else:
         form = ContactForm()
 
+    # Für jeden Seitenaufruf (auch nach fehlgeschlagenem Captcha) neu zufällig wählen
+    # und in der Session merken, damit der nächste POST dieselbe Stellung prüft.
+    position = get_random_position()
+    request.session['captcha_fen'] = position.fen
+
     return render(request, 'homepage/contact.html', {
         'form': form,
-        'board_rows': fen_to_board_rows(),
+        'board_rows': fen_to_board_rows(position.fen),
         'captcha_question': CAPTCHA_QUESTION,
     })
 

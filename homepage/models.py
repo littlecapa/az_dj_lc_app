@@ -93,3 +93,27 @@ class HistChessMagazine(models.Model):
     class Meta:
         verbose_name = "Historical Chess Magazine"
         ordering = ['name']
+
+
+class ChessPosition(models.Model):
+    """
+    Stellung für das Schach-Captcha auf der Contact-Seite. Beim Laden der
+    Seite wird zufällig eine Zeile ausgewählt; die Nutzer-Antwort wird gegen
+    valid_moves_regex geprüft (re.fullmatch, case-insensitive).
+    """
+    fen = models.CharField(
+        max_length=90,
+        primary_key=True,
+        help_text="FEN-Figurenplatzierung, z. B. 'kbK5/pp6/1P6/8/8/8/8/R7'",
+    )
+    valid_moves_regex = models.CharField(
+        max_length=200,
+        help_text="Regulärer Ausdruck (re.fullmatch, case-insensitive), z. B. '^[RT]a6$'",
+    )
+
+    def __str__(self):
+        return self.fen
+
+    class Meta:
+        verbose_name = "Chess Captcha Position"
+        verbose_name_plural = "Chess Captcha Positions"
