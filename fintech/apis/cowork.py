@@ -1,7 +1,11 @@
 """
 Cowork API — read-only endpoints for Claude (and other API clients).
 
-Authentication: X-Api-Key header  OR  active staff session.
+Authentication: X-Api-Key header  OR  ?api_key=... query param  OR  active staff session.
+The query-param form exists because some fetch tools (e.g. Claude's WebFetch) cannot
+send custom headers. Since every endpoint here is GET-only/read-only, accepting the
+key via query string is an acceptable trade-off (it may end up in server access logs —
+avoid using it for anything more sensitive than this read-only reporting use case).
 All responses are application/json.
 
 Endpoints
@@ -41,6 +45,8 @@ D = DecimalField(max_digits=20, decimal_places=4)
 def _is_authorized(request) -> bool:
     api_key = getattr(settings, "FINTECH_API_KEY", None)
     if api_key and request.headers.get("X-Api-Key", "") == api_key:
+        return True
+    if api_key and request.GET.get("api_key", "") == api_key:
         return True
     return request.user.is_active and request.user.is_staff
 
