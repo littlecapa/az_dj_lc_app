@@ -64,30 +64,41 @@ from fintech.apis.services.companiesmarketcap import get_holdings as get_compani
 logger = logging.getLogger(__name__)
 
 _NAME_STOPWORDS_RE = re.compile(
-    r"\b(ag|se|na|st|inc|corp|corporation|group|holding|holdings|plc|nv|sa|ltd|co)\b"
+    r"\b(ag|se|na|st|inh|inc|corp|corporation|group|holding|holdings|plc|nv|sa|ltd|co)\b"
 )
+_UMLAUT_TRANSLATION = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 
 
 def _normalize_company_name(name: str) -> str:
-    """Grobe Normalisierung für den Namensabgleich Wikipedia <-> Asset.name
-    (Rechtsform-Suffixe raus, nur alphanumerisch, ein Leerzeichen)."""
-    name = name.lower()
+    """Grobe Normalisierung für den Namensabgleich Wikipedia/companiesmarketcap
+    <-> Asset.name (Umlaute transliteriert wie bei Börsenkürzeln üblich
+    [ü->ue etc.], Rechtsform-Suffixe raus, nur alphanumerisch, ein Leerzeichen)."""
+    name = name.lower().translate(_UMLAUT_TRANSLATION)
     name = _NAME_STOPWORDS_RE.sub(" ", name)
-    name = re.sub(r"[^a-zäöüß0-9]+", " ", name)
+    name = re.sub(r"[^a-z0-9]+", " ", name)
     return " ".join(name.split())
 
 
 def _match_held_stock(wiki_name: str, held_assets):
     """Sucht unter den bereits direkt gehaltenen STOCK-Assets eines, dessen
-    normalisierter Name den Wikipedia-Namen enthält (oder umgekehrt).
+    normalisierten Wörter des externen Namens (Wikipedia/companiesmarketcap)
+    vollständig unter den Wörtern des gehaltenen Assets wiederfinden — als
+    vollständige Wörter, nicht als bloßer Teilstring. Es wird bewusst nur
+    diese eine Richtung geprüft (externer Name ⊆ gehaltener Name): gehaltene
+    Assets führen typischerweise den vollen Namen inkl. Rechtsform-Suffixen
+    (AG/SE/NA/O.N.), externe Quellen den kurzen Namen. Die umgekehrte
+    Richtung würde z.B. "Siemens" fälschlich auf "Siemens Energy"/"Siemens
+    Healthineers" matchen (eigenständige, abgespaltene Gesellschaften) — und
+    reiner Teilstring-Vergleich würde kurze Namen wie "RWE" als Zeichenfolge
+    in unverwandten Namen wie "Vorwerk" finden.
     Best-effort — bei einer kleinen, bekannten Portfoliogröße ausreichend
     zuverlässig; falsche/fehlende Treffer sind über den Admin leicht zu sehen."""
-    wiki_norm = _normalize_company_name(wiki_name)
-    if not wiki_norm:
+    wiki_tokens = set(_normalize_company_name(wiki_name).split())
+    if not wiki_tokens:
         return None
     for asset in held_assets:
-        asset_norm = _normalize_company_name(asset.name)
-        if asset_norm and (wiki_norm in asset_norm or asset_norm in wiki_norm):
+        asset_tokens = set(_normalize_company_name(asset.name).split())
+        if asset_tokens and wiki_tokens <= asset_tokens:
             return asset
     return None
 
