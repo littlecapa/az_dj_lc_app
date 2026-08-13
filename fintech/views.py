@@ -191,7 +191,7 @@ def portfolio_overall(request):
     holdings = (
         Holdings.objects
         .select_related('asset')
-        .filter(category__gte=20)
+        .filter(category__gte=20, quantity__gt=0)
         .annotate(yesterday_price=Subquery(
             yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)
         ))
@@ -676,6 +676,19 @@ def trigger_update_prices(request):
 
 
 @staff_member_required
+def trigger_update_etf_holdings(request):
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+    try:
+        call_command('update_etf_holdings')
+        messages.success(request, 'ETF-Holdings-Update erfolgreich abgeschlossen.')
+    except Exception as e:
+        messages.error(request, f'Fehler beim ETF-Holdings-Update: {e}')
+    return redirect('fintech:fintech-index')
+
+
+@staff_member_required
 def trigger_refresh_week52(request):
     """Löscht alle abgelaufenen/ungültigen 52W-Einträge, damit sie beim nächsten
     Aufruf von /fintech/overall/ frisch von Yahoo/Comdirect geholt werden."""
@@ -1078,7 +1091,7 @@ def portfolio_winners(request):
     holdings = (
         Holdings.objects
         .select_related('asset')
-        .filter(category__gte=20)
+        .filter(category__gte=20, quantity__gt=0)
         .annotate(yesterday_price=Subquery(
             yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)
         ))
@@ -1174,7 +1187,7 @@ def portfolio_performance(request):
     holdings = (
         Holdings.objects
         .select_related('asset')
-        .filter(category__gte=20)
+        .filter(category__gte=20, quantity__gt=0)
         .annotate(yesterday_price=Subquery(yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)))
         .order_by('category', 'asset__name')
     )
@@ -1270,7 +1283,7 @@ def portfolio_category_detail(request, category_slug):
     holdings = (
         Holdings.objects
         .select_related('asset')
-        .filter(category=category_id)
+        .filter(category=category_id, quantity__gt=0)
         .annotate(yesterday_price=Subquery(yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)))
         .order_by('asset__name')
     )

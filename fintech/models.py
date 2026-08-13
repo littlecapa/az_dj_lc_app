@@ -149,8 +149,12 @@ class Holdings(models.Model):
     quantity = models.DecimalField(
         max_digits=12,
         decimal_places=6,
-        validators=[MinValueValidator(Decimal('0.000001'))],
-        help_text="Anzahl gehaltener Anteile (auch Bruchteile möglich)"
+        validators=[MinValueValidator(Decimal('0'))],
+        help_text=(
+            "Anzahl gehaltener Anteile (auch Bruchteile möglich). "
+            "0 = Dummy-Eintrag für eine Aktie, die nur über einen Fonds "
+            "(FondHolding-Mapping) gehalten wird, nicht direkt."
+        )
     )
     
     average_purchase_price = models.DecimalField(

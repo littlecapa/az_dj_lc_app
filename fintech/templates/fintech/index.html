@@ -132,6 +132,17 @@
             </form>
         </div>
         <div class="col-md-4">
+            <form method="post" action="{% url 'fintech:trigger-update-etf-holdings' %}"
+                  onsubmit="return confirm('ETF-Holdings-Update starten? Ruft für alle gehaltenen ETFs/Fonds die Top-10-Holdings von JustETF ab und aktualisiert das Fonds-Holding-Mapping.')">
+                {% csrf_token %}
+                <button type="submit" class="ft-card w-100 border-0 text-start">
+                    <div class="ft-icon">🔍</div>
+                    <div class="ft-title">ETF-Holdings aktualisieren</div>
+                    <div class="ft-desc">Top-10-Holdings aller gehaltenen ETFs/Fonds via JustETF neu laden (Aktien-Look-Through).</div>
+                </button>
+            </form>
+        </div>
+        <div class="col-md-4">
             <a href="{% url 'fintech:test-api' %}" class="ft-card">
                 <div class="ft-icon">🧪</div>
                 <div class="ft-title">API Test</div>
@@ -156,7 +167,7 @@
                 <button type="submit" class="ft-card w-100 border-0 text-start">
                     <div class="ft-icon">🧹</div>
                     <div class="ft-title">Cleanup</div>
-                    <div class="ft-desc">Löscht Holdings ≤0 und doppelte Tages-Kurseinträge.</div>
+                    <div class="ft-desc">Löscht Holdings &lt;0 (Datenfehler) und doppelte Tages-Kurseinträge.</div>
                 </button>
             </form>
         </div>

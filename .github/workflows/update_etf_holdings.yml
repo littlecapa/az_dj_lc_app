@@ -1,0 +1,66 @@
+name: 'Weekly: Update ETF Holdings'
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Montags 06:00 UTC — Fonds-Zusammensetzung ändert sich selten
+  workflow_dispatch:
+    inputs:
+      isin:
+        description: 'Nur einen bestimmten Fonds aktualisieren (leer = alle gehaltenen)'
+        required: false
+        type: string
+
+jobs:
+  update-etf-holdings:
+    name: 'ETF-Holdings aktualisieren'
+    runs-on: ubuntu-latest
+
+    env:
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DJANGO_ENV: production
+      DJANGO_SETTINGS_MODULE: azureproject.production
+      FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+      FINTECH_API_KEY: ${{ secrets.FINTECH_API_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.9'
+
+      - name: Install ODBC Driver for SQL Server
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y curl gnupg
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list \
+            | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Update ETF holdings
+        run: |
+          if [ -n "${{ github.event.inputs.isin }}" ]; then
+            echo "Starte ETF-Holdings-Update für ISIN: ${{ github.event.inputs.isin }}"
+            python manage.py update_etf_holdings --isin "${{ github.event.inputs.isin }}"
+          else
+            echo "Starte ETF-Holdings-Update für alle gehaltenen Fonds"
+            python manage.py update_etf_holdings
+          fi

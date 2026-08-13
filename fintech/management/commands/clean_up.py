@@ -7,7 +7,10 @@ from fintech.models import Holdings, Price
 
 @sync_to_async
 def delete_zero_holdings():
-    qs = Holdings.objects.filter(quantity__lte=0)
+    # quantity=0 ist seit dem Fonds-Holdings-Look-Through ein gültiger,
+    # dauerhafter Zustand (Dummy-Eintrag für Aktien, die nur über einen Fonds
+    # gehalten werden) — nur noch echte Negativwerte (Datenfehler) löschen.
+    qs = Holdings.objects.filter(quantity__lt=0)
     isins = list(qs.values_list("asset__isin", flat=True))
     deleted_count, _ = qs.delete()
     return isins, deleted_count

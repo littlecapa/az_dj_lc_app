@@ -180,10 +180,12 @@ class Command(BaseCommand):
 
     @sync_to_async
     def _get_assets_to_update(self, isin_filter, asset_classes, cutoff):
-        # Kurse holen für: Positionen mit Bestand > 0  ODER  Assets in einer Watchlist
-        # — blockierte Assets (offenes Jira-Ticket) werden übersprungen.
+        # Kurse holen für: alle Holdings (auch quantity=0 — Dummy-Einträge für
+        # Aktien, die nur über einen Fonds gehalten werden, brauchen trotzdem
+        # einen aktuellen Kurs für den Look-Through) ODER Assets in einer
+        # Watchlist — blockierte Assets (offenes Jira-Ticket) werden übersprungen.
         qs = Asset.objects.filter(
-            Q(holdings__quantity__gt=0) | Q(watchlistentry__isnull=False)
+            Q(holdings__isnull=False) | Q(watchlistentry__isnull=False)
         ).exclude(price_fetch_blocked=True).distinct()
         if isin_filter:
             qs = qs.filter(isin=isin_filter.upper())
