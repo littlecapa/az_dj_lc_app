@@ -34,12 +34,13 @@ class PriceAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'price_fetch_blocked']
-    list_filter = ['asset_class', 'currency', 'exchange', 'price_fetch_blocked']
+    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_dax_holdings', 'price_fetch_blocked']
+    list_filter = ['asset_class', 'currency', 'exchange', 'extend_dax_holdings', 'price_fetch_blocked']
     list_editable = ['price_fetch_blocked']
     search_fields = ['isin', 'wkn', 'symbol', 'name']
     ordering = ('name',)
     inlines = [PriceInline]
+    autocomplete_fields = ('holdings_reference',)
     readonly_fields = ('created_at', 'updated_at', 'current_price', 'current_price_timestamp')
 
     fieldsets = (
@@ -51,6 +52,17 @@ class AssetAdmin(admin.ModelAdmin):
                 'price_fetch_blocked pausiert weitere Abrufe nach einem fehlgeschlagenen '
                 'Versuch (Jira-Ticket wurde angelegt) — nach Bearbeitung hier zurücksetzen.'
             )
+        }),
+        ('ETF-Holdings-Referenz', {
+            'fields': ('holdings_reference', 'extend_dax_holdings'),
+            'description': (
+                'Nur für ETF/Fonds relevant. holdings_reference: update_etf_holdings holt die '
+                'Top-10-Holdings von der JustETF-Seite DIESES Referenz-Fonds statt der eigenen — '
+                'sinnvoll für Fonds, die denselben Index abbilden wie ein anderer gehaltener Fonds '
+                '(z.B. mehrere "MSCI World"-Tracker verschiedener Anbieter). '
+                'extend_dax_holdings: nur für echte DAX-Tracker — ergänzt zusätzlich die '
+                'DAX-Positionen 11+ von Wikipedia, aber nur für bereits direkt gehaltene Aktien.'
+            ),
         }),
         ('Identifikation', {'fields': ('isin', 'wkn', 'exchange')}),
         ('Metadaten', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),

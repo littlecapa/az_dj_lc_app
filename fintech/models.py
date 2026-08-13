@@ -119,6 +119,33 @@ class Asset(models.Model):
         help_text="Logo-URL, z.B. https://s3-symbol-logo.tradingview.com/iberdrola--big.svg"
     )
 
+    holdings_reference = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='holdings_reference_for',
+        limit_choices_to={'asset_class__in': [AssetClass.ETF, AssetClass.FOND]},
+        help_text=(
+            "Für update_etf_holdings (Aktien-Look-Through) stattdessen die JustETF-Seite "
+            "DIESES Fonds für die Holdings-Daten verwenden — z.B. 'iShares Core MSCI World' "
+            "(IE00B4L5Y983) als gemeinsame Referenz für andere Anbieter, die denselben Index "
+            "('MSCI World') abbilden. Nur für Fonds mit WIRKLICH identischem Index sinnvoll — "
+            "z.B. NICHT für einen MSCI-ACWI-Fonds, der zusätzlich Emerging Markets enthält. "
+            "Leer = eigene JustETF-Seite verwenden."
+        ),
+    )
+
+    extend_dax_holdings = models.BooleanField(
+        default=False,
+        help_text=(
+            "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die DAX-Positionen 11-40 "
+            "von Wikipedia (de.wikipedia.org/wiki/DAX) nachtragen — nur für Aktien, die bereits "
+            "direkt gehalten werden (Namensabgleich, Wikipedia führt keine ISIN). Nur bei "
+            "echten DAX-Trackern aktivieren."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
