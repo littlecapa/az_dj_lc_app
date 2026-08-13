@@ -37,8 +37,14 @@
                     
                     <!-- 2. MY BLOG (NEU) -->
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:blog' %}active fw-bold{% endif %}" 
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:blog' %}active fw-bold{% endif %}"
                         href="{% url 'homepage:blog' %}">My Blog</a>
+                    </li>
+
+                    <!-- LINKS -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:links' %}active fw-bold{% endif %}"
+                        href="{% url 'homepage:links' %}">Links</a>
                     </li>
 
                     <!-- 3. CONTACT -->

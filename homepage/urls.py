@@ -6,6 +6,7 @@ app_name = 'homepage'
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('links/', views.links_page, name='links'),
     path('contact/', views.contact, name='contact'),
     path('my-chess-club/', views.my_chess_club, name='my_chess_club'),
     path('monitoring/', views.monitoring_view, name='monitoring'),

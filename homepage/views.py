@@ -192,6 +192,10 @@ def check_historical_chess_mags(request):
     return redirect("homepage:historical-chess-mags")
 
 def index(request):
+    return render(request, 'homepage/index.html')
+
+
+def links_page(request):
     # Links gruppiert nach Kategorie, sortiert nach prio + name
     links_qs = QuickLink.objects.filter(is_active=True).order_by('prio', 'name')
     categories = QuickLink.Category.choices  # feste Reihenfolge
@@ -200,7 +204,7 @@ def index(request):
         for value, label in categories
         if any(l.category == value for l in links_qs)
     ]
-    return render(request, 'homepage/index.html', {'link_groups': link_groups})
+    return render(request, 'homepage/links.html', {'link_groups': link_groups})
 
 HARD_LIMIT = 20
 SOFT_LIMIT = 10
