@@ -293,24 +293,26 @@ def portfolio_overall(request):
 
 def portfolio_overall_stocks(request):
     """
-    Look-Through-Kategorie-Übersicht: rechnet den über Fonds/ETFs gehaltenen
-    Aktienanteil (via FondHolding-Mapping) auf die direkt gehaltenen Aktien
-    drauf und gruppiert nach Kategorie.
+    Aktien-Look-Through-Übersicht: eine Zeile pro Aktie (direkt gehalten
+    und/oder über Fonds/ETFs gehalten via FondHolding-Mapping), mit direktem
+    + über Fonds gehaltenem Anteil.
 
     Kategorie-Herkunft je Aktie (erste zutreffende Regel):
       1. Holdings.category der Aktie selbst (falls direkt gehalten).
       2. Holdings.category des Fonds mit dem höchsten Gewicht für diese Aktie.
       3. 'Sonstiges'.
     """
-    # Direkter Aktienwert + Kategorie je Asset (nur STOCK-Holdings)
+    # Direkter Aktienwert + Holdings-Objekt + Kategorie je Asset (nur STOCK-Holdings)
     direct_value = {}
-    holding_category = {}  # isin (Aktie ODER Fonds) -> Holdings.category
+    holdings_by_isin = {}   # isin -> Holdings (nur direkt gehaltene Aktien; für Edit-Link)
+    holding_category = {}   # isin (Aktie ODER Fonds) -> Holdings.category
     stock_holdings = Holdings.objects.select_related('asset').filter(
         asset__asset_class=AssetClass.STOCK, quantity__gt=0,
     )
     for h in stock_holdings:
         price = h.asset.current_price or Decimal('0')
         direct_value[h.asset_id] = h.quantity * price
+        holdings_by_isin[h.asset_id] = h
         holding_category[h.asset_id] = h.category
 
     # Aktueller Wert + Kategorie je gehaltenem Fonds/ETF
@@ -324,14 +326,17 @@ def portfolio_overall_stocks(request):
         holding_category[h.asset_id] = h.category
 
     # Fonds-Wert über FondHolding-Mapping auf Aktien verteilen; je Aktie den
-    # Fonds mit dem höchsten Gewicht merken (Fallback-Kategorie-Quelle)
+    # Fonds mit dem höchsten Gewicht merken (Fallback-Kategorie-Quelle) und
+    # das Aktien-Asset selbst (für Aktien ohne eigene Holdings-Zeile)
     look_through_value = {}
-    best_fund_for_stock = {}  # Aktien-ISIN -> (percentage, Fonds-ISIN)
+    best_fund_for_stock = {}   # Aktien-ISIN -> (percentage, Fonds-ISIN)
+    holding_assets = {}        # isin -> Asset (nur für reine Look-Through-Aktien nötig)
     if fund_value:
-        mappings = FondHolding.objects.filter(fund_id__in=fund_value.keys())
+        mappings = FondHolding.objects.select_related('holding').filter(fund_id__in=fund_value.keys())
         for m in mappings:
             contribution = fund_value.get(m.fund_id, Decimal('0')) * (m.percentage / Decimal('100'))
             look_through_value[m.holding_id] = look_through_value.get(m.holding_id, Decimal('0')) + contribution
+            holding_assets[m.holding_id] = m.holding
 
             current_best = best_fund_for_stock.get(m.holding_id)
             if current_best is None or m.percentage > current_best[0]:
@@ -346,23 +351,30 @@ def portfolio_overall_stocks(request):
             return holding_category.get(best[1])
         return None
 
-    # Je Kategorie aggregieren
+    # Je Aktie eine Zeile
     all_isins = set(direct_value) | set(look_through_value)
-    cat_totals = {}
-    for isin in all_isins:
-        cat = resolve_category(isin)
-        bucket = cat_totals.setdefault(cat, {'stock': Decimal('0'), 'fund': Decimal('0')})
-        bucket['stock'] += direct_value.get(isin, Decimal('0'))
-        bucket['fund']  += look_through_value.get(isin, Decimal('0'))
-
     rows = []
-    for cat, vals in cat_totals.items():
-        label = CategoryClass(cat).label if cat else 'Sonstiges'
+    for isin in all_isins:
+        h = holdings_by_isin.get(isin)
+        asset = h.asset if h else holding_assets.get(isin)
+        if asset is None:
+            continue
+
+        value_stock = direct_value.get(isin, Decimal('0'))
+        value_fund  = look_through_value.get(isin, Decimal('0'))
+        cat = resolve_category(isin)
+
         rows.append({
-            'category':     label,
-            'value_stock':  vals['stock'],
-            'value_fund':   vals['fund'],
-            'value_total':  vals['stock'] + vals['fund'],
+            'name':        asset.name,
+            'isin':        asset.isin,
+            'symbol':      asset.symbol or '',
+            'asset_class': asset.asset_class,
+            'logo':        asset.logo or '',
+            'holdings_id': h.pk if h else None,
+            'category':    CategoryClass(cat).label if cat else 'Sonstiges',
+            'value_stock': value_stock,
+            'value_fund':  value_fund,
+            'value_total': value_stock + value_fund,
         })
     rows.sort(key=lambda r: r['value_total'], reverse=True)
 

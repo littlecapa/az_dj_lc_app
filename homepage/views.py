@@ -479,6 +479,18 @@ def api_overview(request):
             ],
         },
         {
+            "group": "Fintech – Fund-Holdings (Read)",
+            "color": "primary",
+            "items": [
+                {
+                    "method": "GET",
+                    "path": "/fintech/api/funds/{fund_isin}/holdings/top10",
+                    "auth": "Key / Session",
+                    "desc": "Top-10-Holdings eines Fonds/ETF inkl. Gewichtung (%), live per JustETF-Scraping. JustETF zeigt kostenlos nur die 10 größten Positionen.",
+                },
+            ],
+        },
+        {
             "group": "Fintech – Quick Links (Write)",
             "color": "success",
             "items": [

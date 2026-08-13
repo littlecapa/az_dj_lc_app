@@ -10,6 +10,7 @@ from fintech.apis.watchlist_api import (
 from fintech.apis.quicklink_api import QuickLinkImportView
 from fintech.apis.asset_api import AssetResolveNameView, AssetResolveNamesView, AssetUpdateView
 from fintech.apis.week52_api import Week52View, NewsListView, NewsMarkReadView
+from fintech.apis.fund_holdings_api import FundTopHoldingsView
 
 app_name = "fintech"
 
@@ -44,4 +45,7 @@ urlpatterns = [
     # News-Events
     path("news",                           NewsListView.as_view(),           name="api-news"),
     path("news/<int:pk>/read",             NewsMarkReadView.as_view(),       name="api-news-read"),
+
+    # Fund-Holdings (JustETF-Scraping, Top 10)
+    path("funds/<str:fund_isin>/holdings/top10", FundTopHoldingsView.as_view(), name="api-fund-top-holdings"),
 ]

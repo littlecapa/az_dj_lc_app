@@ -7,13 +7,22 @@
 <style>
     th { white-space: nowrap; }
     .total-row td { font-weight: 700; border-top: 2px solid #333; }
+    .rank-badge {
+        width: 28px; height: 28px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: .75rem; font-weight: 700; flex-shrink: 0;
+    }
+    .rank-1 { background: #ffd700; color: #333; }
+    .rank-2 { background: #c0c0c0; color: #333; }
+    .rank-3 { background: #cd7f32; color: #fff; }
+    .rank-n { background: #e9ecef; color: #555; }
 </style>
 
 <div class="container py-4">
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <div class="d-flex align-items-center gap-3">
             <h2 class="mb-0">Aktien Look-Through</h2>
-            <span class="text-muted small">{{ rows|length }} Kategorien</span>
+            <span class="text-muted small">{{ rows|length }} Aktien</span>
         </div>
         <div class="d-flex gap-2 align-items-center">
             <a href="{% url 'fintech:portfolio-overall' %}" class="btn btn-sm btn-outline-secondary">Overall</a>
@@ -22,7 +31,7 @@
     </div>
     <p class="text-muted small mb-4">
         Direkt gehaltene Aktien plus der über Fonds/ETFs gehaltene Anteil (via manuellem
-        Fonds-Holding-Mapping), gruppiert nach Kategorie.
+        Fonds-Holding-Mapping), sortiert nach Gesamtwert.
     </p>
 
     {% if not rows %}
@@ -32,6 +41,8 @@
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
+                    <th>#</th>
+                    <th>Name / ISIN</th>
                     <th>Kategorie</th>
                     <th class="text-end">Akt. Wert Aktien</th>
                     <th class="text-end">Akt. Wert Fonds</th>
@@ -41,7 +52,28 @@
             <tbody>
                 {% for row in rows %}
                 <tr>
-                    <td>{{ row.category }}</td>
+                    <td>
+                        <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="fw-semibold d-flex align-items-center gap-2">
+                            {% if row.logo %}<img src="{{ row.logo }}" alt="" style="height:20px;width:20px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
+                            {% if row.symbol %}
+                                <a href="https://de.tradingview.com/symbols/{{ row.symbol }}/" target="_blank" rel="noopener noreferrer" title="TradingView">{{ row.name }}</a>
+                            {% else %}
+                                <a href="https://www.onvista.de/aktien/ISIN/{{ row.isin }}" target="_blank" rel="noopener noreferrer" title="onvista">{{ row.name }}</a>
+                            {% endif %}
+                            {% if row.holdings_id %}
+                                <a href="/admin/fintech/holdings/{{ row.holdings_id }}/change/" title="Bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
+                            {% else %}
+                                <a href="/admin/fintech/asset/{{ row.isin }}/change/" title="Nur über Fonds gehalten — Asset bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
+                            {% endif %}
+                        </div>
+                        <div class="text-muted" style="font-size:.78rem">{{ row.isin }} &middot; {{ row.asset_class }}</div>
+                    </td>
+                    <td style="font-size:.82rem;color:#6c757d;">{{ row.category }}</td>
                     <td class="text-end">{{ row.value_stock|de_currency:0 }}</td>
                     <td class="text-end">{{ row.value_fund|de_currency:0 }}</td>
                     <td class="text-end">{{ row.value_total|de_currency:0 }}</td>
@@ -50,7 +82,7 @@
             </tbody>
             <tfoot>
                 <tr class="total-row">
-                    <td>Gesamt</td>
+                    <td colspan="3">Gesamt</td>
                     <td class="text-end">{{ total_stock|de_currency:0 }}</td>
                     <td class="text-end">{{ total_fund|de_currency:0 }}</td>
                     <td class="text-end">{{ total_all|de_currency:0 }}</td>
