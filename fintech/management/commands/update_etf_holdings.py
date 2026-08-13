@@ -27,9 +27,11 @@ gehaltenen Fonds gespeichert, nur die Datenquelle ändert sich.
 
 Ist bei einem Fonds Asset.extend_dax_holdings gesetzt (echte DAX-Tracker),
 werden ZUSÄTZLICH zu den JustETF-Top-10 die DAX-Positionen 11+ von Wikipedia
-(de.wikipedia.org/wiki/DAX, alle ~40 mit Gewicht) herangezogen — aber NUR
-für Aktien, die bereits direkt gehalten werden (Namensabgleich, Wikipedia
-führt keine ISIN, es werden daher keine neuen Assets angelegt).
+(de.wikipedia.org/wiki/DAX, alle ~40 mit Gewicht) herangezogen. Analog holt
+Asset.extend_msci_world_holdings (echte MSCI-World-Tracker) die Positionen
+11-50 von companiesmarketcap.com. Beide Quellen liefern keine ISIN — es
+werden daher NUR bestehende, bereits direkt gehaltene Aktien per
+Namensabgleich ergänzt, nie neue Assets angelegt.
 
 Schlägt das Speichern eines Dummy-Holdings-Eintrags oder des FondHolding-
 Mappings fehl (DB-Fehler o.ä.), wird ein Jira-Bug-Ticket angelegt — der
@@ -56,6 +58,7 @@ from fintech.apis.services.justetf import JustEtfRequest
 from fintech.apis.services.soup_cache import SoupCache
 from fintech.apis.services.request_lib import KeyNotFoundWarning
 from fintech.apis.services.wikipedia_dax import get_dax_constituents
+from fintech.apis.services.companiesmarketcap import get_holdings as get_companiesmarketcap_holdings
 
 logger = logging.getLogger(__name__)
 
@@ -165,28 +168,24 @@ class Command(BaseCommand):
             help="Nur einen bestimmten Fonds aktualisieren.",
         )
 
-    def _extend_dax_holdings(self, fund, held_stock_assets, dry_run):
+    def _extend_from_ranked_list(self, fund, label, constituents, tail_start, held_stock_assets, dry_run):
         """
-        Ergänzt DAX-Positionen 11+ (Wikipedia) um FondHolding-Mappings — nur
-        für Aktien aus held_stock_assets (bereits direkt gehalten). Gibt
-        (matched_count, error_count) zurück.
+        Ergänzt FondHolding-Mappings aus einer rangierten externen Liste
+        (Positionen ab tail_start, 0-indexiert) — nur für Aktien aus
+        held_stock_assets (bereits direkt gehalten), da diese Quellen keine
+        ISIN liefern und daher keine neuen Assets angelegt werden können.
+        Gibt (matched_count, error_count) zurück.
         """
-        try:
-            constituents = get_dax_constituents()
-        except Exception as exc:
-            self.stdout.write(self.style.ERROR(f"  DAX-Wikipedia-Abruf fehlgeschlagen: {exc}"))
-            return 0, 1
-
         matched = 0
         errors = 0
-        for c in constituents[10:]:
+        for c in constituents[tail_start:]:
             asset = _match_held_stock(c["name"], held_stock_assets)
             if asset is None:
                 continue
 
             if dry_run:
                 self.stdout.write(
-                    f"  DRY DAX-Tail: {c['name']} ({c['symbol']}) {c['percentage']}% "
+                    f"  DRY {label}-Tail: {c['name']} ({c['symbol']}) {c['percentage']}% "
                     f"→ bereits gehalten: {asset.name} ({asset.isin})"
                 )
                 matched += 1
@@ -199,16 +198,34 @@ class Command(BaseCommand):
                 )
                 matched += 1
                 self.stdout.write(
-                    f"  DAX-Tail-Mapping: {c['name']} ({c['symbol']}) {c['percentage']}% "
+                    f"  {label}-Tail-Mapping: {c['name']} ({c['symbol']}) {c['percentage']}% "
                     f"→ {asset.name} ({asset.isin})"
                 )
             except Exception as exc:
-                logger.exception(f"DAX-Tail-Mapping fehlgeschlagen für {fund.isin} → {asset.isin}")
+                logger.exception(f"{label}-Tail-Mapping fehlgeschlagen für {fund.isin} → {asset.isin}")
                 self.stdout.write(self.style.ERROR(f"  Speichern fehlgeschlagen: {asset.isin} — {exc}"))
                 errors += 1
                 _report_save_error(fund, asset.isin, asset.name, str(exc))
 
         return matched, errors
+
+    def _extend_dax_holdings(self, fund, held_stock_assets, dry_run):
+        """DAX-Positionen 11+ (Wikipedia). Gibt (matched_count, error_count) zurück."""
+        try:
+            constituents = get_dax_constituents()
+        except Exception as exc:
+            self.stdout.write(self.style.ERROR(f"  DAX-Wikipedia-Abruf fehlgeschlagen: {exc}"))
+            return 0, 1
+        return self._extend_from_ranked_list(fund, "DAX", constituents, 10, held_stock_assets, dry_run)
+
+    def _extend_msci_world_holdings(self, fund, held_stock_assets, dry_run):
+        """MSCI-World-Positionen 11-50 (companiesmarketcap.com). Gibt (matched_count, error_count) zurück."""
+        try:
+            constituents = get_companiesmarketcap_holdings()
+        except Exception as exc:
+            self.stdout.write(self.style.ERROR(f"  MSCI-World-Holdings-Abruf fehlgeschlagen: {exc}"))
+            return 0, 1
+        return self._extend_from_ranked_list(fund, "MSCI-World", constituents[:50], 10, held_stock_assets, dry_run)
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
@@ -238,11 +255,17 @@ class Command(BaseCommand):
         skipped_nested = 0
         dax_matched = 0
         dax_errors = 0
+        msci_world_matched = 0
+        msci_world_errors = 0
 
-        # Für den DAX-Wikipedia-Namensabgleich einmal vorab holen (ändert sich
+        # Für den DAX/MSCI-World-Namensabgleich einmal vorab holen (ändert sich
         # nicht innerhalb dieses Laufs, egal welcher Fonds gerade dran ist).
         held_stock_assets = list(
             Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__quantity__gt=0)
+        )
+        self.stdout.write(
+            f"{len(held_stock_assets)} direkt gehaltene Aktie(n) als Basis für "
+            f"DAX-/MSCI-World-Tail-Namensabgleich."
         )
 
         for fund in funds:
@@ -323,21 +346,32 @@ class Command(BaseCommand):
                     _report_save_error(fund, holding_isin, h["name"], str(exc))
 
             if fund.extend_dax_holdings:
+                self.stdout.write("  DAX-Tail-Erweiterung aktiv (extend_dax_holdings=True) …")
                 n, e = self._extend_dax_holdings(fund, held_stock_assets, dry_run)
+                self.stdout.write(f"  DAX-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
                 dax_matched += n
                 dax_errors += e
+
+            if fund.extend_msci_world_holdings:
+                self.stdout.write("  MSCI-World-Tail-Erweiterung aktiv (extend_msci_world_holdings=True) …")
+                n, e = self._extend_msci_world_holdings(fund, held_stock_assets, dry_run)
+                self.stdout.write(f"  MSCI-World-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
+                msci_world_matched += n
+                msci_world_errors += e
 
         if dry_run:
             self.stdout.write(self.style.SUCCESS(
                 f"Dry-Run abgeschlossen — nichts gespeichert. "
                 f"{skipped_nested} Fund-of-Funds-Konstituente(n) würden übersprungen, "
-                f"{dax_matched} DAX-Tail-Treffer (Positionen 11+) gefunden."
+                f"{dax_matched} DAX-Tail-Treffer, {msci_world_matched} MSCI-World-Tail-Treffer "
+                f"(jeweils Positionen 11+) gefunden."
             ))
         else:
             self.stdout.write(self.style.SUCCESS(
                 f"\nFertig: {mappings_upserted} Mapping(s) aktualisiert, "
                 f"{dummy_created} Dummy-Holdings neu angelegt, {skipped_nested} Fund-of-Funds-"
-                f"Konstituente(n) übersprungen, {dax_matched} DAX-Tail-Mapping(s) ergänzt, "
-                f"{errors} Abruf-Fehler, {save_errors + dax_errors} Speicher-Fehler "
-                f"(Jira-Ticket angelegt)."
+                f"Konstituente(n) übersprungen, {dax_matched} DAX-Tail-Mapping(s) + "
+                f"{msci_world_matched} MSCI-World-Tail-Mapping(s) ergänzt, "
+                f"{errors} Abruf-Fehler, {save_errors + dax_errors + msci_world_errors} "
+                f"Speicher-Fehler (Jira-Ticket angelegt)."
             ))

@@ -4,6 +4,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Ohne Browser-artigen User-Agent blocken viele Anbieter (u.a. JustETF) den
+# Standard-"python-requests"-UA mit 4xx — betrifft alle StockRequest-Provider
+# (Comdirect, AlleAktien, JustETF), daher hier zentral gesetzt.
+_DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+}
+
 
 class KeyNotFoundWarning(Exception):
     """Raised when a key is not found but a fallback provider may succeed."""
@@ -37,7 +47,7 @@ class StockRequest:
 
         url = self.base_url.replace("{isin}", isin)
         logger.info(f"Fetching {url}")
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=10, headers=_DEFAULT_HEADERS)
         response.encoding = "utf-8"
 
         if 400 <= response.status_code < 500:

@@ -146,6 +146,16 @@ class Asset(models.Model):
         ),
     )
 
+    extend_msci_world_holdings = models.BooleanField(
+        default=False,
+        help_text=(
+            "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die MSCI-World-Positionen "
+            "11-50 von companiesmarketcap.com nachtragen — nur für Aktien, die bereits direkt "
+            "gehalten werden (Namensabgleich, die Quelle führt keine ISIN). Nur bei echten "
+            "MSCI-World-Trackern aktivieren."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
