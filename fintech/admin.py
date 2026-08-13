@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
 from decimal import Decimal
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -199,6 +199,14 @@ class HoldingsAdmin(admin.ModelAdmin):
             price_str = f"{obj.average_purchase_price:.4f}"
             return format_html('{} {}', price_str, obj.asset.currency)
         return "–"
+
+@admin.register(FondHolding)
+class FondHoldingAdmin(admin.ModelAdmin):
+    list_display = ['fund', 'holding', 'percentage']
+    list_filter = ['fund']
+    search_fields = ('fund__name', 'fund__isin', 'holding__name', 'holding__isin')
+    autocomplete_fields = ('fund', 'holding')
+    list_select_related = ('fund', 'holding')
 
 @admin.register(WatchlistEntry)
 class WatchlistEntryAdmin(admin.ModelAdmin):

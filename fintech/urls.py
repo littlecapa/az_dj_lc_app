@@ -19,6 +19,7 @@ urlpatterns = [
     path("import", views.portfolio_import, name="portfolio-import"),
     path("import_watchlist", views.watchlist_import, name="watchlist-import"),
     path("overall/", views.portfolio_overall, name="portfolio-overall"),
+    path("overall-stocks/", views.portfolio_overall_stocks, name="portfolio-overall-stocks"),
     path("portfolio/", views.portfolio_performance, name="portfolio-performance"),
     path("winner/", views.portfolio_winners, name="portfolio-winners"),
     path("portfolio/<slug:category_slug>/", views.portfolio_category_detail, name="portfolio-category-detail"),

@@ -1,7 +1,7 @@
 from django.db import models
 from decimal import Decimal
 import re
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from .models_helper.asset_class import AssetClass
 from .models_helper.currency_class import CurrencyClass
 from .models_helper.category_class import CategoryClass
@@ -514,3 +514,41 @@ class NewsEvent(models.Model):
 
     def __str__(self):
         return f"{self.get_event_type_display()} @ {self.new_value} ({self.created_at:%Y-%m-%d})"
+
+
+class FondHolding(models.Model):
+    """
+    Manuell gepflegtes Mapping: Welche Einzelaktien hält ein Fonds/ETF, und mit
+    welchem Gewicht? Basis für den Look-Through-Wert auf der Aktien-Übersicht
+    (/fintech/overall-stocks/) — verrechnet direkt gehaltene Aktien mit dem
+    über Fonds gehaltenen Anteil.
+    """
+    fund = models.ForeignKey(
+        'Asset',
+        on_delete=models.CASCADE,
+        related_name='fund_holdings',
+        limit_choices_to={'asset_class__in': [AssetClass.ETF, AssetClass.FOND]},
+        help_text="Der Fonds/ETF (muss als Asset existieren, i.d.R. eine deiner Holdings)",
+    )
+    holding = models.ForeignKey(
+        'Asset',
+        on_delete=models.CASCADE,
+        related_name='held_by_funds',
+        limit_choices_to={'asset_class': AssetClass.STOCK},
+        help_text="Die Einzelaktie, die der Fonds hält (muss als Asset existieren)",
+    )
+    percentage = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('100'))],
+        help_text="Gewichtung der Aktie im Fonds in Prozent, z.B. 4.250 für 4,25%",
+    )
+
+    class Meta:
+        verbose_name = "Fonds-Holding"
+        verbose_name_plural = "Fonds-Holdings"
+        unique_together = ['fund', 'holding']
+        ordering = ['fund__name', '-percentage']
+
+    def __str__(self):
+        return f"{self.fund.name} → {self.holding.name} ({self.percentage}%)"

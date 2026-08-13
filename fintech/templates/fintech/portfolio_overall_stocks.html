@@ -1,0 +1,63 @@
+{% extends "homepage/base_home.html" %}
+{% load static de_format %}
+
+{% block title %}Aktien Look-Through{% endblock %}
+
+{% block content %}
+<style>
+    th { white-space: nowrap; }
+    .total-row td { font-weight: 700; border-top: 2px solid #333; }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-3">
+            <h2 class="mb-0">Aktien Look-Through</h2>
+            <span class="text-muted small">{{ rows|length }} Kategorien</span>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <a href="{% url 'fintech:portfolio-overall' %}" class="btn btn-sm btn-outline-secondary">Overall</a>
+            <a href="{% url 'fintech:fintech-index' %}" class="btn btn-sm btn-outline-secondary">← Fintech</a>
+        </div>
+    </div>
+    <p class="text-muted small mb-4">
+        Direkt gehaltene Aktien plus der über Fonds/ETFs gehaltene Anteil (via manuellem
+        Fonds-Holding-Mapping), gruppiert nach Kategorie.
+    </p>
+
+    {% if not rows %}
+        <p class="text-muted">Keine Aktien gefunden (weder direkt gehalten noch über ein Fonds-Holding-Mapping erfasst).</p>
+    {% else %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Kategorie</th>
+                    <th class="text-end">Akt. Wert Aktien</th>
+                    <th class="text-end">Akt. Wert Fonds</th>
+                    <th class="text-end">Akt. Wert gesamt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.category }}</td>
+                    <td class="text-end">{{ row.value_stock|de_currency:0 }}</td>
+                    <td class="text-end">{{ row.value_fund|de_currency:0 }}</td>
+                    <td class="text-end">{{ row.value_total|de_currency:0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td>Gesamt</td>
+                    <td class="text-end">{{ total_stock|de_currency:0 }}</td>
+                    <td class="text-end">{{ total_fund|de_currency:0 }}</td>
+                    <td class="text-end">{{ total_all|de_currency:0 }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

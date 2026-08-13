@@ -8,7 +8,7 @@ from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding
 from .models_helper.category_class import CategoryClass
 from .models_helper.asset_class import AssetClass
 from django.utils.text import slugify
@@ -288,6 +288,92 @@ def portfolio_overall(request):
         'simple_total':  (total_cur / total_inv - 1) * 100 if total_inv else None,
         'day_total_abs': day_total_abs,
         'day_total_pct': day_total_pct,
+    })
+
+
+def portfolio_overall_stocks(request):
+    """
+    Look-Through-Kategorie-Übersicht: rechnet den über Fonds/ETFs gehaltenen
+    Aktienanteil (via FondHolding-Mapping) auf die direkt gehaltenen Aktien
+    drauf und gruppiert nach Kategorie.
+
+    Kategorie-Herkunft je Aktie (erste zutreffende Regel):
+      1. Holdings.category der Aktie selbst (falls direkt gehalten).
+      2. Holdings.category des Fonds mit dem höchsten Gewicht für diese Aktie.
+      3. 'Sonstiges'.
+    """
+    # Direkter Aktienwert + Kategorie je Asset (nur STOCK-Holdings)
+    direct_value = {}
+    holding_category = {}  # isin (Aktie ODER Fonds) -> Holdings.category
+    stock_holdings = Holdings.objects.select_related('asset').filter(
+        asset__asset_class=AssetClass.STOCK, quantity__gt=0,
+    )
+    for h in stock_holdings:
+        price = h.asset.current_price or Decimal('0')
+        direct_value[h.asset_id] = h.quantity * price
+        holding_category[h.asset_id] = h.category
+
+    # Aktueller Wert + Kategorie je gehaltenem Fonds/ETF
+    fund_value = {}
+    fund_holdings = Holdings.objects.select_related('asset').filter(
+        asset__asset_class__in=[AssetClass.ETF, AssetClass.FOND], quantity__gt=0,
+    )
+    for h in fund_holdings:
+        price = h.asset.current_price or Decimal('0')
+        fund_value[h.asset_id] = h.quantity * price
+        holding_category[h.asset_id] = h.category
+
+    # Fonds-Wert über FondHolding-Mapping auf Aktien verteilen; je Aktie den
+    # Fonds mit dem höchsten Gewicht merken (Fallback-Kategorie-Quelle)
+    look_through_value = {}
+    best_fund_for_stock = {}  # Aktien-ISIN -> (percentage, Fonds-ISIN)
+    if fund_value:
+        mappings = FondHolding.objects.filter(fund_id__in=fund_value.keys())
+        for m in mappings:
+            contribution = fund_value.get(m.fund_id, Decimal('0')) * (m.percentage / Decimal('100'))
+            look_through_value[m.holding_id] = look_through_value.get(m.holding_id, Decimal('0')) + contribution
+
+            current_best = best_fund_for_stock.get(m.holding_id)
+            if current_best is None or m.percentage > current_best[0]:
+                best_fund_for_stock[m.holding_id] = (m.percentage, m.fund_id)
+
+    def resolve_category(isin):
+        cat = holding_category.get(isin)
+        if cat:
+            return cat
+        best = best_fund_for_stock.get(isin)
+        if best:
+            return holding_category.get(best[1])
+        return None
+
+    # Je Kategorie aggregieren
+    all_isins = set(direct_value) | set(look_through_value)
+    cat_totals = {}
+    for isin in all_isins:
+        cat = resolve_category(isin)
+        bucket = cat_totals.setdefault(cat, {'stock': Decimal('0'), 'fund': Decimal('0')})
+        bucket['stock'] += direct_value.get(isin, Decimal('0'))
+        bucket['fund']  += look_through_value.get(isin, Decimal('0'))
+
+    rows = []
+    for cat, vals in cat_totals.items():
+        label = CategoryClass(cat).label if cat else 'Sonstiges'
+        rows.append({
+            'category':     label,
+            'value_stock':  vals['stock'],
+            'value_fund':   vals['fund'],
+            'value_total':  vals['stock'] + vals['fund'],
+        })
+    rows.sort(key=lambda r: r['value_total'], reverse=True)
+
+    total_stock = sum(r['value_stock'] for r in rows) if rows else Decimal('0')
+    total_fund  = sum(r['value_fund']  for r in rows) if rows else Decimal('0')
+
+    return render(request, 'fintech/portfolio_overall_stocks.html', {
+        'rows':        rows,
+        'total_stock': total_stock,
+        'total_fund':  total_fund,
+        'total_all':   total_stock + total_fund,
     })
 
 
