@@ -1,10 +1,12 @@
 from django.db import models
 from decimal import Decimal
 import re
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from .models_helper.asset_class import AssetClass
 from .models_helper.currency_class import CurrencyClass
 from .models_helper.category_class import CategoryClass
+from .models_helper.etf_extend_source import EtfExtendSource
 
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -136,28 +138,29 @@ class Asset(models.Model):
         ),
     )
 
-    extend_dax_holdings = models.BooleanField(
-        default=False,
+    extend_etf = models.CharField(
+        max_length=20,
+        choices=EtfExtendSource.choices,
+        blank=True,
+        default='',
         help_text=(
-            "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die DAX-Positionen 11-40 "
-            "von Wikipedia (de.wikipedia.org/wiki/DAX) nachtragen — nur für Aktien, die bereits "
-            "direkt gehalten werden (Namensabgleich, Wikipedia führt keine ISIN). Nur bei "
-            "echten DAX-Trackern aktivieren."
-        ),
-    )
-
-    extend_msci_world_holdings = models.BooleanField(
-        default=False,
-        help_text=(
-            "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die MSCI-World-Positionen "
-            "11-50 von companiesmarketcap.com nachtragen — nur für Aktien, die bereits direkt "
-            "gehalten werden (Namensabgleich, die Quelle führt keine ISIN). Nur bei echten "
-            "MSCI-World-Trackern aktivieren."
+            "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die Positionen 11+ von "
+            "einer externen Quelle nachtragen (DAX: Wikipedia, MSCI World: "
+            "companiesmarketcap.com) — nur für Aktien, die bereits direkt gehalten werden "
+            "(Namensabgleich, diese Quellen führen keine ISIN). Nur bei einem echten Tracker "
+            "des jeweiligen Index setzen. Nur bei asset_class=ETF erlaubt."
         ),
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+        if self.extend_etf and self.asset_class != AssetClass.ETF:
+            raise ValidationError({
+                'extend_etf': "extend_etf darf nur bei asset_class=ETF gesetzt werden.",
+            })
 
     class Meta:
         verbose_name = "Asset"

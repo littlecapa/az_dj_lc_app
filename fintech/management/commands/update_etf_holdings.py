@@ -25,13 +25,13 @@ anderer gehaltener Fonds (z.B. mehrere "MSCI World"-Tracker verschiedener
 Anbieter). Das FondHolding-Mapping wird trotzdem für den tatsächlich
 gehaltenen Fonds gespeichert, nur die Datenquelle ändert sich.
 
-Ist bei einem Fonds Asset.extend_dax_holdings gesetzt (echte DAX-Tracker),
-werden ZUSÄTZLICH zu den JustETF-Top-10 die DAX-Positionen 11+ von Wikipedia
-(de.wikipedia.org/wiki/DAX, alle ~40 mit Gewicht) herangezogen. Analog holt
-Asset.extend_msci_world_holdings (echte MSCI-World-Tracker) die Positionen
-11-50 von companiesmarketcap.com. Beide Quellen liefern keine ISIN — es
-werden daher NUR bestehende, bereits direkt gehaltene Aktien per
-Namensabgleich ergänzt, nie neue Assets angelegt.
+Ist bei einem Fonds Asset.extend_etf gesetzt (nur bei asset_class=ETF
+erlaubt, siehe Asset.clean()), werden ZUSÄTZLICH zu den JustETF-Top-10 die
+Positionen 11+ einer externen Quelle herangezogen: extend_etf='DAX' nutzt
+Wikipedia (de.wikipedia.org/wiki/DAX, alle ~40 mit Gewicht), extend_etf=
+'MSCI_WORLD' nutzt companiesmarketcap.com (Positionen 11-50). Beide Quellen
+liefern keine ISIN — es werden daher NUR bestehende, bereits direkt
+gehaltene Aktien per Namensabgleich ergänzt, nie neue Assets angelegt.
 
 Schlägt das Speichern eines Dummy-Holdings-Eintrags oder des FondHolding-
 Mappings fehl (DB-Fehler o.ä.), wird ein Jira-Bug-Ticket angelegt — der
@@ -54,6 +54,7 @@ from core.jira_client import JiraClient, JiraApiError
 
 from fintech.models import Asset, Holdings, FondHolding
 from fintech.models_helper.asset_class import AssetClass
+from fintech.models_helper.etf_extend_source import EtfExtendSource
 from fintech.apis.services.justetf import JustEtfRequest
 from fintech.apis.services.soup_cache import SoupCache
 from fintech.apis.services.request_lib import KeyNotFoundWarning
@@ -345,15 +346,15 @@ class Command(BaseCommand):
                     save_errors += 1
                     _report_save_error(fund, holding_isin, h["name"], str(exc))
 
-            if fund.extend_dax_holdings:
-                self.stdout.write("  DAX-Tail-Erweiterung aktiv (extend_dax_holdings=True) …")
+            if fund.extend_etf == EtfExtendSource.DAX:
+                self.stdout.write("  DAX-Tail-Erweiterung aktiv (extend_etf=DAX) …")
                 n, e = self._extend_dax_holdings(fund, held_stock_assets, dry_run)
                 self.stdout.write(f"  DAX-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
                 dax_matched += n
                 dax_errors += e
 
-            if fund.extend_msci_world_holdings:
-                self.stdout.write("  MSCI-World-Tail-Erweiterung aktiv (extend_msci_world_holdings=True) …")
+            elif fund.extend_etf == EtfExtendSource.MSCI_WORLD:
+                self.stdout.write("  MSCI-World-Tail-Erweiterung aktiv (extend_etf=MSCI_WORLD) …")
                 n, e = self._extend_msci_world_holdings(fund, held_stock_assets, dry_run)
                 self.stdout.write(f"  MSCI-World-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
                 msci_world_matched += n

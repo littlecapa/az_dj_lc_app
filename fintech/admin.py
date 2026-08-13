@@ -34,8 +34,8 @@ class PriceAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_dax_holdings', 'extend_msci_world_holdings', 'price_fetch_blocked']
-    list_filter = ['asset_class', 'currency', 'exchange', 'extend_dax_holdings', 'extend_msci_world_holdings', 'price_fetch_blocked']
+    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_etf', 'price_fetch_blocked']
+    list_filter = ['asset_class', 'currency', 'exchange', 'extend_etf', 'price_fetch_blocked']
     list_editable = ['price_fetch_blocked']
     search_fields = ['isin', 'wkn', 'symbol', 'name']
     ordering = ('name',)
@@ -54,16 +54,16 @@ class AssetAdmin(admin.ModelAdmin):
             )
         }),
         ('ETF-Holdings-Referenz', {
-            'fields': ('holdings_reference', 'extend_dax_holdings', 'extend_msci_world_holdings'),
+            'fields': ('holdings_reference', 'extend_etf'),
             'description': (
                 'Nur für ETF/Fonds relevant. holdings_reference: update_etf_holdings holt die '
                 'Top-10-Holdings von der JustETF-Seite DIESES Referenz-Fonds statt der eigenen — '
                 'sinnvoll für Fonds, die denselben Index abbilden wie ein anderer gehaltener Fonds '
                 '(z.B. mehrere "MSCI World"-Tracker verschiedener Anbieter). '
-                'extend_dax_holdings: nur für echte DAX-Tracker — ergänzt zusätzlich die '
-                'DAX-Positionen 11+ von Wikipedia. extend_msci_world_holdings: nur für echte '
-                'MSCI-World-Tracker — ergänzt Positionen 11-50 von companiesmarketcap.com. '
-                'Beide nur für bereits direkt gehaltene Aktien (Namensabgleich).'
+                'extend_etf: nur für einen echten Tracker des jeweiligen Index setzen (nur bei '
+                'asset_class=ETF erlaubt) — ergänzt zusätzlich Positionen 11+ von Wikipedia (DAX) '
+                'bzw. companiesmarketcap.com (MSCI World), aber nur für bereits direkt gehaltene '
+                'Aktien (Namensabgleich).'
             ),
         }),
         ('Identifikation', {'fields': ('isin', 'wkn', 'exchange')}),
