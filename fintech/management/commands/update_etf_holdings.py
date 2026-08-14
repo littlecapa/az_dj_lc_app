@@ -360,12 +360,12 @@ class Command(BaseCommand):
                 extend_funds.append(fund)
 
         if extend_funds:
-            # Jetzt alle inzwischen bekannten Aktien als Basis nehmen — auch
-            # Dummy-Holdings (quantity=0), egal ob aus einem früheren Lauf oder
-            # gerade eben oben in der Top-10-Runde neu angelegt.
-            held_stock_assets = list(
-                Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__isnull=False).distinct()
-            )
+            # Jetzt ALLE STOCK-Assets als Basis nehmen — nicht nur mit
+            # Holdings-Zeile: eine Aktie kann auch rein über eine Watchlist
+            # oder anderweitig ohne Holdings/Watchlist im System existieren
+            # (z.B. IREN, TSMC), und würde sonst am Namensabgleich
+            # vorbeigehen, obwohl sie längst als Asset bekannt ist.
+            held_stock_assets = list(Asset.objects.filter(asset_class=AssetClass.STOCK))
             aliases = load_aliases()
             self.stdout.write(
                 f"\n{len(held_stock_assets)} bekannte Aktie(n) (direkt oder über einen Fonds) "

@@ -368,12 +368,10 @@ def portfolio_overall_stocks(request):
             _record_contribution(m.holding_id, m.fund, fund_val, m.percentage, asset=m.holding)
 
     if manual_override_fund_ids:
-        # Namensabgleich-Basis: alle im System bereits bekannten Aktien
-        # (direkt gehalten oder bereits über einen Fonds erfasst) — dieselbe
-        # Logik wie update_etf_holdings' DAX-/MSCI-World-Tail-Erweiterung.
-        known_stock_assets = list(
-            Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__isnull=False).distinct()
-        )
+        # Namensabgleich-Basis: ALLE STOCK-Assets — nicht nur mit Holdings-
+        # Zeile, dieselbe Logik wie update_etf_holdings' DAX-/MSCI-World-
+        # Tail-Erweiterung (siehe dort für die Begründung).
+        known_stock_assets = list(Asset.objects.filter(asset_class=AssetClass.STOCK))
         aliases = load_aliases()
         manual_entries = ManualFondHolding.objects.select_related('fund').filter(
             fund_id__in=manual_override_fund_ids
