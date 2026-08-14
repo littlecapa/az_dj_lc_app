@@ -12,6 +12,18 @@ _NAME_STOPWORDS_RE = re.compile(
 )
 _UMLAUT_TRANSLATION = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 
+# Handvoll bekannter Fälle, bei denen externe Quelle und gehaltener Name
+# KEIN gemeinsames Wort haben (z.B. Markenkürzel vs. abgekürzter Rechtsform-
+# Name) — Token-Abgleich allein kann das nicht lösen. Key = normalisierter
+# externer Name, Value = Ersatz-Suchbegriff, dessen normalisierte Wörter
+# stattdessen gegen den gehaltenen Namen geprüft werden. Bewusst knapp
+# gehalten (z.B. "motoren werke" statt "bayerische motoren werke"), damit es
+# auch mit unterschiedlich abgekürzten Schreibweisen im eigenen Bestand
+# funktioniert.
+_KNOWN_ALIASES = {
+    "bmw": "motoren werke",  # Wikipedia-DAX nennt die Aktie schlicht "BMW"
+}
+
 
 def normalize_company_name(name: str) -> str:
     """Grobe Normalisierung für den Namensabgleich (Umlaute transliteriert wie
@@ -36,9 +48,16 @@ def match_held_stock(external_name: str, held_assets):
     Healthineers" matchen (eigenständige, abgespaltene Gesellschaften) — und
     reiner Teilstring-Vergleich würde kurze Namen wie "RWE" als Zeichenfolge
     in unverwandten Namen wie "Vorwerk" finden.
+
+    Für die wenigen Fälle ohne jedes gemeinsame Wort (z.B. "BMW" vs.
+    "BAY.MOTOREN WERKE AG ST") gibt es _KNOWN_ALIASES als kleine, manuell
+    gepflegte Ausnahmeliste.
+
     Best-effort — bei einer kleinen, bekannten Portfoliogröße ausreichend
     zuverlässig; falsche/fehlende Treffer sind über den Admin leicht zu sehen."""
-    external_tokens = set(normalize_company_name(external_name).split())
+    normalized_external = normalize_company_name(external_name)
+    alias = _KNOWN_ALIASES.get(normalized_external)
+    external_tokens = set(normalize_company_name(alias).split()) if alias else set(normalized_external.split())
     if not external_tokens:
         return None
     for asset in held_assets:
