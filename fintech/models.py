@@ -145,12 +145,12 @@ class Asset(models.Model):
         default='',
         verbose_name="Extend ETF",
         help_text=(
-            "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die Positionen 11+ von "
-            "einer externen Quelle nachtragen (DAX: Wikipedia, MSCI World: "
-            "companiesmarketcap.com) — nur für Aktien, die im System bereits bekannt sind "
-            "(direkt gehalten oder bereits über einen anderen Fonds erfasst; Namensabgleich, "
-            "diese Quellen führen keine ISIN). Nur bei einem echten Tracker des jeweiligen "
-            "Index setzen. Nur bei asset_class=ETF erlaubt."
+            "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die übrigen Positionen "
+            "(noch kein Mapping für diesen Fonds) von einer externen Quelle nachtragen (DAX: "
+            "Wikipedia, MSCI World: companiesmarketcap.com) — nur für Aktien, die im System "
+            "bereits bekannt sind (direkt gehalten oder bereits über einen anderen Fonds "
+            "erfasst; Namensabgleich, diese Quellen führen keine ISIN). Nur bei einem echten "
+            "Tracker des jeweiligen Index setzen. Nur bei asset_class=ETF erlaubt."
         ),
     )
 

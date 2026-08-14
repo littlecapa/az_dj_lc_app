@@ -35,9 +35,15 @@ nötig — die komplette Liste ersetzt die JustETF-Top-10 für diesen Fonds.
 
 Ist bei einem Fonds Asset.extend_etf gesetzt (nur bei asset_class=ETF
 erlaubt, siehe Asset.clean()), werden ZUSÄTZLICH zu den JustETF-Top-10 die
-Positionen 11+ einer externen Quelle herangezogen: extend_etf='DAX' nutzt
-Wikipedia (de.wikipedia.org/wiki/DAX, alle ~40 mit Gewicht), extend_etf=
-'MSCI_WORLD' nutzt companiesmarketcap.com (Positionen 11-50). Beide Quellen
+übrigen Positionen einer externen Quelle herangezogen: extend_etf='DAX'
+nutzt Wikipedia (de.wikipedia.org/wiki/DAX, alle ~40 mit Gewicht), extend_
+etf='MSCI_WORLD' nutzt companiesmarketcap.com (Top 50). Dabei wird NICHT
+ab einer festen Position (z.B. "11+") geschnitten, sondern pro Aktie
+geprüft, ob für DIESEN Fonds schon ein FondHolding-Mapping existiert — die
+Ranglisten von JustETF (ETF-Gewichtung) und der externen Quelle (Index-
+Gewichtung) können sich unterscheiden (Rheinmetall lag z.B. in Wikipedias
+DAX-Top-10, aber nicht in JustETFs Top-10 für den DAX-ETF; bei einem festen
+Cutoff wäre es dadurch komplett durchgefallen). Beide externen Quellen
 liefern keine ISIN — es werden daher NUR bestehende, im System bereits
 bekannte Aktien per Namensabgleich ergänzt (direkt gehalten ODER bereits
 über einen anderen Fonds als Dummy-Holdings erfasst), nie neue Assets
@@ -155,19 +161,29 @@ class Command(BaseCommand):
             help="Nur einen bestimmten Fonds aktualisieren.",
         )
 
-    def _extend_from_ranked_list(self, fund, label, constituents, tail_start, held_stock_assets, dry_run):
+    def _extend_from_ranked_list(self, fund, label, constituents, held_stock_assets, dry_run):
         """
-        Ergänzt FondHolding-Mappings aus einer rangierten externen Liste
-        (Positionen ab tail_start, 0-indexiert) — nur für Aktien aus
-        held_stock_assets (bereits im System bekannt), da diese Quellen keine
-        ISIN liefern und daher keine neuen Assets angelegt werden können.
+        Ergänzt FondHolding-Mappings aus einer rangierten externen Liste —
+        nur für Aktien aus held_stock_assets (bereits im System bekannt), da
+        diese Quellen keine ISIN liefern und daher keine neuen Assets
+        angelegt werden können. Aktien, die für DIESEN Fonds bereits über
+        JustETFs Top-10 gemappt sind, werden übersprungen — NICHT per festem
+        Positions-Cutoff (z.B. "ab Position 11"), weil die Ranglisten von
+        JustETF (ETF-Gewichtung) und der externen Quelle (Index-Gewichtung)
+        sich unterscheiden können: Rheinmetall lag z.B. in Wikipedias DAX-
+        Top-10, aber nicht in JustETFs Top-10 für den DAX-ETF — bei einem
+        festen Cutoff wäre es dadurch komplett durchgefallen (weder von
+        JustETF noch vom Tail erfasst).
         Gibt (matched_count, error_count) zurück.
         """
+        already_mapped = set(
+            FondHolding.objects.filter(fund=fund).values_list('holding_id', flat=True)
+        )
         matched = 0
         errors = 0
-        for c in constituents[tail_start:]:
+        for c in constituents:
             asset = match_held_stock(c["name"], held_stock_assets)
-            if asset is None:
+            if asset is None or asset.isin in already_mapped:
                 continue
 
             if dry_run:
@@ -197,22 +213,24 @@ class Command(BaseCommand):
         return matched, errors
 
     def _extend_dax_holdings(self, fund, held_stock_assets, dry_run):
-        """DAX-Positionen 11+ (Wikipedia). Gibt (matched_count, error_count) zurück."""
+        """Alle DAX-Positionen (Wikipedia), abzüglich bereits über JustETF
+        gemappter. Gibt (matched_count, error_count) zurück."""
         try:
             constituents = get_dax_constituents()
         except Exception as exc:
             self.stdout.write(self.style.ERROR(f"  DAX-Wikipedia-Abruf fehlgeschlagen: {exc}"))
             return 0, 1
-        return self._extend_from_ranked_list(fund, "DAX", constituents, 10, held_stock_assets, dry_run)
+        return self._extend_from_ranked_list(fund, "DAX", constituents, held_stock_assets, dry_run)
 
     def _extend_msci_world_holdings(self, fund, held_stock_assets, dry_run):
-        """MSCI-World-Positionen 11-50 (companiesmarketcap.com). Gibt (matched_count, error_count) zurück."""
+        """Top-50-MSCI-World-Positionen (companiesmarketcap.com), abzüglich
+        bereits über JustETF gemappter. Gibt (matched_count, error_count) zurück."""
         try:
             constituents = get_companiesmarketcap_holdings()
         except Exception as exc:
             self.stdout.write(self.style.ERROR(f"  MSCI-World-Holdings-Abruf fehlgeschlagen: {exc}"))
             return 0, 1
-        return self._extend_from_ranked_list(fund, "MSCI-World", constituents[:50], 10, held_stock_assets, dry_run)
+        return self._extend_from_ranked_list(fund, "MSCI-World", constituents[:50], held_stock_assets, dry_run)
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
@@ -374,7 +392,7 @@ class Command(BaseCommand):
                 f"Dry-Run abgeschlossen — nichts gespeichert. "
                 f"{skipped_nested} Fund-of-Funds-Konstituente(n) würden übersprungen, "
                 f"{dax_matched} DAX-Tail-Treffer, {msci_world_matched} MSCI-World-Tail-Treffer "
-                f"(jeweils Positionen 11+) gefunden."
+                f"(jeweils noch nicht über JustETF gemappte Positionen) gefunden."
             ))
         else:
             self.stdout.write(self.style.SUCCESS(
