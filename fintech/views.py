@@ -329,18 +329,30 @@ def portfolio_overall_stocks(request):
     # Fonds mit dem höchsten Gewicht merken (Fallback-Kategorie-Quelle) und
     # das Aktien-Asset selbst (für Aktien ohne eigene Holdings-Zeile)
     look_through_value = {}
+    fund_breakdown = {}        # Aktien-ISIN -> Liste der einzelnen Fonds-Beiträge (für Detail-Overlay)
     best_fund_for_stock = {}   # Aktien-ISIN -> (percentage, Fonds-ISIN)
     holding_assets = {}        # isin -> Asset (nur für reine Look-Through-Aktien nötig)
     if fund_value:
-        mappings = FondHolding.objects.select_related('holding').filter(fund_id__in=fund_value.keys())
+        mappings = FondHolding.objects.select_related('holding', 'fund').filter(fund_id__in=fund_value.keys())
         for m in mappings:
-            contribution = fund_value.get(m.fund_id, Decimal('0')) * (m.percentage / Decimal('100'))
+            fund_val = fund_value.get(m.fund_id, Decimal('0'))
+            contribution = fund_val * (m.percentage / Decimal('100'))
             look_through_value[m.holding_id] = look_through_value.get(m.holding_id, Decimal('0')) + contribution
             holding_assets[m.holding_id] = m.holding
+            fund_breakdown.setdefault(m.holding_id, []).append({
+                'fund_name':    m.fund.name,
+                'fund_isin':    m.fund_id,
+                'percentage':   m.percentage,
+                'fund_value':   fund_val,
+                'contribution': contribution,
+            })
 
             current_best = best_fund_for_stock.get(m.holding_id)
             if current_best is None or m.percentage > current_best[0]:
                 best_fund_for_stock[m.holding_id] = (m.percentage, m.fund_id)
+
+    for breakdown in fund_breakdown.values():
+        breakdown.sort(key=lambda d: d['contribution'], reverse=True)
 
     def resolve_category(isin):
         cat = holding_category.get(isin)
@@ -375,6 +387,7 @@ def portfolio_overall_stocks(request):
             'value_stock': value_stock,
             'value_fund':  value_fund,
             'value_total': value_stock + value_fund,
+            'fund_breakdown': fund_breakdown.get(isin, []),
         })
     rows.sort(key=lambda r: r['value_total'], reverse=True)
 

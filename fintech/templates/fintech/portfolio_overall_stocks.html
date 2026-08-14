@@ -75,7 +75,13 @@
                     </td>
                     <td style="font-size:.82rem;color:#6c757d;">{{ row.category }}</td>
                     <td class="text-end">{{ row.value_stock|de_currency:0 }}</td>
-                    <td class="text-end">{{ row.value_fund|de_currency:0 }}</td>
+                    <td class="text-end">
+                        {% if row.fund_breakdown %}
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#fund-modal-{{ row.isin }}" class="text-decoration-none" title="Fonds-Anteile anzeigen">{{ row.value_fund|de_currency:0 }}</a>
+                        {% else %}
+                            {{ row.value_fund|de_currency:0 }}
+                        {% endif %}
+                    </td>
                     <td class="text-end">{{ row.value_total|de_currency:0 }}</td>
                 </tr>
                 {% endfor %}
@@ -90,6 +96,52 @@
             </tfoot>
         </table>
     </div>
+
+    {% for row in rows %}
+        {% if row.fund_breakdown %}
+        <div class="modal fade" id="fund-modal-{{ row.isin }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ row.name }} &mdash; Fonds-Anteile</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                    </div>
+                    <div class="modal-body">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Fonds</th>
+                                    <th class="text-end">Anteil</th>
+                                    <th class="text-end">Fonds-Wert</th>
+                                    <th class="text-end">Beitrag</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fb in row.fund_breakdown %}
+                                <tr>
+                                    <td>
+                                        <a href="/admin/fintech/asset/{{ fb.fund_isin }}/change/" title="Fonds bearbeiten">{{ fb.fund_name }}</a>
+                                        <div class="text-muted" style="font-size:.75rem">{{ fb.fund_isin }}</div>
+                                    </td>
+                                    <td class="text-end">{{ fb.percentage|de_decimal:2 }} %</td>
+                                    <td class="text-end">{{ fb.fund_value|de_currency:0 }}</td>
+                                    <td class="text-end fw-semibold">{{ fb.contribution|de_currency:0 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="total-row">
+                                    <td colspan="3">Summe</td>
+                                    <td class="text-end">{{ row.value_fund|de_currency:0 }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
     {% endif %}
 </div>
 {% endblock %}
