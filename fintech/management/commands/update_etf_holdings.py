@@ -79,7 +79,7 @@ from fintech.apis.services.request_lib import KeyNotFoundWarning
 from fintech.apis.services.wikipedia_dax import get_dax_constituents
 from fintech.apis.services.companiesmarketcap import get_holdings as get_companiesmarketcap_holdings
 from fintech.apis.services.ark_holdings import get_holdings as get_ark_holdings
-from fintech.apis.services.name_matching import match_held_stock
+from fintech.apis.services.name_matching import match_held_stock, load_aliases
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ class Command(BaseCommand):
             help="Nur einen bestimmten Fonds aktualisieren.",
         )
 
-    def _extend_from_ranked_list(self, fund, label, constituents, held_stock_assets, dry_run):
+    def _extend_from_ranked_list(self, fund, label, constituents, held_stock_assets, aliases, dry_run):
         """
         Ergänzt FondHolding-Mappings aus einer rangierten externen Liste —
         nur für Aktien aus held_stock_assets (bereits im System bekannt), da
@@ -182,7 +182,7 @@ class Command(BaseCommand):
         matched = 0
         errors = 0
         for c in constituents:
-            asset = match_held_stock(c["name"], held_stock_assets)
+            asset = match_held_stock(c["name"], held_stock_assets, aliases)
             if asset is None or asset.isin in already_mapped:
                 continue
 
@@ -212,7 +212,7 @@ class Command(BaseCommand):
 
         return matched, errors
 
-    def _extend_dax_holdings(self, fund, held_stock_assets, dry_run):
+    def _extend_dax_holdings(self, fund, held_stock_assets, aliases, dry_run):
         """Alle DAX-Positionen (Wikipedia), abzüglich bereits über JustETF
         gemappter. Gibt (matched_count, error_count) zurück."""
         try:
@@ -220,9 +220,9 @@ class Command(BaseCommand):
         except Exception as exc:
             self.stdout.write(self.style.ERROR(f"  DAX-Wikipedia-Abruf fehlgeschlagen: {exc}"))
             return 0, 1
-        return self._extend_from_ranked_list(fund, "DAX", constituents, held_stock_assets, dry_run)
+        return self._extend_from_ranked_list(fund, "DAX", constituents, held_stock_assets, aliases, dry_run)
 
-    def _extend_msci_world_holdings(self, fund, held_stock_assets, dry_run):
+    def _extend_msci_world_holdings(self, fund, held_stock_assets, aliases, dry_run):
         """Top-50-MSCI-World-Positionen (companiesmarketcap.com), abzüglich
         bereits über JustETF gemappter. Gibt (matched_count, error_count) zurück."""
         try:
@@ -230,7 +230,7 @@ class Command(BaseCommand):
         except Exception as exc:
             self.stdout.write(self.style.ERROR(f"  MSCI-World-Holdings-Abruf fehlgeschlagen: {exc}"))
             return 0, 1
-        return self._extend_from_ranked_list(fund, "MSCI-World", constituents[:50], held_stock_assets, dry_run)
+        return self._extend_from_ranked_list(fund, "MSCI-World", constituents[:50], held_stock_assets, aliases, dry_run)
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
@@ -366,23 +366,24 @@ class Command(BaseCommand):
             held_stock_assets = list(
                 Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__isnull=False).distinct()
             )
+            aliases = load_aliases()
             self.stdout.write(
                 f"\n{len(held_stock_assets)} bekannte Aktie(n) (direkt oder über einen Fonds) "
-                f"als Basis für DAX-/MSCI-World-Tail-Namensabgleich."
+                f"als Basis für DAX-/MSCI-World-Tail-Namensabgleich, {len(aliases)} Namens-Synonym(e)."
             )
 
             for fund in extend_funds:
                 self.stdout.write(f"--- Tail-Erweiterung: {fund.isin} ({fund.name}) ---")
                 if fund.extend_etf == EtfExtendSource.DAX:
                     self.stdout.write("  DAX-Tail-Erweiterung aktiv (extend_etf=DAX) …")
-                    n, e = self._extend_dax_holdings(fund, held_stock_assets, dry_run)
+                    n, e = self._extend_dax_holdings(fund, held_stock_assets, aliases, dry_run)
                     self.stdout.write(f"  DAX-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
                     dax_matched += n
                     dax_errors += e
 
                 elif fund.extend_etf == EtfExtendSource.MSCI_WORLD:
                     self.stdout.write("  MSCI-World-Tail-Erweiterung aktiv (extend_etf=MSCI_WORLD) …")
-                    n, e = self._extend_msci_world_holdings(fund, held_stock_assets, dry_run)
+                    n, e = self._extend_msci_world_holdings(fund, held_stock_assets, aliases, dry_run)
                     self.stdout.write(f"  MSCI-World-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
                     msci_world_matched += n
                     msci_world_errors += e

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
 from decimal import Decimal
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -232,6 +232,12 @@ class ManualFondHoldingAdmin(admin.ModelAdmin):
     search_fields = ('fund__name', 'fund__isin', 'holding_name')
     autocomplete_fields = ('fund',)
     list_select_related = ('fund',)
+    readonly_fields = ('created_at', 'updated_at')
+
+@admin.register(NameAlias)
+class NameAliasAdmin(admin.ModelAdmin):
+    list_display = ['external_name', 'search_term', 'updated_at']
+    search_fields = ('external_name', 'search_term')
     readonly_fields = ('created_at', 'updated_at')
 
 @admin.register(WatchlistEntry)

@@ -660,3 +660,39 @@ class ManualFondHolding(models.Model):
 
     def __str__(self):
         return f"{self.fund.name} → {self.holding_name} ({self.percentage}%)"
+
+
+class NameAlias(models.Model):
+    """
+    Manuell gepflegte Synonym-Tabelle für den Namensabgleich in
+    fintech.apis.services.name_matching (DAX-/MSCI-World-Tail-Erweiterung,
+    ManualFondHolding) — für die wenigen Fälle, in denen externe Quelle und
+    im System gespeicherter Name KEIN gemeinsames Wort haben (z.B. "BMW" vs.
+    "BAY.MOTOREN WERKE AG ST") oder unterschiedlich zusammengeschrieben sind
+    (z.B. "Exxonmobil" vs. "Exxon Mobil"). external_name wird normalisiert
+    mit dem gespeicherten Namen verglichen; bei Treffer werden stattdessen
+    die normalisierten Wörter von search_term als Suchbegriff verwendet.
+    """
+    external_name = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='Name, wie er in der externen Quelle steht, z.B. "BMW".',
+    )
+    search_term = models.CharField(
+        max_length=100,
+        help_text=(
+            'Ersatz-Suchbegriff, dessen Wörter stattdessen gegen den gehaltenen Namen '
+            'geprüft werden, z.B. "Motoren Werke". Bewusst knapp halten, damit es auch mit '
+            'unterschiedlich abgekürzten Schreibweisen im eigenen Bestand funktioniert.'
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Namens-Synonym"
+        verbose_name_plural = "Namens-Synonyme"
+        ordering = ['external_name']
+
+    def __str__(self):
+        return f"{self.external_name} → {self.search_term}"

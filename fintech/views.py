@@ -10,7 +10,7 @@ from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
 from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding
-from .apis.services.name_matching import match_held_stock
+from .apis.services.name_matching import match_held_stock, load_aliases
 from .models_helper.category_class import CategoryClass
 from .models_helper.asset_class import AssetClass
 from django.utils.text import slugify
@@ -374,12 +374,13 @@ def portfolio_overall_stocks(request):
         known_stock_assets = list(
             Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__isnull=False).distinct()
         )
+        aliases = load_aliases()
         manual_entries = ManualFondHolding.objects.select_related('fund').filter(
             fund_id__in=manual_override_fund_ids
         )
         for entry in manual_entries:
             fund_val = fund_value.get(entry.fund_id, Decimal('0'))
-            matched_asset = match_held_stock(entry.holding_name, known_stock_assets)
+            matched_asset = match_held_stock(entry.holding_name, known_stock_assets, aliases)
             if matched_asset is not None:
                 _record_contribution(matched_asset.isin, entry.fund, fund_val, entry.percentage, asset=matched_asset)
             else:
