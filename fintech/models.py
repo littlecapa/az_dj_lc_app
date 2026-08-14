@@ -154,6 +154,21 @@ class Asset(models.Model):
         ),
     )
 
+    ark_ticker = models.CharField(
+        max_length=10,
+        blank=True,
+        default='',
+        verbose_name="ARK-Ticker",
+        help_text=(
+            "Für update_etf_holdings: statt der JustETF-Top-10 die vollständige, "
+            "tagesaktuelle Holdings-Liste direkt von ARK Invest verwenden (z.B. 'ARKK' für "
+            "den ARK Innovation ETF) — liefert CUSIP, woraus die ISIN berechnet wird, kein "
+            "Namensabgleich nötig. Nur sinnvoll für Fonds, die tatsächlich einen ARK-ETF "
+            "1:1 abbilden/nachbilden (z.B. 'ARK Innovation (Acc)'). Nur bei asset_class=ETF "
+            "erlaubt."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -162,6 +177,10 @@ class Asset(models.Model):
         if self.extend_etf and self.asset_class != AssetClass.ETF:
             raise ValidationError({
                 'extend_etf': "extend_etf darf nur bei asset_class=ETF gesetzt werden.",
+            })
+        if self.ark_ticker and self.asset_class != AssetClass.ETF:
+            raise ValidationError({
+                'ark_ticker': "ark_ticker darf nur bei asset_class=ETF gesetzt werden.",
             })
 
     class Meta:
@@ -598,3 +617,46 @@ class FondHolding(models.Model):
 
     def __str__(self):
         return f"{self.fund.name} → {self.holding.name} ({self.percentage}%)"
+
+
+class ManualFondHolding(models.Model):
+    """
+    Halb-manuell gepflegte Fonds-Holdings — für aktiv gemanagte Fonds ohne
+    strukturierte Datenquelle (z.B. aus einem Factsheet abgetippt). Anders
+    als FondHolding braucht die Position keine ISIN/kein existierendes
+    Asset (holding_name ist Freitext) — die Look-Through-View versucht zur
+    Anzeige einen Namensabgleich gegen bekannte Assets, zeigt aber auch ohne
+    Treffer eine Zeile mit dem eingegebenen Namen.
+
+    Hat ein Fonds hier mindestens einen Eintrag, wird NUR diese Tabelle für
+    seinen Beitrag zu "Akt. Wert Fonds" verwendet (FondHolding-Einträge für
+    diesen Fonds werden ignoriert). Hat er keinen Eintrag, greift das
+    bisherige FondHolding-Verhalten unverändert.
+    """
+    fund = models.ForeignKey(
+        'Asset',
+        on_delete=models.CASCADE,
+        related_name='manual_fund_holdings',
+        limit_choices_to={'asset_class__in': [AssetClass.ETF, AssetClass.FOND]},
+        help_text="Der Fonds/ETF (muss als Asset existieren, i.d.R. eine deiner Holdings)",
+    )
+    holding_name = models.CharField(
+        max_length=200,
+        help_text="Name der Position, z.B. aus einem Factsheet abgetippt (keine ISIN nötig).",
+    )
+    percentage = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('100'))],
+        help_text="Gewichtung in Prozent, z.B. 10.100 für 10,1%",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Manuelles Fonds-Holding"
+        verbose_name_plural = "Manuelle Fonds-Holdings"
+        ordering = ['fund__name', '-percentage']
+
+    def __str__(self):
+        return f"{self.fund.name} → {self.holding_name} ({self.percentage}%)"

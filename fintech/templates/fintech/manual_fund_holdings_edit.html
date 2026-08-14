@@ -1,0 +1,91 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Manuelle Fonds-Holdings{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h2 class="mb-0">Manuelle Fonds-Holdings</h2>
+        <a href="{% url 'fintech:portfolio-overall-stocks' %}" class="btn btn-sm btn-outline-secondary">← Aktien Look-Through</a>
+    </div>
+    <p class="text-muted small mb-4">
+        Für aktiv gemanagte Fonds ohne strukturierte Datenquelle (z.B. aus einem Factsheet
+        abgetippt). Hat ein Fonds hier Einträge, ersetzen sie beim Speichern der Aktien-Look-
+        Through-Ansicht komplett die automatisch ermittelten Fonds-Holdings für diesen Fonds.
+    </p>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show mb-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <label for="fund-picker" class="form-label fw-semibold">Fonds (ISIN)</label>
+            <select id="fund-picker" class="form-select" style="max-width:520px"
+                    onchange="if (this.value) { window.location.href = '{% url 'fintech:manual-fund-holdings' %}' + this.value + '/'; }">
+                <option value="">— Fonds wählen —</option>
+                {% for f in funds %}
+                    <option value="{{ f.isin }}" {% if fund and f.isin == fund.isin %}selected{% endif %}>
+                        {{ f.name }} ({{ f.isin }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    {% if fund %}
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <div>
+                <strong>{{ fund.name }}</strong>
+                <span class="text-muted small">{{ fund.isin }}</span>
+            </div>
+            {% if existing_entries %}<span class="text-muted small">{{ existing_entries|length }} bestehende Position(en)</span>{% endif %}
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width:2rem">#</th>
+                                <th>Name</th>
+                                <th style="width:10rem">Anteil (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in existing_entries %}
+                            <tr>
+                                <td class="text-muted">{{ forloop.counter }}</td>
+                                <td><input type="text" name="holding_name" class="form-control form-control-sm" value="{{ entry.holding_name }}"></td>
+                                <td><input type="text" name="percentage" class="form-control form-control-sm" value="{{ entry.percentage }}"></td>
+                            </tr>
+                            {% endfor %}
+                            {% for _ in empty_row_range %}
+                            <tr>
+                                <td class="text-muted">{{ existing_entries|length|add:forloop.counter }}</td>
+                                <td><input type="text" name="holding_name" class="form-control form-control-sm" placeholder="z.B. Amazon"></td>
+                                <td><input type="text" name="percentage" class="form-control form-control-sm" placeholder="z.B. 10,1"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-muted small">
+                    Leere Zeilen werden ignoriert. Beim Speichern werden ALLE bestehenden
+                    Positionen dieses Fonds durch die obige Tabelle ersetzt.
+                </p>
+                <button type="submit" class="btn btn-primary">Speichern</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

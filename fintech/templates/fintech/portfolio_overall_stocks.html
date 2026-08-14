@@ -60,24 +60,28 @@
                     <td>
                         <div class="fw-semibold d-flex align-items-center gap-2">
                             {% if row.logo %}<img src="{{ row.logo }}" alt="" style="height:20px;width:20px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
-                            {% if row.symbol %}
+                            {% if not row.isin %}
+                                <span title="Manuell erfasste Position ohne Asset-Zuordnung">{{ row.name }}</span>
+                            {% elif row.symbol %}
                                 <a href="https://de.tradingview.com/symbols/{{ row.symbol }}/" target="_blank" rel="noopener noreferrer" title="TradingView">{{ row.name }}</a>
                             {% else %}
                                 <a href="https://www.onvista.de/aktien/ISIN/{{ row.isin }}" target="_blank" rel="noopener noreferrer" title="onvista">{{ row.name }}</a>
                             {% endif %}
                             {% if row.holdings_id %}
                                 <a href="/admin/fintech/holdings/{{ row.holdings_id }}/change/" title="Bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
-                            {% else %}
+                            {% elif row.isin %}
                                 <a href="/admin/fintech/asset/{{ row.isin }}/change/" title="Nur über Fonds gehalten — Asset bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
                             {% endif %}
                         </div>
-                        <div class="text-muted" style="font-size:.78rem">{{ row.isin }} &middot; {{ row.asset_class }}</div>
+                        <div class="text-muted" style="font-size:.78rem">
+                            {% if row.isin %}{{ row.isin }} &middot; {{ row.asset_class }}{% else %}manuell erfasst, keine ISIN{% endif %}
+                        </div>
                     </td>
                     <td style="font-size:.82rem;color:#6c757d;">{{ row.category }}</td>
                     <td class="text-end">{{ row.value_stock|de_currency:0 }}</td>
                     <td class="text-end">
                         {% if row.fund_breakdown %}
-                            <a href="#" data-bs-toggle="modal" data-bs-target="#fund-modal-{{ row.isin }}" class="text-decoration-none" title="Fonds-Anteile anzeigen">{{ row.value_fund|de_currency:0 }}</a>
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#fund-modal-{{ row.row_key }}" class="text-decoration-none" title="Fonds-Anteile anzeigen">{{ row.value_fund|de_currency:0 }}</a>
                         {% else %}
                             {{ row.value_fund|de_currency:0 }}
                         {% endif %}
@@ -99,7 +103,7 @@
 
     {% for row in rows %}
         {% if row.fund_breakdown %}
-        <div class="modal fade" id="fund-modal-{{ row.isin }}" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="fund-modal-{{ row.row_key }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-scrollable">
                 <div class="modal-content">
                     <div class="modal-header">

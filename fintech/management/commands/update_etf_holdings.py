@@ -25,6 +25,14 @@ anderer gehaltener Fonds (z.B. mehrere "MSCI World"-Tracker verschiedener
 Anbieter). Das FondHolding-Mapping wird trotzdem für den tatsächlich
 gehaltenen Fonds gespeichert, nur die Datenquelle ändert sich.
 
+Ist bei einem Fonds Asset.ark_ticker gesetzt (z.B. "ARKK"), wird statt der
+JustETF-Top-10 die vollständige, tagesaktuelle Holdings-Liste direkt von
+ARK Invest verwendet (fintech.apis.services.ark_holdings) — anders als
+Wikipedia/companiesmarketcap liefert ARKs CSV eine CUSIP je Position, woraus
+sich die ISIN direkt berechnen lässt (ISO 6166). Läuft daher wie ein
+normales Get-or-create-per-ISIN, kein Namensabgleich, keine Tail-Erweiterung
+nötig — die komplette Liste ersetzt die JustETF-Top-10 für diesen Fonds.
+
 Ist bei einem Fonds Asset.extend_etf gesetzt (nur bei asset_class=ETF
 erlaubt, siehe Asset.clean()), werden ZUSÄTZLICH zu den JustETF-Top-10 die
 Positionen 11+ einer externen Quelle herangezogen: extend_etf='DAX' nutzt
@@ -48,7 +56,6 @@ python manage.py update_etf_holdings --dry-run
 python manage.py update_etf_holdings --isin IE00B4L5Y983
 """
 import logging
-import re
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
@@ -65,49 +72,10 @@ from fintech.apis.services.soup_cache import SoupCache
 from fintech.apis.services.request_lib import KeyNotFoundWarning
 from fintech.apis.services.wikipedia_dax import get_dax_constituents
 from fintech.apis.services.companiesmarketcap import get_holdings as get_companiesmarketcap_holdings
+from fintech.apis.services.ark_holdings import get_holdings as get_ark_holdings
+from fintech.apis.services.name_matching import match_held_stock
 
 logger = logging.getLogger(__name__)
-
-_NAME_STOPWORDS_RE = re.compile(
-    r"\b(ag|se|na|st|inh|inc|corp|corporation|group|holding|holdings|plc|nv|sa|ltd|co|class)\b"
-)
-_UMLAUT_TRANSLATION = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
-
-
-def _normalize_company_name(name: str) -> str:
-    """Grobe Normalisierung für den Namensabgleich Wikipedia/companiesmarketcap
-    <-> Asset.name (Umlaute transliteriert wie bei Börsenkürzeln üblich
-    [ü->ue etc.], Rechtsform-Suffixe raus, nur alphanumerisch, ein Leerzeichen)."""
-    name = name.lower().translate(_UMLAUT_TRANSLATION)
-    name = _NAME_STOPWORDS_RE.sub(" ", name)
-    name = re.sub(r"[^a-z0-9]+", " ", name)
-    return " ".join(name.split())
-
-
-def _match_held_stock(wiki_name: str, held_assets):
-    """Sucht unter den bereits im System bekannten STOCK-Assets (direkt
-    gehalten oder bereits über einen anderen Fonds als Dummy-Holdings
-    erfasst) eines, dessen
-    normalisierten Wörter des externen Namens (Wikipedia/companiesmarketcap)
-    vollständig unter den Wörtern des gehaltenen Assets wiederfinden — als
-    vollständige Wörter, nicht als bloßer Teilstring. Es wird bewusst nur
-    diese eine Richtung geprüft (externer Name ⊆ gehaltener Name): gehaltene
-    Assets führen typischerweise den vollen Namen inkl. Rechtsform-Suffixen
-    (AG/SE/NA/O.N.), externe Quellen den kurzen Namen. Die umgekehrte
-    Richtung würde z.B. "Siemens" fälschlich auf "Siemens Energy"/"Siemens
-    Healthineers" matchen (eigenständige, abgespaltene Gesellschaften) — und
-    reiner Teilstring-Vergleich würde kurze Namen wie "RWE" als Zeichenfolge
-    in unverwandten Namen wie "Vorwerk" finden.
-    Best-effort — bei einer kleinen, bekannten Portfoliogröße ausreichend
-    zuverlässig; falsche/fehlende Treffer sind über den Admin leicht zu sehen."""
-    wiki_tokens = set(_normalize_company_name(wiki_name).split())
-    if not wiki_tokens:
-        return None
-    for asset in held_assets:
-        asset_tokens = set(_normalize_company_name(asset.name).split())
-        if asset_tokens and wiki_tokens <= asset_tokens:
-            return asset
-    return None
 
 
 def _report_save_error(fund, holding_isin, holding_name, error_detail):
@@ -198,7 +166,7 @@ class Command(BaseCommand):
         matched = 0
         errors = 0
         for c in constituents[tail_start:]:
-            asset = _match_held_stock(c["name"], held_stock_assets)
+            asset = match_held_stock(c["name"], held_stock_assets)
             if asset is None:
                 continue
 
@@ -285,19 +253,28 @@ class Command(BaseCommand):
         extend_funds = []
 
         for fund in funds:
-            scrape_isin = fund.holdings_reference.isin if fund.holdings_reference_id else fund.isin
-            source_note = f" — Holdings-Quelle: {fund.holdings_reference.name} ({scrape_isin})" if fund.holdings_reference_id else ""
-            self.stdout.write(f"--- {fund.isin} ({fund.name}){source_note} ---")
-            try:
-                top_holdings = justetf.get_top_holdings(scrape_isin)
-            except KeyNotFoundWarning:
-                self.stdout.write(self.style.ERROR("  Kein ETF-Profil bei JustETF gefunden."))
-                errors += 1
-                top_holdings = []
-            except Exception as exc:
-                self.stdout.write(self.style.ERROR(f"  Fehler beim Abruf: {exc}"))
-                errors += 1
-                top_holdings = []
+            if fund.ark_ticker:
+                self.stdout.write(f"--- {fund.isin} ({fund.name}) — Holdings-Quelle: ARK-CSV ({fund.ark_ticker}) ---")
+                try:
+                    top_holdings = get_ark_holdings(fund.ark_ticker)
+                except Exception as exc:
+                    self.stdout.write(self.style.ERROR(f"  ARK-CSV-Abruf fehlgeschlagen: {exc}"))
+                    errors += 1
+                    top_holdings = []
+            else:
+                scrape_isin = fund.holdings_reference.isin if fund.holdings_reference_id else fund.isin
+                source_note = f" — Holdings-Quelle: {fund.holdings_reference.name} ({scrape_isin})" if fund.holdings_reference_id else ""
+                self.stdout.write(f"--- {fund.isin} ({fund.name}){source_note} ---")
+                try:
+                    top_holdings = justetf.get_top_holdings(scrape_isin)
+                except KeyNotFoundWarning:
+                    self.stdout.write(self.style.ERROR("  Kein ETF-Profil bei JustETF gefunden."))
+                    errors += 1
+                    top_holdings = []
+                except Exception as exc:
+                    self.stdout.write(self.style.ERROR(f"  Fehler beim Abruf: {exc}"))
+                    errors += 1
+                    top_holdings = []
 
             if not top_holdings:
                 self.stdout.write(self.style.WARNING("  Keine Holdings-Daten gefunden."))

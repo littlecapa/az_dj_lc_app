@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
 from decimal import Decimal
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -34,7 +34,7 @@ class PriceAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_etf', 'price_fetch_blocked']
+    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_etf', 'ark_ticker', 'price_fetch_blocked']
     list_filter = ['asset_class', 'currency', 'exchange', 'extend_etf', 'price_fetch_blocked']
     list_editable = ['price_fetch_blocked']
     search_fields = ['isin', 'wkn', 'symbol', 'name']
@@ -54,7 +54,7 @@ class AssetAdmin(admin.ModelAdmin):
             )
         }),
         ('ETF-Holdings-Referenz', {
-            'fields': ('holdings_reference', 'extend_etf'),
+            'fields': ('holdings_reference', 'extend_etf', 'ark_ticker'),
             'description': (
                 'Nur für ETF/Fonds relevant. holdings_reference: update_etf_holdings holt die '
                 'Top-10-Holdings von der JustETF-Seite DIESES Referenz-Fonds statt der eigenen — '
@@ -63,7 +63,10 @@ class AssetAdmin(admin.ModelAdmin):
                 'extend_etf: nur für einen echten Tracker des jeweiligen Index setzen (nur bei '
                 'asset_class=ETF erlaubt) — ergänzt zusätzlich Positionen 11+ von Wikipedia (DAX) '
                 'bzw. companiesmarketcap.com (MSCI World), aber nur für bereits direkt gehaltene '
-                'Aktien (Namensabgleich).'
+                'Aktien (Namensabgleich). ark_ticker (z.B. "ARKK"): ersetzt die JustETF-Top-10 '
+                'komplett durch ARK Invests eigene tagesaktuelle CSV-Liste (ISIN aus CUSIP '
+                'berechnet, kein Namensabgleich nötig) — nur für Fonds, die einen ARK-ETF 1:1 '
+                'abbilden.'
             ),
         }),
         ('Identifikation', {'fields': ('isin', 'wkn', 'exchange')}),
@@ -221,6 +224,15 @@ class FondHoldingAdmin(admin.ModelAdmin):
     search_fields = ('fund__name', 'fund__isin', 'holding__name', 'holding__isin')
     autocomplete_fields = ('fund', 'holding')
     list_select_related = ('fund', 'holding')
+
+@admin.register(ManualFondHolding)
+class ManualFondHoldingAdmin(admin.ModelAdmin):
+    list_display = ['fund', 'holding_name', 'percentage', 'updated_at']
+    list_filter = ['fund']
+    search_fields = ('fund__name', 'fund__isin', 'holding_name')
+    autocomplete_fields = ('fund',)
+    list_select_related = ('fund',)
+    readonly_fields = ('created_at', 'updated_at')
 
 @admin.register(WatchlistEntry)
 class WatchlistEntryAdmin(admin.ModelAdmin):

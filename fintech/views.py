@@ -4,11 +4,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.conf import settings
 from django.db.models import F, ExpressionWrapper, DecimalField
+from django.db import transaction
 from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding
+from .apis.services.name_matching import match_held_stock
 from .models_helper.category_class import CategoryClass
 from .models_helper.asset_class import AssetClass
 from django.utils.text import slugify
@@ -325,69 +327,105 @@ def portfolio_overall_stocks(request):
         fund_value[h.asset_id] = h.quantity * price
         holding_category[h.asset_id] = h.category
 
-    # Fonds-Wert über FondHolding-Mapping auf Aktien verteilen; je Aktie den
-    # Fonds mit dem höchsten Gewicht merken (Fallback-Kategorie-Quelle) und
-    # das Aktien-Asset selbst (für Aktien ohne eigene Holdings-Zeile)
+    # Fonds mit manuell gepflegten Holdings (ManualFondHolding) haben Vorrang:
+    # für diese Fonds wird FondHolding komplett ignoriert.
+    manual_override_fund_ids = set(
+        ManualFondHolding.objects.filter(fund_id__in=fund_value.keys())
+        .values_list('fund_id', flat=True).distinct()
+    ) if fund_value else set()
+
+    # Fonds-Wert über FondHolding-Mapping (bzw. ManualFondHolding für Fonds mit
+    # Vorrang) auf Aktien verteilen; je Aktie den Fonds mit dem höchsten
+    # Gewicht merken (Fallback-Kategorie-Quelle) und das Aktien-Asset selbst
+    # (für Aktien ohne eigene Holdings-Zeile).
     look_through_value = {}
-    fund_breakdown = {}        # Aktien-ISIN -> Liste der einzelnen Fonds-Beiträge (für Detail-Overlay)
-    best_fund_for_stock = {}   # Aktien-ISIN -> (percentage, Fonds-ISIN)
-    holding_assets = {}        # isin -> Asset (nur für reine Look-Through-Aktien nötig)
+    fund_breakdown = {}        # Stock-Key -> Liste der einzelnen Fonds-Beiträge (für Detail-Overlay)
+    best_fund_for_stock = {}   # Stock-Key -> (percentage, Fonds-ISIN)
+    holding_assets = {}        # Stock-Key -> Asset (nur für reine Look-Through-Aktien nötig)
+    virtual_stock_names = {}   # Stock-Key -> Name (manuell erfasste Position ohne Asset-Match)
+
+    def _record_contribution(stock_key, fund, fund_val, percentage, asset=None):
+        contribution = fund_val * (percentage / Decimal('100'))
+        look_through_value[stock_key] = look_through_value.get(stock_key, Decimal('0')) + contribution
+        if asset is not None:
+            holding_assets[stock_key] = asset
+        fund_breakdown.setdefault(stock_key, []).append({
+            'fund_name':    fund.name,
+            'fund_isin':    fund.isin,
+            'percentage':   percentage,
+            'fund_value':   fund_val,
+            'contribution': contribution,
+        })
+        current_best = best_fund_for_stock.get(stock_key)
+        if current_best is None or percentage > current_best[0]:
+            best_fund_for_stock[stock_key] = (percentage, fund.isin)
+
     if fund_value:
-        mappings = FondHolding.objects.select_related('holding', 'fund').filter(fund_id__in=fund_value.keys())
+        auto_fund_ids = set(fund_value.keys()) - manual_override_fund_ids
+        mappings = FondHolding.objects.select_related('holding', 'fund').filter(fund_id__in=auto_fund_ids)
         for m in mappings:
             fund_val = fund_value.get(m.fund_id, Decimal('0'))
-            contribution = fund_val * (m.percentage / Decimal('100'))
-            look_through_value[m.holding_id] = look_through_value.get(m.holding_id, Decimal('0')) + contribution
-            holding_assets[m.holding_id] = m.holding
-            fund_breakdown.setdefault(m.holding_id, []).append({
-                'fund_name':    m.fund.name,
-                'fund_isin':    m.fund_id,
-                'percentage':   m.percentage,
-                'fund_value':   fund_val,
-                'contribution': contribution,
-            })
+            _record_contribution(m.holding_id, m.fund, fund_val, m.percentage, asset=m.holding)
 
-            current_best = best_fund_for_stock.get(m.holding_id)
-            if current_best is None or m.percentage > current_best[0]:
-                best_fund_for_stock[m.holding_id] = (m.percentage, m.fund_id)
+    if manual_override_fund_ids:
+        # Namensabgleich-Basis: alle im System bereits bekannten Aktien
+        # (direkt gehalten oder bereits über einen Fonds erfasst) — dieselbe
+        # Logik wie update_etf_holdings' DAX-/MSCI-World-Tail-Erweiterung.
+        known_stock_assets = list(
+            Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__isnull=False).distinct()
+        )
+        manual_entries = ManualFondHolding.objects.select_related('fund').filter(
+            fund_id__in=manual_override_fund_ids
+        )
+        for entry in manual_entries:
+            fund_val = fund_value.get(entry.fund_id, Decimal('0'))
+            matched_asset = match_held_stock(entry.holding_name, known_stock_assets)
+            if matched_asset is not None:
+                _record_contribution(matched_asset.isin, entry.fund, fund_val, entry.percentage, asset=matched_asset)
+            else:
+                stock_key = f"manual-{slugify(entry.fund_id)}-{slugify(entry.holding_name)}"
+                virtual_stock_names[stock_key] = entry.holding_name
+                _record_contribution(stock_key, entry.fund, fund_val, entry.percentage)
 
     for breakdown in fund_breakdown.values():
         breakdown.sort(key=lambda d: d['contribution'], reverse=True)
 
-    def resolve_category(isin):
-        cat = holding_category.get(isin)
+    def resolve_category(stock_key):
+        cat = holding_category.get(stock_key)
         if cat:
             return cat
-        best = best_fund_for_stock.get(isin)
+        best = best_fund_for_stock.get(stock_key)
         if best:
             return holding_category.get(best[1])
         return None
 
-    # Je Aktie eine Zeile
-    all_isins = set(direct_value) | set(look_through_value)
+    # Je Aktie (oder manuell erfasster Position ohne Asset-Match) eine Zeile
+    all_keys = set(direct_value) | set(look_through_value)
     rows = []
-    for isin in all_isins:
-        h = holdings_by_isin.get(isin)
-        asset = h.asset if h else holding_assets.get(isin)
-        if asset is None:
+    for key in all_keys:
+        h = holdings_by_isin.get(key)
+        asset = h.asset if h else holding_assets.get(key)
+        virtual_name = virtual_stock_names.get(key)
+        if asset is None and virtual_name is None:
             continue
 
-        value_stock = direct_value.get(isin, Decimal('0'))
-        value_fund  = look_through_value.get(isin, Decimal('0'))
-        cat = resolve_category(isin)
+        value_stock = direct_value.get(key, Decimal('0'))
+        value_fund  = look_through_value.get(key, Decimal('0'))
+        cat = resolve_category(key)
 
         rows.append({
-            'name':        asset.name,
-            'isin':        asset.isin,
-            'symbol':      asset.symbol or '',
-            'asset_class': asset.asset_class,
-            'logo':        asset.logo or '',
+            'row_key':     key,
+            'name':        asset.name if asset else virtual_name,
+            'isin':        asset.isin if asset else '',
+            'symbol':      asset.symbol if asset and asset.symbol else '',
+            'asset_class': asset.asset_class if asset else AssetClass.STOCK,
+            'logo':        asset.logo if asset and asset.logo else '',
             'holdings_id': h.pk if h else None,
             'category':    CategoryClass(cat).label if cat else 'Sonstiges',
             'value_stock': value_stock,
             'value_fund':  value_fund,
             'value_total': value_stock + value_fund,
-            'fund_breakdown': fund_breakdown.get(isin, []),
+            'fund_breakdown': fund_breakdown.get(key, []),
         })
     rows.sort(key=lambda r: r['value_total'], reverse=True)
 
@@ -1472,4 +1510,72 @@ def news(request):
         "events":      events,
         "show_all":    show_all,
         "unread_count": unread_count,
+    })
+
+
+@staff_member_required
+def manual_fund_holdings_edit(request, isin=None):
+    """
+    Formularseite zum halb-manuellen Pflegen von ManualFondHolding-Einträgen
+    für einen Fonds (z.B. aus einem Factsheet abgetippte Top-Holdings für
+    aktiv gemanagte Fonds ohne strukturierte Datenquelle wie JustETF/DAX/
+    MSCI-World-Tail). Ersetzt beim Speichern ALLE bestehenden Einträge für
+    diesen Fonds durch die eingegebene Tabelle (kein inkrementelles
+    Hinzufügen — die Tabelle ist der gewünschte Gesamtzustand).
+    """
+    funds = Asset.objects.filter(
+        asset_class__in=[AssetClass.ETF, AssetClass.FOND],
+    ).order_by('name')
+
+    fund = None
+    if isin:
+        fund = get_object_or_404(
+            Asset, isin=isin.upper(), asset_class__in=[AssetClass.ETF, AssetClass.FOND],
+        )
+
+    if request.method == 'POST' and fund is not None:
+        names = request.POST.getlist('holding_name')
+        percentages = request.POST.getlist('percentage')
+
+        new_entries = []
+        errors = []
+        for name, pct_raw in zip(names, percentages):
+            name = name.strip()
+            pct_raw = pct_raw.strip().replace(',', '.')
+            if not name and not pct_raw:
+                continue
+            if not name or not pct_raw:
+                errors.append(f"Zeile unvollständig: Name={name!r}, Anteil={pct_raw!r}")
+                continue
+            try:
+                percentage = Decimal(pct_raw)
+            except InvalidOperation:
+                errors.append(f"Ungültiger Anteil bei '{name}': {pct_raw!r}")
+                continue
+            if percentage < 0 or percentage > 100:
+                errors.append(f"Anteil außerhalb 0-100 bei '{name}': {percentage}")
+                continue
+            new_entries.append(ManualFondHolding(fund=fund, holding_name=name, percentage=percentage))
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+        else:
+            with transaction.atomic():
+                ManualFondHolding.objects.filter(fund=fund).delete()
+                ManualFondHolding.objects.bulk_create(new_entries)
+            messages.success(request, f"{len(new_entries)} Position(en) für {fund.name} gespeichert.")
+            return redirect('fintech:manual-fund-holdings-edit', isin=fund.isin)
+
+    existing_entries = []
+    if fund is not None:
+        existing_entries = list(ManualFondHolding.objects.filter(fund=fund).order_by('-percentage'))
+
+    empty_rows_needed = max(5, 15 - len(existing_entries))
+
+    return render(request, 'fintech/manual_fund_holdings_edit.html', {
+        'funds':           funds,
+        'fund':            fund,
+        'existing_entries': existing_entries,
+        'empty_row_range': range(empty_rows_needed),
     })
