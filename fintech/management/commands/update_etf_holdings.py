@@ -30,8 +30,13 @@ erlaubt, siehe Asset.clean()), werden ZUSÄTZLICH zu den JustETF-Top-10 die
 Positionen 11+ einer externen Quelle herangezogen: extend_etf='DAX' nutzt
 Wikipedia (de.wikipedia.org/wiki/DAX, alle ~40 mit Gewicht), extend_etf=
 'MSCI_WORLD' nutzt companiesmarketcap.com (Positionen 11-50). Beide Quellen
-liefern keine ISIN — es werden daher NUR bestehende, bereits direkt
-gehaltene Aktien per Namensabgleich ergänzt, nie neue Assets angelegt.
+liefern keine ISIN — es werden daher NUR bestehende, im System bereits
+bekannte Aktien per Namensabgleich ergänzt (direkt gehalten ODER bereits
+über einen anderen Fonds als Dummy-Holdings erfasst), nie neue Assets
+angelegt. Läuft deshalb erst NACH der Top-10-Runde aller Fonds (zweiter
+Durchlauf über alle Fonds mit gesetztem extend_etf), damit auch Aktien
+erfasst werden, die erst in diesem Lauf als Dummy-Holdings neu angelegt
+wurden.
 
 Schlägt das Speichern eines Dummy-Holdings-Eintrags oder des FondHolding-
 Mappings fehl (DB-Fehler o.ä.), wird ein Jira-Bug-Ticket angelegt — der
@@ -80,7 +85,9 @@ def _normalize_company_name(name: str) -> str:
 
 
 def _match_held_stock(wiki_name: str, held_assets):
-    """Sucht unter den bereits direkt gehaltenen STOCK-Assets eines, dessen
+    """Sucht unter den bereits im System bekannten STOCK-Assets (direkt
+    gehalten oder bereits über einen anderen Fonds als Dummy-Holdings
+    erfasst) eines, dessen
     normalisierten Wörter des externen Namens (Wikipedia/companiesmarketcap)
     vollständig unter den Wörtern des gehaltenen Assets wiederfinden — als
     vollständige Wörter, nicht als bloßer Teilstring. Es wird bewusst nur
@@ -184,7 +191,7 @@ class Command(BaseCommand):
         """
         Ergänzt FondHolding-Mappings aus einer rangierten externen Liste
         (Positionen ab tail_start, 0-indexiert) — nur für Aktien aus
-        held_stock_assets (bereits direkt gehalten), da diese Quellen keine
+        held_stock_assets (bereits im System bekannt), da diese Quellen keine
         ISIN liefern und daher keine neuen Assets angelegt werden können.
         Gibt (matched_count, error_count) zurück.
         """
@@ -270,15 +277,12 @@ class Command(BaseCommand):
         msci_world_matched = 0
         msci_world_errors = 0
 
-        # Für den DAX/MSCI-World-Namensabgleich einmal vorab holen (ändert sich
-        # nicht innerhalb dieses Laufs, egal welcher Fonds gerade dran ist).
-        held_stock_assets = list(
-            Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__quantity__gt=0)
-        )
-        self.stdout.write(
-            f"{len(held_stock_assets)} direkt gehaltene Aktie(n) als Basis für "
-            f"DAX-/MSCI-World-Tail-Namensabgleich."
-        )
+        # DAX-/MSCI-World-Tail-Erweiterung erst NACH der Top-10-Runde aller Fonds
+        # durchführen (zweiter Durchlauf) — sonst würde der Namensabgleich Aktien
+        # verpassen, die (a) nur über einen ANDEREN Fonds gehalten werden (Dummy-
+        # Holdings quantity=0, z.B. Bayer nur via Xtrackers MSCI Europe Health
+        # Care) oder (b) erst in DIESEM Lauf als Dummy-Holdings neu angelegt wurden.
+        extend_funds = []
 
         for fund in funds:
             scrape_isin = fund.holdings_reference.isin if fund.holdings_reference_id else fund.isin
@@ -357,19 +361,36 @@ class Command(BaseCommand):
                     save_errors += 1
                     _report_save_error(fund, holding_isin, h["name"], str(exc))
 
-            if fund.extend_etf == EtfExtendSource.DAX:
-                self.stdout.write("  DAX-Tail-Erweiterung aktiv (extend_etf=DAX) …")
-                n, e = self._extend_dax_holdings(fund, held_stock_assets, dry_run)
-                self.stdout.write(f"  DAX-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
-                dax_matched += n
-                dax_errors += e
+            if fund.extend_etf in (EtfExtendSource.DAX, EtfExtendSource.MSCI_WORLD):
+                extend_funds.append(fund)
 
-            elif fund.extend_etf == EtfExtendSource.MSCI_WORLD:
-                self.stdout.write("  MSCI-World-Tail-Erweiterung aktiv (extend_etf=MSCI_WORLD) …")
-                n, e = self._extend_msci_world_holdings(fund, held_stock_assets, dry_run)
-                self.stdout.write(f"  MSCI-World-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
-                msci_world_matched += n
-                msci_world_errors += e
+        if extend_funds:
+            # Jetzt alle inzwischen bekannten Aktien als Basis nehmen — auch
+            # Dummy-Holdings (quantity=0), egal ob aus einem früheren Lauf oder
+            # gerade eben oben in der Top-10-Runde neu angelegt.
+            held_stock_assets = list(
+                Asset.objects.filter(asset_class=AssetClass.STOCK, holdings__isnull=False).distinct()
+            )
+            self.stdout.write(
+                f"\n{len(held_stock_assets)} bekannte Aktie(n) (direkt oder über einen Fonds) "
+                f"als Basis für DAX-/MSCI-World-Tail-Namensabgleich."
+            )
+
+            for fund in extend_funds:
+                self.stdout.write(f"--- Tail-Erweiterung: {fund.isin} ({fund.name}) ---")
+                if fund.extend_etf == EtfExtendSource.DAX:
+                    self.stdout.write("  DAX-Tail-Erweiterung aktiv (extend_etf=DAX) …")
+                    n, e = self._extend_dax_holdings(fund, held_stock_assets, dry_run)
+                    self.stdout.write(f"  DAX-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
+                    dax_matched += n
+                    dax_errors += e
+
+                elif fund.extend_etf == EtfExtendSource.MSCI_WORLD:
+                    self.stdout.write("  MSCI-World-Tail-Erweiterung aktiv (extend_etf=MSCI_WORLD) …")
+                    n, e = self._extend_msci_world_holdings(fund, held_stock_assets, dry_run)
+                    self.stdout.write(f"  MSCI-World-Tail-Erweiterung: {n} Treffer, {e} Fehler.")
+                    msci_world_matched += n
+                    msci_world_errors += e
 
         if dry_run:
             self.stdout.write(self.style.SUCCESS(
