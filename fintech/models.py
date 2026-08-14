@@ -143,6 +143,7 @@ class Asset(models.Model):
         choices=EtfExtendSource.choices,
         blank=True,
         default='',
+        verbose_name="Extend ETF",
         help_text=(
             "Für update_etf_holdings: zusätzlich zu den JustETF-Top-10 die Positionen 11+ von "
             "einer externen Quelle nachtragen (DAX: Wikipedia, MSCI World: "

@@ -64,7 +64,7 @@ from fintech.apis.services.companiesmarketcap import get_holdings as get_compani
 logger = logging.getLogger(__name__)
 
 _NAME_STOPWORDS_RE = re.compile(
-    r"\b(ag|se|na|st|inh|inc|corp|corporation|group|holding|holdings|plc|nv|sa|ltd|co)\b"
+    r"\b(ag|se|na|st|inh|inc|corp|corporation|group|holding|holdings|plc|nv|sa|ltd|co|class)\b"
 )
 _UMLAUT_TRANSLATION = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 
