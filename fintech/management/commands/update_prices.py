@@ -25,7 +25,7 @@ from django.db.models import Q
 from fintech.models import Asset, Price
 from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
-from fintech.services import flag_price_fetch_failure
+from fintech.services import flag_price_fetch_failure, report_price_fetch_failures
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +107,7 @@ class Command(BaseCommand):
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         ok = errors = skipped = 0
+        failures = []
 
         for asset, result in zip(assets_to_update, results):
             if isinstance(result, Exception):
@@ -114,7 +115,7 @@ class Command(BaseCommand):
                 errors += 1
                 continue
 
-            status, message = result
+            status, message, failure_detail = result
 
             if status == "ok":
                 self.stdout.write(self.style.SUCCESS(message))
@@ -125,6 +126,12 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.ERROR(message))
                 errors += 1
+                if failure_detail:
+                    failures.append(failure_detail)
+
+        if failures:
+            await asyncio.to_thread(report_price_fetch_failures, failures)
+            self.stdout.write(f"Sammel-Jira-Ticket für {len(failures)} fehlgeschlagene Kurs-Abrufe angelegt.")
 
         self.stdout.write(
             f"\nFertig: {ok} aktualisiert, {skipped} übersprungen, {errors} Fehler."
@@ -139,17 +146,25 @@ class Command(BaseCommand):
                     asset.asset_class,
                 )
             except Exception as exc:
-                # Echter Abruf-Fehler: price_fetch_blocked setzen + Jira-Ticket, damit
-                # nicht bei jedem weiteren Lauf erneut versucht (und getickett) wird.
+                # Echter Abruf-Fehler: price_fetch_blocked setzen. Kein Ticket hier —
+                # der Aufrufer sammelt alle Fehler des Laufs und meldet sie gebündelt
+                # (ein zentraler Ausfall wie Comdirect down soll EIN Ticket ergeben,
+                # nicht eins pro Asset).
                 await asyncio.to_thread(flag_price_fetch_failure, asset, str(exc))
-                return ("error", f"ERR {asset.isin} — {exc} (price_fetch_blocked gesetzt, Jira-Ticket angelegt)")
+                return (
+                    "error",
+                    f"ERR {asset.isin} — {exc} (price_fetch_blocked gesetzt)",
+                    {"isin": asset.isin, "name": asset.name, "asset_class": asset.asset_class, "error": str(exc)},
+                )
 
             if price is None:
-                await asyncio.to_thread(
-                    flag_price_fetch_failure, asset,
-                    "Alle Kursquellen lieferten keinen Preis (isin2price → None).",
+                error_detail = "Alle Kursquellen lieferten keinen Preis (isin2price → None)."
+                await asyncio.to_thread(flag_price_fetch_failure, asset, error_detail)
+                return (
+                    "error",
+                    f"ERR {asset.isin} — kein Kurs verfügbar (price_fetch_blocked gesetzt)",
+                    {"isin": asset.isin, "name": asset.name, "asset_class": asset.asset_class, "error": error_detail},
                 )
-                return ("error", f"ERR {asset.isin} — kein Kurs verfügbar (price_fetch_blocked gesetzt, Jira-Ticket angelegt)")
 
             try:
                 # Sanity-Check: zu starke Abweichung vom letzten bekannten Kurs?
@@ -166,13 +181,13 @@ class Command(BaseCommand):
                             f"({asset.current_price:.4f}) ab (Limit {limit}%) — nicht gespeichert"
                         )
                         logger.warning(msg)
-                        return ("skip", msg)
+                        return ("skip", msg, None)
 
                 await self._save_price(asset, price, timestamp)
-                return ("ok", f"OK {asset.isin} — {price:.4f} EUR")
+                return ("ok", f"OK {asset.isin} — {price:.4f} EUR", None)
 
             except Exception as exc:
-                return ("error", f"ERR {asset.isin} — {exc}")
+                return ("error", f"ERR {asset.isin} — {exc}", None)
 
     def _fetch_price(self, isin: str, asset_class: str) -> Optional[Decimal]:
         pm = ProviderManager()

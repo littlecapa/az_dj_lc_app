@@ -150,3 +150,45 @@ class JiraClient:
             f"/rest/api/3/issue/{issue_key}",
             params={"fields": "summary,status,issuetype"},
         )
+
+    # ------------------------------------------------------------------
+    def get_transitions(self, issue_key: str) -> list:
+        """Liste der aktuell verfügbaren Workflow-Übergänge für dieses Ticket."""
+        data = self._request("GET", f"/rest/api/3/issue/{issue_key}/transitions")
+        return data.get("transitions", [])
+
+    def transition_issue_to_done(self, issue_key: str) -> None:
+        """Setzt ein bestehendes Ticket auf den Status 'Done'. No-op falls es das bereits ist."""
+        issue = self.get_issue(issue_key)
+        current_status = issue.get("fields", {}).get("status", {}).get("name", "")
+        if current_status.strip().lower() == "done":
+            logger.info(f"Jira-Ticket {issue_key} ist bereits 'Done'")
+            return
+
+        transitions = self.get_transitions(issue_key)
+        done = next(
+            (
+                t for t in transitions
+                if t.get("name", "").strip().lower() == "done"
+                or t.get("to", {}).get("name", "").strip().lower() == "done"
+            ),
+            None,
+        )
+        if not done:
+            available = ", ".join(t.get("name", "?") for t in transitions) or "keine"
+            raise JiraApiError(
+                f"Keine 'Done'-Transition für {issue_key} verfügbar (aktueller Status "
+                f"'{current_status}', verfügbare Übergänge: {available})."
+            )
+
+        self._request(
+            "POST",
+            f"/rest/api/3/issue/{issue_key}/transitions",
+            json={"transition": {"id": done["id"]}},
+        )
+        logger.info(f"Jira-Ticket {issue_key} auf 'Done' gesetzt (Transition {done['id']})")
+
+    def delete_issue(self, issue_key: str) -> None:
+        """Löscht ein Ticket endgültig. Nicht rückgängig zu machen."""
+        self._request("DELETE", f"/rest/api/3/issue/{issue_key}")
+        logger.info(f"Jira-Ticket {issue_key} gelöscht")

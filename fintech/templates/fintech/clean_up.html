@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+
+  <h1>Clean Up</h1>
+  <p style="color: var(--body-quiet-color, #666);">
+    Wartungswerkzeuge für Asset-Daten.
+  </p>
+
+  {% if result %}
+  <div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1.5rem;">
+    <strong>Price Fetch Blocker entfernt.</strong>
+    {{ result.count }} Asset(s) waren blockiert und wurden zurückgesetzt (<code>price_fetch_blocked = False</code>).
+  </div>
+  {% endif %}
+
+  <div style="background:#f8f8f8; border:1px solid #ddd; border-radius:6px; padding:1.5rem; max-width:560px;">
+    <h2 style="margin-top:0; font-size:1.1rem;">Remove Price Fetch Blocker</h2>
+    <p style="font-size:0.9rem; color:#666;">
+      Setzt <code>price_fetch_blocked</code> für <strong>alle</strong> Assets auf <code>False</code> zurück,
+      sodass der automatische Kurs-Abruf für zuvor blockierte Assets wieder aktiv ist.
+    </p>
+    <form method="post" onsubmit="return confirm('price_fetch_blocked für ALLE Assets auf False setzen?');">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="remove_price_fetch_blocker">
+      <button type="submit" class="button default" style="padding:8px 20px;">Remove Price Fetch Blocker</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

@@ -13,6 +13,7 @@ urlpatterns = [
     path('trigger/update-prices/', views.trigger_update_prices, name="trigger-update-prices"),
     path('trigger/update-etf-holdings/', views.trigger_update_etf_holdings, name="trigger-update-etf-holdings"),
     path('trigger/cleanup/', views.trigger_cleanup, name="trigger-cleanup"),
+    path('clean_up/', views.clean_up, name="clean-up"),
     path('trigger/refresh-week52/', views.trigger_refresh_week52, name="trigger-refresh-week52"),
     path('api/', include('fintech.apis.urls')),
     path("export", views.portfolio_export, name="portfolio-export"),

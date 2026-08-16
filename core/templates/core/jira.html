@@ -82,5 +82,74 @@
             </form>
         </div>
     </div>
+
+    <div class="card mt-4 border-danger">
+        <div class="card-header bg-danger text-white">Tickets löschen</div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Setzt alle Tickets im Bereich <code>FIN-&lt;von&gt;</code> bis <code>FIN-&lt;bis&gt;</code>
+                zuerst auf <strong>Done</strong> und löscht sie danach endgültig. Nicht rückgängig zu machen.
+                Maximal {{ delete_range_max }} Tickets pro Durchlauf.
+            </p>
+            <form method="post" onsubmit="return confirmDeleteRange();">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="delete_range">
+                <div class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label for="from_num" class="form-label">von</label>
+                        <div class="input-group">
+                            <span class="input-group-text">FIN-</span>
+                            <input type="number" class="form-control" id="from_num" name="from_num"
+                                   min="1" required style="width:100px;">
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <label for="to_num" class="form-label">bis</label>
+                        <div class="input-group">
+                            <span class="input-group-text">FIN-</span>
+                            <input type="number" class="form-control" id="to_num" name="to_num"
+                                   min="1" required style="width:100px;">
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-danger">delete</button>
+                    </div>
+                </div>
+            </form>
+
+            {% if result.items %}
+            <table class="table table-sm mt-3">
+                <thead>
+                    <tr><th>Ticket</th><th>Status</th><th>Detail</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in result.items %}
+                    <tr class="{% if item.status == 'error' %}table-danger{% else %}table-success{% endif %}">
+                        <td>{{ item.key }}</td>
+                        <td>{{ item.status }}</td>
+                        <td class="small">{{ item.detail|default:"–" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<script>
+function confirmDeleteRange() {
+    var von = parseInt(document.getElementById('from_num').value, 10);
+    var bis = parseInt(document.getElementById('to_num').value, 10);
+    if (isNaN(von) || isNaN(bis) || von < 1 || bis < von) {
+        alert("Bitte gültige Werte für 'von' (≥ 1) und 'bis' (≥ 'von') eingeben.");
+        return false;
+    }
+    var count = bis - von + 1;
+    return confirm(
+        'ACHTUNG: ' + count + ' Ticket(s) FIN-' + von + ' bis FIN-' + bis +
+        ' werden auf Done gesetzt und ENDGÜLTIG GELÖSCHT.\n\nDas kann nicht rückgängig gemacht werden. Fortfahren?'
+    );
+}
+</script>
 {% endblock %}

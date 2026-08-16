@@ -23,7 +23,7 @@ from django.contrib import messages
 from django.core.management import call_command
 from django.views.decorators.cache import never_cache
 from django.utils import timezone
-from .services import resolve_asset_with_price, refresh_asset_price
+from .services import resolve_asset_with_price, refresh_asset_price, report_price_fetch_failures
 
 import logging
 
@@ -775,6 +775,17 @@ def trigger_cleanup(request):
     return redirect('fintech:fintech-index')
 
 
+@never_cache
+@staff_member_required
+def clean_up(request):
+    """Wartungswerkzeuge für Asset-Daten (aktuell: Price Fetch Blocker zurücksetzen)."""
+    result = None
+    if request.method == "POST" and request.POST.get("action") == "remove_price_fetch_blocker":
+        count = Asset.objects.filter(price_fetch_blocked=True).update(price_fetch_blocked=False)
+        result = {"action": "remove_price_fetch_blocker", "count": count}
+    return render(request, "fintech/clean_up.html", {"result": result})
+
+
 def portfolio_export(request):
     if not (_is_api_key_valid(request) or (request.user.is_active and request.user.is_staff)):
         return JsonResponse({"error": "Unauthorized"}, status=401)
@@ -1473,14 +1484,17 @@ def watchlist_reset_prices(request, watchlist_name):
 
     ok = 0
     failed_isins = []
+    failures = []
     for entry in entries:
-        price = refresh_asset_price(entry.asset)
+        price = refresh_asset_price(entry.asset, failures)
         if price is None:
             failed_isins.append(entry.asset.isin)
             continue
         entry.price_at_add = price
         entry.save(update_fields=["price_at_add"])
         ok += 1
+
+    report_price_fetch_failures(failures)
 
     request.session["watchlist_reset_result"] = {"ok": ok, "failed": failed_isins}
     return redirect("fintech:watchlist-detail", watchlist_name=watchlist_name)

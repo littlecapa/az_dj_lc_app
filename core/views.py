@@ -10,6 +10,8 @@ from .jira_client import JiraClient, JiraApiError
 logger = logging.getLogger(__name__)
 
 JIRA_ISSUE_TYPES = ["Task", "Bug", "Story", "Feature", "Epic"]
+DELETE_RANGE_PROJECT_KEY = "FIN"
+DELETE_RANGE_MAX = 50  # Sicherheitsgrenze pro Löschvorgang
 
 
 @never_cache
@@ -80,6 +82,52 @@ def jira_page(request):
                     "ok": False, "message": str(exc), "detail": str(exc.detail) if exc.detail else None,
                 }
 
+        elif form_type == "delete_range":
+            from_raw = request.POST.get("from_num", "").strip()
+            to_raw = request.POST.get("to_num", "").strip()
+
+            if not from_raw.isdigit() or not to_raw.isdigit():
+                request.session["jira_result"] = {
+                    "ok": False, "message": "'von' und 'bis' müssen positive Zahlen sein.",
+                }
+                return redirect("core:jira")
+
+            von, bis = int(from_raw), int(to_raw)
+            if von < 1 or bis < von:
+                request.session["jira_result"] = {
+                    "ok": False, "message": "'von' muss ≥ 1 und ≤ 'bis' sein.",
+                }
+                return redirect("core:jira")
+            if bis - von + 1 > DELETE_RANGE_MAX:
+                request.session["jira_result"] = {
+                    "ok": False,
+                    "message": (
+                        f"Bereich umfasst {bis - von + 1} Tickets, maximal {DELETE_RANGE_MAX} "
+                        f"pro Durchlauf erlaubt — bitte in kleineren Blöcken löschen."
+                    ),
+                }
+                return redirect("core:jira")
+
+            items = []
+            deleted = 0
+            for i in range(von, bis + 1):
+                key = f"{DELETE_RANGE_PROJECT_KEY}-{i}"
+                try:
+                    client.transition_issue_to_done(key)
+                    client.delete_issue(key)
+                    items.append({"key": key, "status": "deleted", "detail": None})
+                    deleted += 1
+                except JiraApiError as exc:
+                    logger.warning(f"Löschen von {key} fehlgeschlagen: {exc}")
+                    items.append({"key": key, "status": "error", "detail": str(exc)})
+
+            errors = len(items) - deleted
+            request.session["jira_result"] = {
+                "ok": errors == 0,
+                "message": f"{deleted} Ticket(s) auf Done gesetzt und gelöscht, {errors} Fehler.",
+                "items": items,
+            }
+
         return redirect("core:jira")
 
     result = request.session.pop("jira_result", None)
@@ -87,4 +135,5 @@ def jira_page(request):
         "result": result,
         "issue_types": JIRA_ISSUE_TYPES,
         "default_project_key": getattr(settings, "JIRA_PROJECT_KEY", ""),
+        "delete_range_max": DELETE_RANGE_MAX,
     })
