@@ -11,6 +11,10 @@
     <a href="#" onclick="copyJson(); return false;">In Zwischenablage kopieren</a>
   </p>
 
+  <button type="button" onclick="downloadJson();" class="button default" style="padding:6px 16px; margin-bottom: 0.75rem;">
+    Als Datei herunterladen
+  </button>
+
   <textarea
     id="json-export"
     readonly
@@ -43,6 +47,19 @@ function copyJson() {
     msg.style.display = 'block';
     setTimeout(function () { msg.style.display = 'none'; }, 2500);
   });
+}
+
+function downloadJson() {
+  const ta = document.getElementById('json-export');
+  const blob = new Blob([ta.value], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "{{ download_filename|escapejs }}";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 </script>
 {% endblock %}

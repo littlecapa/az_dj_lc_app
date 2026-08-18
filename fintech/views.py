@@ -789,9 +789,15 @@ def clean_up(request):
 def portfolio_export(request):
     if not (_is_api_key_valid(request) or (request.user.is_active and request.user.is_staff)):
         return JsonResponse({"error": "Unauthorized"}, status=401)
+
     data = list(PortfolioSummary.objects.portfolio())
     json_str = json.dumps(data, indent=2, ensure_ascii=False, default=decimal_serializer)
-    return render(request, "fintech/portfolio_export.html", {"json_str": json_str})
+    filename = f"portfolio_export_{timezone.now().strftime('%Y-%m-%d_%H%M%S')}.json"
+
+    return render(request, "fintech/portfolio_export.html", {
+        "json_str": json_str,
+        "download_filename": filename,
+    })
 
 
 def watchlist_export(request):
