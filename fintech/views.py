@@ -765,27 +765,22 @@ def trigger_refresh_week52(request):
     return redirect('fintech:fintech-index')
 
 
-@staff_member_required
-def trigger_cleanup(request):
-    if request.method != 'POST':
-        from django.http import HttpResponseNotAllowed
-        return HttpResponseNotAllowed(['POST'])
-    try:
-        call_command('clean_up')
-        messages.success(request, 'Cleanup erfolgreich abgeschlossen.')
-    except Exception as e:
-        messages.error(request, f'Fehler beim Cleanup: {e}')
-    return redirect('fintech:fintech-index')
-
-
 @never_cache
 @staff_member_required
 def clean_up(request):
-    """Wartungswerkzeuge für Asset-Daten (aktuell: Price Fetch Blocker zurücksetzen)."""
+    """Wartungswerkzeuge für Asset-Daten (Price Fetch Blocker zurücksetzen, DB-Cleanup)."""
     result = None
-    if request.method == "POST" and request.POST.get("action") == "remove_price_fetch_blocker":
-        count = Asset.objects.filter(price_fetch_blocked=True).update(price_fetch_blocked=False)
-        result = {"action": "remove_price_fetch_blocker", "count": count}
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "remove_price_fetch_blocker":
+            count = Asset.objects.filter(price_fetch_blocked=True).update(price_fetch_blocked=False)
+            result = {"action": "remove_price_fetch_blocker", "count": count}
+        elif action == "run_cleanup":
+            try:
+                call_command('clean_up')
+                result = {"action": "run_cleanup", "ok": True}
+            except Exception as e:
+                result = {"action": "run_cleanup", "ok": False, "error": str(e)}
     return render(request, "fintech/clean_up.html", {"result": result})
 
 

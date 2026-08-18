@@ -9,14 +9,24 @@
     Wartungswerkzeuge für Asset-Daten.
   </p>
 
-  {% if result %}
+  {% if result.action == "remove_price_fetch_blocker" %}
   <div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1.5rem;">
     <strong>Price Fetch Blocker entfernt.</strong>
     {{ result.count }} Asset(s) waren blockiert und wurden zurückgesetzt (<code>price_fetch_blocked = False</code>).
   </div>
+  {% elif result.action == "run_cleanup" %}
+    {% if result.ok %}
+    <div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1.5rem;">
+      <strong>Cleanup erfolgreich abgeschlossen.</strong>
+    </div>
+    {% else %}
+    <div style="background:#fff3f3; border:1px solid #f5c6c6; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1.5rem; color:#c62828;">
+      <strong>Fehler beim Cleanup:</strong> {{ result.error }}
+    </div>
+    {% endif %}
   {% endif %}
 
-  <div style="background:#f8f8f8; border:1px solid #ddd; border-radius:6px; padding:1.5rem; max-width:560px;">
+  <div style="background:#f8f8f8; border:1px solid #ddd; border-radius:6px; padding:1.5rem; max-width:560px; margin-bottom:1.5rem;">
     <h2 style="margin-top:0; font-size:1.1rem;">Remove Price Fetch Blocker</h2>
     <p style="font-size:0.9rem; color:#666;">
       Setzt <code>price_fetch_blocked</code> für <strong>alle</strong> Assets auf <code>False</code> zurück,
@@ -26,6 +36,18 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="remove_price_fetch_blocker">
       <button type="submit" class="button default" style="padding:8px 20px;">Remove Price Fetch Blocker</button>
+    </form>
+  </div>
+
+  <div style="background:#f8f8f8; border:1px solid #ddd; border-radius:6px; padding:1.5rem; max-width:560px;">
+    <h2 style="margin-top:0; font-size:1.1rem;">Cleanup</h2>
+    <p style="font-size:0.9rem; color:#666;">
+      Löscht Holdings &lt;0 (Datenfehler) und doppelte Tages-Kurseinträge.
+    </p>
+    <form method="post" onsubmit="return confirm('Cleanup starten? Doppelte Kurseinträge werden gelöscht.');">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="run_cleanup">
+      <button type="submit" class="button default" style="padding:8px 20px;">Cleanup ausführen</button>
     </form>
   </div>
 

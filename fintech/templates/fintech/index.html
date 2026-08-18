@@ -153,7 +153,7 @@
             <a href="{% url 'fintech:clean-up' %}" class="ft-card">
                 <div class="ft-icon">🧼</div>
                 <div class="ft-title">Clean Up</div>
-                <div class="ft-desc">Wartungswerkzeuge für Asset-Daten (z.B. Price Fetch Blocker zurücksetzen).</div>
+                <div class="ft-desc">Wartungswerkzeuge für Asset-Daten: Price Fetch Blocker zurücksetzen, DB-Cleanup.</div>
             </a>
         </div>
         <div class="col-md-4">
@@ -171,17 +171,6 @@
                     <div class="ft-icon">📊</div>
                     <div class="ft-title">52W-Werte aktualisieren</div>
                     <div class="ft-desc">Löscht ungültige 52W-Hoch/Tief-Einträge. Werden beim nächsten Overall-Aufruf neu geladen.</div>
-                </button>
-            </form>
-        </div>
-        <div class="col-md-4">
-            <form method="post" action="{% url 'fintech:trigger-cleanup' %}"
-                  onsubmit="return confirm('Cleanup starten? Doppelte Kurseinträge werden gelöscht.')">
-                {% csrf_token %}
-                <button type="submit" class="ft-card w-100 border-0 text-start">
-                    <div class="ft-icon">🧹</div>
-                    <div class="ft-title">Cleanup</div>
-                    <div class="ft-desc">Löscht Holdings &lt;0 (Datenfehler) und doppelte Tages-Kurseinträge.</div>
                 </button>
             </form>
         </div>
