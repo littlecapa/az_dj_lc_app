@@ -1112,7 +1112,7 @@ def _entry_perf(entry):
             "annualized":      Decimal(str(round(annualized, 6))),
             "days_held":       days_held,
         }
-    except (InvalidOperation, ZeroDivisionError):
+    except (InvalidOperation, ZeroDivisionError, OverflowError):
         return None
 
 
@@ -1153,7 +1153,13 @@ def watchlist_performance(request):
 
         simple = total_current / total_invested - 1
         avg_days = float(weighted_days / total_invested)
-        annualized = float(total_current / total_invested) ** (365.0 / max(avg_days, 1)) - 1
+        try:
+            annualized = float(total_current / total_invested) ** (365.0 / max(avg_days, 1)) - 1
+            annualized_display = Decimal(str(round(annualized * 100, 2)))
+        except OverflowError:
+            # Extremer Kurssprung bei sehr frisch hinzugefügtem Eintrag (avg_days nahe 0)
+            # lässt die Hochrechnung auf 365 Tage den float-Wertebereich sprengen.
+            annualized_display = None
 
         rows.append({
             "name":           wl.name,
@@ -1163,7 +1169,7 @@ def watchlist_performance(request):
             "total_current":  total_current,
             "gain_abs":       total_current - total_invested,
             "simple":         simple * 100,
-            "annualized":     Decimal(str(round(annualized * 100, 2))),
+            "annualized":     annualized_display,
             "avg_days":       round(avg_days),
         })
 
