@@ -1,7 +1,7 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from django.db.models import F, ExpressionWrapper, DecimalField
 from django.db import transaction
@@ -9,7 +9,7 @@ from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding, FinConfig, NameAlias
 from .apis.services.name_matching import match_held_stock, load_aliases
 from .models_helper.category_class import CategoryClass
 from .models_helper.asset_class import AssetClass
@@ -17,6 +17,9 @@ from django.utils.text import slugify
 from django.http import Http404
 from .apis.services.openfigi import OpenFigiService
 import json
+import csv
+import io
+import zipfile
 from decimal import Decimal, InvalidOperation
 from .apis.services.csv_import import import_transactions
 from django.contrib import messages
@@ -784,6 +787,45 @@ def clean_up(request):
         count = Asset.objects.filter(price_fetch_blocked=True).update(price_fetch_blocked=False)
         result = {"action": "remove_price_fetch_blocker", "count": count}
     return render(request, "fintech/clean_up.html", {"result": result})
+
+
+BACKUP_MODELS_ALL = [
+    FinConfig, Asset, Holdings, Price, Watchlist, WatchlistEntry,
+    FiftyTwoWeekRange, NewsEvent, FondHolding, ManualFondHolding, NameAlias,
+]
+BACKUP_MODELS_KURSE = [Price]
+
+
+def _model_to_csv_bytes(model) -> bytes:
+    fields = [f.name for f in model._meta.fields]
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fields)
+    writer.writeheader()
+    for row in model.objects.all().values(*fields):
+        writer.writerow(row)
+    # utf-8-sig (BOM), damit Excel Umlaute korrekt anzeigt
+    return buf.getvalue().encode("utf-8-sig")
+
+
+@login_required
+def backup_page(request):
+    return render(request, "fintech/backup.html")
+
+
+@never_cache
+@login_required
+def backup_download(request):
+    mode = "kurse" if request.GET.get("mode") == "kurse" else "alle"
+    models_to_export = BACKUP_MODELS_KURSE if mode == "kurse" else BACKUP_MODELS_ALL
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for model in models_to_export:
+            zf.writestr(f"{model.__name__}.csv", _model_to_csv_bytes(model))
+
+    response = HttpResponse(buf.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="fintech_backup_{mode}.zip"'
+    return response
 
 
 def portfolio_export(request):

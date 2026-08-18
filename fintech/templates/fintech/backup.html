@@ -1,0 +1,63 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+
+  <h1>Backup</h1>
+
+  <p style="color: var(--body-quiet-color, #666); max-width: 640px;">
+    Exportiert die Fintech-Tabellen als CSV-Dateien (gebündelt in einer ZIP-Datei) in den
+    Download-Ordner deines Browsers. Ob eine gleichnamige Vorgänger-Datei dabei wirklich
+    überschrieben oder als Kopie (z.&nbsp;B. "(1)") abgelegt wird, entscheidet dein Browser
+    (Downloads-Einstellungen) — das kann eine Webseite nicht erzwingen. Der Dateiname ist
+    aber immer gleich, sodass ein Überschreiben möglich ist, wenn dein Browser entsprechend
+    eingestellt ist.
+  </p>
+
+  <div style="display:flex; align-items:center; gap:0.75rem; margin: 1.5rem 0;">
+    <span id="label-alle" style="font-weight:600;">Alle</span>
+    <label class="gb-switch">
+      <input type="checkbox" id="mode-toggle" onchange="updateLabels();">
+      <span class="gb-slider"></span>
+    </label>
+    <span id="label-kurse" style="color:#666;">Kurse</span>
+  </div>
+
+  <button type="button" onclick="startBackup();" class="button default" style="padding:8px 20px;">
+    Start
+  </button>
+
+</div>
+
+<style>
+.gb-switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+.gb-switch input { opacity: 0; width: 0; height: 0; }
+.gb-slider {
+  position: absolute; cursor: pointer; top:0; left:0; right:0; bottom:0;
+  background-color:#ccc; transition:.2s; border-radius:24px;
+}
+.gb-slider:before {
+  position: absolute; content:""; height:18px; width:18px; left:3px; bottom:3px;
+  background-color:white; transition:.2s; border-radius:50%;
+}
+input:checked + .gb-slider { background-color: #417690; }
+input:checked + .gb-slider:before { transform: translateX(22px); }
+</style>
+
+<script>
+function updateLabels() {
+  const kurse = document.getElementById('mode-toggle').checked;
+  document.getElementById('label-alle').style.fontWeight = kurse ? 'normal' : '600';
+  document.getElementById('label-alle').style.color = kurse ? '#666' : '#000';
+  document.getElementById('label-kurse').style.fontWeight = kurse ? '600' : 'normal';
+  document.getElementById('label-kurse').style.color = kurse ? '#000' : '#666';
+}
+
+function startBackup() {
+  const kurse = document.getElementById('mode-toggle').checked;
+  const mode = kurse ? 'kurse' : 'alle';
+  window.location.href = "{% url 'fintech:backup-download' %}?mode=" + mode;
+}
+</script>
+{% endblock %}
