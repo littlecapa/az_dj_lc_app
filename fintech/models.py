@@ -110,8 +110,19 @@ class Asset(models.Model):
         default=False,
         help_text=(
             "True = kein automatischer Kurs-Abruf mehr (es existiert bereits ein "
-            "offenes Jira-Bug-Ticket dazu). Nach Bearbeitung des Tickets manuell "
-            "wieder auf False setzen."
+            "offenes Jira-Bug-Ticket dazu, da der Abruf seit über 24h fehlschlägt). "
+            "Nach Bearbeitung des Tickets manuell wieder auf False setzen."
+        ),
+    )
+    price_fetch_failing_since = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Zeitpunkt des ersten fehlgeschlagenen Kurs-Abrufs in Folge. Wird bei "
+            "jedem erfolgreichen Abruf zurückgesetzt. Erst wenn seit diesem "
+            "Zeitpunkt mehr als 24h vergangen sind, wird price_fetch_blocked "
+            "gesetzt und ein Jira-Ticket angelegt (statt bei jedem einzelnen "
+            "Fehlschlag)."
         ),
     )
 

@@ -25,7 +25,7 @@ from django.db.models import Q
 from fintech.models import Asset, Price
 from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
-from fintech.services import flag_price_fetch_failure, report_price_fetch_failures
+from fintech.services import flag_price_fetch_failure, clear_price_fetch_failure, report_price_fetch_failures
 
 logger = logging.getLogger(__name__)
 
@@ -146,24 +146,30 @@ class Command(BaseCommand):
                     asset.asset_class,
                 )
             except Exception as exc:
-                # Echter Abruf-Fehler: price_fetch_blocked setzen. Kein Ticket hier —
-                # der Aufrufer sammelt alle Fehler des Laufs und meldet sie gebündelt
-                # (ein zentraler Ausfall wie Comdirect down soll EIN Ticket ergeben,
-                # nicht eins pro Asset).
-                await asyncio.to_thread(flag_price_fetch_failure, asset, str(exc))
+                # Abruf-Fehler: erst ab 24h ununterbrochenem Fehlschlag wird
+                # price_fetch_blocked gesetzt und escalated=True zurückgegeben.
+                # Kein Ticket hier — der Aufrufer sammelt alle eskalierten Fehler
+                # des Laufs und meldet sie gebündelt (ein zentraler Ausfall wie
+                # Comdirect down soll EIN Ticket ergeben, nicht eins pro Asset,
+                # und ein einzelner Hänger soll gar keins ergeben).
+                escalated = await asyncio.to_thread(flag_price_fetch_failure, asset, str(exc))
+                suffix = " (price_fetch_blocked gesetzt)" if escalated else " (wird erneut versucht)"
                 return (
                     "error",
-                    f"ERR {asset.isin} — {exc} (price_fetch_blocked gesetzt)",
-                    {"isin": asset.isin, "name": asset.name, "asset_class": asset.asset_class, "error": str(exc)},
+                    f"ERR {asset.isin} — {exc}{suffix}",
+                    {"isin": asset.isin, "name": asset.name, "asset_class": asset.asset_class, "error": str(exc)}
+                    if escalated else None,
                 )
 
             if price is None:
                 error_detail = "Alle Kursquellen lieferten keinen Preis (isin2price → None)."
-                await asyncio.to_thread(flag_price_fetch_failure, asset, error_detail)
+                escalated = await asyncio.to_thread(flag_price_fetch_failure, asset, error_detail)
+                suffix = " (price_fetch_blocked gesetzt)" if escalated else " (wird erneut versucht)"
                 return (
                     "error",
-                    f"ERR {asset.isin} — kein Kurs verfügbar (price_fetch_blocked gesetzt)",
-                    {"isin": asset.isin, "name": asset.name, "asset_class": asset.asset_class, "error": error_detail},
+                    f"ERR {asset.isin} — kein Kurs verfügbar{suffix}",
+                    {"isin": asset.isin, "name": asset.name, "asset_class": asset.asset_class, "error": error_detail}
+                    if escalated else None,
                 )
 
             try:
@@ -184,6 +190,7 @@ class Command(BaseCommand):
                         return ("skip", msg, None)
 
                 await self._save_price(asset, price, timestamp)
+                await asyncio.to_thread(clear_price_fetch_failure, asset)
                 return ("ok", f"OK {asset.isin} — {price:.4f} EUR", None)
 
             except Exception as exc:

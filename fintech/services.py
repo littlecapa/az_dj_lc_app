@@ -7,6 +7,7 @@ ohne aktuellen Kurs angelegt wird — schlägt der Kurs-Abruf fehl, wird nichts
 gespeichert.
 """
 import logging
+from datetime import timedelta
 from decimal import Decimal
 from typing import NamedTuple, Optional
 
@@ -21,6 +22,11 @@ from .models import Asset, Price
 logger = logging.getLogger(__name__)
 
 _provider_manager = ProviderManager()
+
+# Ein einzelner fehlgeschlagener Abruf (z.B. kurzer Provider-Hänger) soll noch
+# kein Ticket auslösen. Erst wenn ein Asset ununterbrochen länger als diese
+# Dauer fehlschlägt, wird price_fetch_blocked gesetzt und gemeldet.
+PRICE_FETCH_FAILURE_THRESHOLD = timedelta(hours=24)
 
 
 class AssetResolution(NamedTuple):
@@ -86,35 +92,73 @@ def refresh_asset_price(asset: Asset, failures: Optional[list] = None) -> Option
         price = _provider_manager.isin2price(asset.isin, asset.asset_class)
     except Exception as exc:
         logger.warning(f"Kurs-Abruf für {asset.isin} fehlgeschlagen: {exc}")
-        flag_price_fetch_failure(asset, str(exc))
-        if failures is not None:
+        escalated = flag_price_fetch_failure(asset, str(exc))
+        if escalated and failures is not None:
             failures.append(_failure_entry(asset, str(exc)))
         return None
 
     if price is None:
         error_detail = "Alle Kursquellen lieferten keinen Preis (isin2price → None)."
         logger.warning(f"Kurs-Abruf für {asset.isin} lieferte keinen Kurs")
-        flag_price_fetch_failure(asset, error_detail)
-        if failures is not None:
+        escalated = flag_price_fetch_failure(asset, error_detail)
+        if escalated and failures is not None:
             failures.append(_failure_entry(asset, error_detail))
         return None
 
     Price.objects.create(asset=asset, current_price=price, timestamp=timezone.now())
+    clear_price_fetch_failure(asset)
     return price
 
 
-def flag_price_fetch_failure(asset: Asset, error_detail: str) -> None:
+def flag_price_fetch_failure(asset: Asset, error_detail: str) -> bool:
     """
-    Setzt asset.price_fetch_blocked. Legt selbst KEIN Jira-Ticket an — der Aufrufer
-    sammelt die Fehler über einen ganzen Lauf hinweg und meldet sie gebündelt über
+    Registriert einen fehlgeschlagenen Kurs-Abruf für *asset*.
+
+    Beim ersten Fehlschlag wird nur price_fetch_failing_since gesetzt — noch KEIN
+    price_fetch_blocked, noch kein Ticket. Erst wenn seit diesem ersten Fehlschlag
+    mehr als PRICE_FETCH_FAILURE_THRESHOLD vergangen ist, wird price_fetch_blocked
+    gesetzt. Legt selbst KEIN Jira-Ticket an — der Aufrufer sammelt die eskalierten
+    Fehler über einen ganzen Lauf hinweg und meldet sie gebündelt über
     report_price_fetch_failures(), damit ein zentraler Ausfall (z. B. Comdirect
     nicht erreichbar) nicht ein Ticket pro betroffenem Asset erzeugt.
 
-    Solange das Flag gesetzt bleibt, überspringen refresh_asset_price() und
-    update_prices weitere Abrufversuche für dieses Asset.
+    Solange price_fetch_blocked gesetzt bleibt, überspringen refresh_asset_price()
+    und update_prices weitere Abrufversuche für dieses Asset.
+
+    Gibt True zurück, wenn das Asset durch diesen Aufruf gerade neu blockiert
+    wurde (Signal für den Aufrufer, es fürs Jira-Ticket zu melden).
     """
-    asset.price_fetch_blocked = True
-    asset.save(update_fields=["price_fetch_blocked"])
+    now = timezone.now()
+
+    if asset.price_fetch_failing_since is None:
+        asset.price_fetch_failing_since = now
+        asset.save(update_fields=["price_fetch_failing_since"])
+        logger.info(
+            f"Kurs-Abruf für {asset.isin} fehlgeschlagen (erster Fehlschlag, "
+            f"noch nicht blockiert): {error_detail}"
+        )
+        return False
+
+    if asset.price_fetch_blocked:
+        return False
+
+    if now - asset.price_fetch_failing_since >= PRICE_FETCH_FAILURE_THRESHOLD:
+        asset.price_fetch_blocked = True
+        asset.save(update_fields=["price_fetch_blocked"])
+        logger.warning(
+            f"Kurs-Abruf für {asset.isin} schlägt seit über 24h fehl — "
+            f"price_fetch_blocked gesetzt: {error_detail}"
+        )
+        return True
+
+    return False
+
+
+def clear_price_fetch_failure(asset: Asset) -> None:
+    """Setzt price_fetch_failing_since nach einem erfolgreichen Kurs-Abruf zurück."""
+    if asset.price_fetch_failing_since is not None:
+        asset.price_fetch_failing_since = None
+        asset.save(update_fields=["price_fetch_failing_since"])
 
 
 def _failure_entry(asset: Asset, error_detail: str) -> dict:

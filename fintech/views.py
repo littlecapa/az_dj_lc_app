@@ -773,7 +773,9 @@ def clean_up(request):
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "remove_price_fetch_blocker":
-            count = Asset.objects.filter(price_fetch_blocked=True).update(price_fetch_blocked=False)
+            count = Asset.objects.filter(price_fetch_blocked=True).update(
+                price_fetch_blocked=False, price_fetch_failing_since=None
+            )
             result = {"action": "remove_price_fetch_blocker", "count": count}
         elif action == "run_cleanup":
             try:

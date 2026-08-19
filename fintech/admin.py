@@ -34,23 +34,24 @@ class PriceAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_etf', 'ark_ticker', 'price_fetch_blocked']
+    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_etf', 'ark_ticker', 'price_fetch_failing_since', 'price_fetch_blocked']
     list_filter = ['asset_class', 'currency', 'exchange', 'extend_etf', 'price_fetch_blocked']
     list_editable = ['price_fetch_blocked']
     search_fields = ['isin', 'wkn', 'symbol', 'name']
     ordering = ('name',)
     inlines = [PriceInline]
     autocomplete_fields = ('holdings_reference',)
-    readonly_fields = ('created_at', 'updated_at', 'current_price', 'current_price_timestamp')
+    readonly_fields = ('created_at', 'updated_at', 'current_price', 'current_price_timestamp', 'price_fetch_failing_since')
 
     fieldsets = (
         ('Basisdaten', {'fields': ('name', 'symbol', 'asset_class', 'currency')}),
         ('Marktdaten (Cache)', {
-            'fields': ('current_price', 'current_price_timestamp', 'price_fetch_blocked'),
+            'fields': ('current_price', 'current_price_timestamp', 'price_fetch_failing_since', 'price_fetch_blocked'),
             'description': (
-                'Preis wird automatisch via Price-Trigger aktualisiert. '
-                'price_fetch_blocked pausiert weitere Abrufe nach einem fehlgeschlagenen '
-                'Versuch (Jira-Ticket wurde angelegt) — nach Bearbeitung hier zurücksetzen.'
+                'Preis wird automatisch via Price-Trigger aktualisiert. Schlägt der Abruf fehl, '
+                'wird price_fetch_failing_since gesetzt; erst nach 24h ununterbrochenem '
+                'Fehlschlag wird price_fetch_blocked gesetzt (Jira-Ticket wurde angelegt) — '
+                'nach Bearbeitung hier zurücksetzen.'
             )
         }),
         ('ETF-Holdings-Referenz', {
