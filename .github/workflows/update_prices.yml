@@ -22,6 +22,7 @@ jobs:
   update-prices:
     name: 'Kurse aktualisieren'
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # normale Läufe dauern 2-4 Min. — verhindert stundenlanges Hängen bei Mirror-Ausfall
 
     env:
       DB_NAME: ${{ secrets.DB_NAME }}
@@ -50,12 +51,17 @@ jobs:
 
       - name: Install ODBC Driver for SQL Server
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y curl gnupg
+          # curl/gnupg sind auf ubuntu-latest bereits vorinstalliert — kein
+          # eigenes "apt-get update && apt-get install" davor nötig, das war
+          # ein zweiter unnötiger Kontakt zu einem manchmal langsamen/hängenden
+          # Ubuntu-Mirror.
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list \
             | sudo tee /etc/apt/sources.list.d/mssql-release.list
-          sudo apt-get update -q
+          sudo apt-get update -q \
+            -o Acquire::Retries=3 \
+            -o Acquire::http::Timeout=15 \
+            -o Acquire::https::Timeout=15
           sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
 
       - name: Install Python dependencies
