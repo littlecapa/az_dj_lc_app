@@ -29,7 +29,7 @@ urlpatterns = [
     path("winner/", views.portfolio_winners, name="portfolio-winners"),
     path("portfolio/<slug:category_slug>/", views.portfolio_category_detail, name="portfolio-category-detail"),
     path("watchlist-performance/", views.watchlist_performance, name="watchlist-performance"),
-    path("watchlist-performance/<str:watchlist_name>/", views.watchlist_detail, name="watchlist-detail"),
-    path("watchlist-performance/<str:watchlist_name>/reset-prices/", views.watchlist_reset_prices, name="watchlist-reset-prices"),
+    path("watchlist-performance/<path:watchlist_name>/reset-prices/", views.watchlist_reset_prices, name="watchlist-reset-prices"),
+    path("watchlist-performance/<path:watchlist_name>/", views.watchlist_detail, name="watchlist-detail"),
     path("news/", views.news, name="news"),
 ]
