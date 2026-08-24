@@ -34,7 +34,7 @@ class PriceAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_etf', 'ark_ticker', 'price_fetch_failing_since', 'price_fetch_blocked']
+    list_display = ['name', 'isin', 'current_price_display', 'current_price_timestamp', 'asset_class', 'holdings_reference', 'extend_etf', 'ark_ticker', 'price_fetch_failing_since', 'price_fetch_blocked', 'suspicious_price']
     list_filter = ['asset_class', 'currency', 'exchange', 'extend_etf', 'price_fetch_blocked']
     list_editable = ['price_fetch_blocked']
     search_fields = ['isin', 'wkn', 'symbol', 'name']
@@ -46,12 +46,19 @@ class AssetAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Basisdaten', {'fields': ('name', 'symbol', 'asset_class', 'currency')}),
         ('Marktdaten (Cache)', {
-            'fields': ('current_price', 'current_price_timestamp', 'price_fetch_failing_since', 'price_fetch_blocked'),
+            'fields': (
+                'current_price', 'current_price_timestamp', 'price_fetch_failing_since',
+                'price_fetch_blocked', 'suspicious_price', 'suspicious_price_since',
+            ),
             'description': (
                 'Preis wird automatisch via Price-Trigger aktualisiert. Schlägt der Abruf fehl, '
                 'wird price_fetch_failing_since gesetzt; erst nach 24h ununterbrochenem '
                 'Fehlschlag wird price_fetch_blocked gesetzt (Jira-Ticket wurde angelegt) — '
-                'nach Bearbeitung hier zurücksetzen.'
+                'nach Bearbeitung hier zurücksetzen. Weicht ein neuer Kurs zu stark vom '
+                'gecachten current_price ab (Plausibilitäts-Check), wird er stattdessen in '
+                'suspicious_price/suspicious_price_since getrackt und erst nach 24h '
+                'konsistenter Bestätigung automatisch übernommen — hier manuell auf leer '
+                'setzen, um einen falsch hängenden Wert sofort zu verwerfen.'
             )
         }),
         ('ETF-Holdings-Referenz', {

@@ -107,6 +107,10 @@ def refresh_asset_price(asset: Asset, failures: Optional[list] = None) -> Option
 
     Price.objects.create(asset=asset, current_price=price, timestamp=timezone.now())
     clear_price_fetch_failure(asset)
+    if asset.suspicious_price is not None:
+        asset.suspicious_price = None
+        asset.suspicious_price_since = None
+        asset.save(update_fields=["suspicious_price", "suspicious_price_since"])
     return price
 
 

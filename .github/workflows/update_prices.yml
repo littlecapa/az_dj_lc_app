@@ -17,6 +17,15 @@ on:
           - CRYPTO
           - DERIVATIVE
           - FOND
+      isin:
+        description: 'Nur diese ISIN aktualisieren (leer = alle passenden)'
+        required: false
+        type: string
+      force:
+        description: 'Nur mit isin: Plausibilitäts-Check überspringen, Kurs sofort übernehmen'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   update-prices:
@@ -70,11 +79,14 @@ jobs:
           pip install --no-cache-dir -r requirements.txt
 
       - name: Update prices
+        env:
+          ASSET_CLASS: ${{ github.event.inputs.asset_class }}
+          ISIN: ${{ github.event.inputs.isin }}
+          FORCE: ${{ github.event.inputs.force }}
         run: |
-          if [ -n "${{ github.event.inputs.asset_class }}" ]; then
-            echo "Starte Kurs-Update für Asset-Klasse: ${{ github.event.inputs.asset_class }}"
-            python manage.py update_prices --asset-class "${{ github.event.inputs.asset_class }}"
-          else
-            echo "Starte Kurs-Update für alle Asset-Klassen"
-            python manage.py update_prices
-          fi
+          ARGS=()
+          [ -n "$ASSET_CLASS" ] && ARGS+=(--asset-class "$ASSET_CLASS")
+          [ -n "$ISIN" ] && ARGS+=(--isin "$ISIN")
+          [ "$FORCE" = "true" ] && ARGS+=(--force)
+          echo "Starte Kurs-Update (${ARGS[*]:-alle Asset-Klassen})"
+          python manage.py update_prices "${ARGS[@]}"

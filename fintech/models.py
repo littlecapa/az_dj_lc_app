@@ -126,6 +126,26 @@ class Asset(models.Model):
         ),
     )
 
+    suspicious_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=(
+            "Abgelehnter Kurs, der zu stark vom letzten current_price abweicht "
+            "(Plausibilitäts-Check). Bleibt dieser Wert über "
+            "suspicious_price_since hinweg >24h konsistent (statt bei jedem Lauf "
+            "zufällig anders), gilt er als echter Kurssprung (Split, Rallye, "
+            "Crash) statt als einmaliger Scraping-Fehler und wird automatisch "
+            "übernommen."
+        ),
+    )
+    suspicious_price_since = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Zeitpunkt, seit dem suspicious_price konsistent gemeldet wird.",
+    )
+
     logo = models.URLField(
         blank=True,
         null=True,
