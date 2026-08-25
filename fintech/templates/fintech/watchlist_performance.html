@@ -29,7 +29,17 @@
     <div class="d-flex align-items-center mb-4 gap-3">
         <h2 class="mb-0">Watchlist Performance</h2>
         <span class="text-muted small">(Annahme: 10.000 € pro Position beim Einstieg)</span>
+        <a href="{% url 'fintech:watchlists-all' %}" class="btn btn-sm btn-outline-secondary ms-auto">Alle Watchlisten (Gesamtübersicht)</a>
     </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show mb-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
 
     {% if not rows %}
         <p class="text-muted">Keine Watchlisten vorhanden.</p>

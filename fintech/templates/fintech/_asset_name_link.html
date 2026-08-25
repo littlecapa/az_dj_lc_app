@@ -1,0 +1,8 @@
+{% if row.logo %}<img src="{{ row.logo }}" alt="" style="height:16px;width:16px;object-fit:contain;flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
+{% if row.asset_class == "ETF" %}
+    <a href="https://www.justetf.com/de/etf-profile.html?isin={{ row.isin }}#uebersicht" target="_blank" rel="noopener noreferrer">{{ row.name }}</a>
+{% elif row.symbol %}
+    <a href="https://de.tradingview.com/symbols/{{ row.symbol }}/" target="_blank" rel="noopener noreferrer">{{ row.name }}</a>
+{% else %}
+    <a href="https://www.onvista.de/aktien/ISIN/{{ row.isin }}" target="_blank" rel="noopener noreferrer">{{ row.name }}</a>
+{% endif %}

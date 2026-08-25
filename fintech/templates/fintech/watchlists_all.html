@@ -1,7 +1,7 @@
 {% extends "homepage/base_home.html" %}
 {% load static %}
 
-{% block title %}{{ watchlist.name }} – Detail{% endblock %}
+{% block title %}Alle Watchlisten{% endblock %}
 
 {% block content %}
 <style>
@@ -19,6 +19,12 @@
     .rank-n { background: #e9ecef; color: #555; }
     th { white-space: nowrap; }
     .note-cell { font-size: .8rem; color: #6c757d; max-width: 200px; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { background: #e9ecef; }
+    .sort-arrow { font-size: .7rem; opacity: .5; margin-left: 2px; }
+    th.sort-asc .sort-arrow::after  { content: "▲"; opacity: 1; }
+    th.sort-desc .sort-arrow::after { content: "▼"; opacity: 1; }
+    th.sortable:not(.sort-asc):not(.sort-desc) .sort-arrow::after { content: "↕"; }
 </style>
 
 <div class="container py-4">
@@ -27,55 +33,39 @@
             <li class="breadcrumb-item">
                 <a href="{% url 'fintech:watchlist-performance' %}">Watchlist Performance</a>
             </li>
-            <li class="breadcrumb-item active">{{ watchlist.name }}</li>
+            <li class="breadcrumb-item active">Alle Watchlisten</li>
         </ol>
     </nav>
 
-    <h2 class="mb-1">{{ watchlist.name }}</h2>
+    <h2 class="mb-1">Alle Watchlisten</h2>
     <p class="text-muted small mb-4">
-        Annahme: {{ hypothetical|floatformat:0 }} € pro Position beim Einstieg
+        Annahme: {{ hypothetical|floatformat:0 }} € pro Position beim Einstieg &middot;
+        Spaltenköpfe „Name / ISIN“, „Einfach“ und „p.a.“ sind klickbar sortierbar.
     </p>
 
-    {% if reset_result %}
-        {% if reset_result.failed %}
-            <div class="alert alert-warning">
-                Einstiegspreise zurückgesetzt: {{ reset_result.ok }} erfolgreich,
-                {{ reset_result.failed|length }} fehlgeschlagen
-                ({{ reset_result.failed|join:", " }}) — unten rot markiert.
-            </div>
-        {% else %}
-            <div class="alert alert-success">
-                Einstiegspreise für {{ reset_result.ok }} Eintrag(e) erfolgreich zurückgesetzt.
-            </div>
-        {% endif %}
-    {% endif %}
-
     {% if not entry_rows %}
-        <p class="text-muted">Keine Einträge in dieser Watchlist.</p>
+        <p class="text-muted">Keine Einträge in irgendeiner Watchlist.</p>
     {% else %}
-
-    {# Summary-Zeile #}
-    {% with total_inv=0 total_cur=0 %}
-    {% endwith %}
 
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
                     <th>#</th>
-                    <th>Name / ISIN</th>
+                    <th class="sortable" data-sort-target="name" onclick="sortWatchlistTable('name', false)">Name / ISIN <span class="sort-arrow"></span></th>
+                    <th>Watchlist</th>
                     <th class="text-end">Einstieg</th>
                     <th class="text-end">Aktuell</th>
                     <th class="text-end">Tage</th>
                     <th class="text-end">Hyp. Wert</th>
-                    <th class="text-end">Einfach</th>
-                    <th class="text-end">p.a.</th>
-                    <th>Quelle / Notiz</th>
+                    <th class="text-end sortable" data-sort-target="simple" onclick="sortWatchlistTable('simple', true)">Einfach <span class="sort-arrow"></span></th>
+                    <th class="text-end sortable sort-desc" data-sort-target="annualized" onclick="sortWatchlistTable('annualized', true)">p.a. <span class="sort-arrow"></span></th>
+                    <th>Notiz</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="all-watchlists-tbody" data-sort-key="annualized" data-sort-dir="desc">
                 {% for row in entry_rows %}
-                <tr {% if row.reset_failed %}class="table-danger"{% endif %}>
+                <tr data-name="{{ row.name|lower }}" data-simple="{{ row.simple_sort }}" data-annualized="{{ row.annualized_sort }}">
                     <td>
                         <span class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-n{% endif %}">
                             {{ forloop.counter }}
@@ -86,6 +76,9 @@
                         <div class="text-muted" style="font-size:.78rem">
                             {% if row.name != row.isin %}{{ row.isin }} &middot; {% endif %}{{ row.asset_class }}
                         </div>
+                    </td>
+                    <td>
+                        <a href="{% url 'fintech:watchlist-detail' row.watchlist_name %}">{{ row.watchlist_name }}</a>
                     </td>
                     <td class="text-end">
                         {% if row.price_at_add %}
@@ -129,14 +122,13 @@
                                 {% if row.annualized >= 0 %}+{% endif %}{{ row.annualized|floatformat:1 }} %
                             </span>
                         {% elif row.days_held is not None and row.days_held < 365 %}
-                            <span class="perf-neutral" title="Noch kein volles Jahr vergangen">< 1 J.</span>
+                            <span class="perf-neutral" title="Noch kein volles Jahr vergangen">&lt; 1 J.</span>
                         {% else %}
                             <span class="perf-neutral">–</span>
                         {% endif %}
                     </td>
                     <td class="note-cell">
-                        {% if row.source %}<div>📎 {{ row.source }}</div>{% endif %}
-                        {% if row.notes  %}<div>📝 {{ row.notes  }}</div>{% endif %}
+                        {% if row.notes %}{{ row.notes }}{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -144,21 +136,38 @@
         </table>
     </div>
 
-    <form method="post"
-          action="{% url 'fintech:watchlist-reset-prices' watchlist.name %}"
-          onsubmit="return confirm('Wirklich für ALLE Einträge dieser Watchlist den Einstiegspreis auf den aktuellen Kurs zurücksetzen? Das kann nicht rückgängig gemacht werden.');"
-          class="d-inline-block mt-3 me-2">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-outline-danger btn-sm">Reset Einstiegspreis</button>
-    </form>
     {% endif %}
-
-    <form method="post"
-          action="{% url 'fintech:watchlist-delete' watchlist.name %}"
-          onsubmit="return confirm('Watchlist &quot;{{ watchlist.name }}&quot; mit {{ entry_rows|length }} Eintrag(en) wirklich UNWIDERRUFLICH löschen?');"
-          class="d-inline-block mt-3">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger btn-sm">Watchlist löschen</button>
-    </form>
 </div>
+
+<script>
+function sortWatchlistTable(key, numeric) {
+    var tbody = document.getElementById('all-watchlists-tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    var currentKey = tbody.getAttribute('data-sort-key');
+    var currentDir = tbody.getAttribute('data-sort-dir') || 'desc';
+    var dir = (currentKey === key && currentDir === 'asc') ? 'desc' : 'asc';
+
+    rows.sort(function (a, b) {
+        var va = a.getAttribute('data-' + key);
+        var vb = b.getAttribute('data-' + key);
+        if (numeric) {
+            va = parseFloat(va);
+            vb = parseFloat(vb);
+        }
+        if (va < vb) return dir === 'asc' ? -1 : 1;
+        if (va > vb) return dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    rows.forEach(function (r) { tbody.appendChild(r); });
+    tbody.setAttribute('data-sort-key', key);
+    tbody.setAttribute('data-sort-dir', dir);
+
+    document.querySelectorAll('th.sortable').forEach(function (th) {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
+    var activeTh = document.querySelector('th[data-sort-target="' + key + '"]');
+    if (activeTh) activeTh.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+}
+</script>
 {% endblock %}

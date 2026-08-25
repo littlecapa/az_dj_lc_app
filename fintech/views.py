@@ -1491,6 +1491,8 @@ def watchlist_detail(request, watchlist_name):
         entry_rows.append({
             "isin":          entry.asset.isin,
             "name":          entry.asset.name,
+            "symbol":        entry.asset.symbol,
+            "logo":          entry.asset.logo,
             "asset_class":   entry.asset.asset_class,
             "price_at_add":  entry.price_at_add,
             "current_price": entry.asset.current_price,
@@ -1515,6 +1517,66 @@ def watchlist_detail(request, watchlist_name):
         "entry_rows": entry_rows,
         "hypothetical": HYPOTHETICAL_INVESTMENT,
         "reset_result": reset_result,
+    })
+
+
+@login_required
+def watchlist_delete(request, watchlist_name):
+    """Löscht eine komplette Watchlist inkl. aller Einträge (Cascade). Unwiderruflich."""
+    if request.method != "POST":
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    wl = get_object_or_404(Watchlist, name=watchlist_name)
+    entry_count = wl.entries.count()
+    wl.delete()
+    messages.success(request, f'Watchlist "{watchlist_name}" mit {entry_count} Eintrag(en) wurde gelöscht.')
+    return redirect("fintech:watchlist-performance")
+
+
+@login_required
+def watchlists_all(request):
+    """
+    Alle Einträge aus ALLEN Watchlisten in einer Tabelle — wie watchlist_detail,
+    aber mit einer Watchlist-Namen-Spalte statt Quelle, sortierbar per JS
+    (Name / Einfach / p.a.) über data-*-Attribute auf jeder Zeile.
+    """
+    entries = WatchlistEntry.objects.select_related("asset", "watchlist").order_by("asset__name")
+
+    entry_rows = []
+    for entry in entries:
+        perf = _entry_perf(entry)
+        simple = perf["simple_return"] * 100 if perf else None
+        annualized = perf["annualized"] * 100 if perf else None
+        entry_rows.append({
+            "isin":            entry.asset.isin,
+            "name":            entry.asset.name,
+            "symbol":          entry.asset.symbol,
+            "logo":            entry.asset.logo,
+            "asset_class":     entry.asset.asset_class,
+            "watchlist_name":  entry.watchlist.name,
+            "price_at_add":    entry.price_at_add,
+            "current_price":   entry.asset.current_price,
+            "added_at":        entry.added_at,
+            "notes":           entry.notes,
+            "days_held":       perf["days_held"]    if perf else None,
+            "current_value":   perf["current_value"] if perf else None,
+            "simple":          simple,
+            "annualized":      annualized,
+            # Für client-seitiges Sortieren: garantiert punkt-dezimal, kein
+            # lokalisiertes Komma wie es {{ row.simple }} im Template hätte.
+            "simple_sort":     str(float(simple)) if simple is not None else "-999999",
+            "annualized_sort": str(float(annualized)) if annualized is not None else "-999999",
+        })
+
+    entry_rows.sort(
+        key=lambda r: r["annualized"] if r["annualized"] is not None else Decimal("-999"),
+        reverse=True,
+    )
+
+    return render(request, "fintech/watchlists_all.html", {
+        "entry_rows": entry_rows,
+        "hypothetical": HYPOTHETICAL_INVESTMENT,
     })
 
 
