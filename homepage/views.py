@@ -18,6 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from core.jira_client import JiraClient, JiraApiError
 import os, logging, time
 import requests
+from zoneinfo import ZoneInfo
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
@@ -582,6 +583,8 @@ SCBB_CHECK_TIMEOUT = 15
 # Verhindert, dass viele schnell aufeinanderfolgende Aufrufe (Button-Doppelklick,
 # Cron-Fehlkonfiguration) scbb.de mit Requests fluten oder die Tabelle vollmüllen.
 SCBB_CHECK_MIN_INTERVAL = timedelta(seconds=5)
+# Anzeige-Zeitzone für die Monitoring-Seite (Speicherung bleibt UTC, TIME_ZONE-Setting).
+SCBB_DISPLAY_TZ = ZoneInfo("Europe/Berlin")
 
 
 def perform_scbb_check():
@@ -634,27 +637,29 @@ def scbb_check_api(request):
 
 def scbb_monitor_view(request):
     """Öffentliche Monitoring-Seite für https://scbb.de/ — Button + Diagramme."""
-    checks = ScbbCheck.objects.order_by('-checked_at')[:200]
-    checks = list(reversed(checks))  # chronologisch für den Zeitverlauf
+    with timezone.override(SCBB_DISPLAY_TZ):
+        checks = ScbbCheck.objects.order_by('-checked_at')[:200]
+        checks = list(reversed(checks))  # chronologisch für den Zeitverlauf
 
-    status_counts = (
-        ScbbCheck.objects.values('status_code')
-        .annotate(count=Count('id'))
-        .order_by('-count')
-    )
-    status_labels = [str(row['status_code']) if row['status_code'] is not None else 'Fehler' for row in status_counts]
-    status_data = [row['count'] for row in status_counts]
+        status_counts = (
+            ScbbCheck.objects.values('status_code')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+        status_labels = [str(row['status_code']) if row['status_code'] is not None else 'Fehler' for row in status_counts]
+        status_data = [row['count'] for row in status_counts]
 
-    response_time_labels = [c.checked_at.strftime('%d.%m. %H:%M') for c in checks]
-    response_time_data = [c.response_time_ms for c in checks]
+        # In Berlin-Zeit (statt gespeicherter UTC) für die Anzeige umrechnen.
+        response_time_labels = [timezone.localtime(c.checked_at).strftime('%d.%m. %H:%M') for c in checks]
+        response_time_data = [c.response_time_ms for c in checks]
 
-    context = {
-        'target_url': SCBB_TARGET_URL,
-        'latest_check': checks[-1] if checks else None,
-        'status_labels': status_labels,
-        'status_data': status_data,
-        'response_time_labels': response_time_labels,
-        'response_time_data': response_time_data,
-        'total_checks': ScbbCheck.objects.count(),
-    }
-    return render(request, 'homepage/scbb.html', context)
+        context = {
+            'target_url': SCBB_TARGET_URL,
+            'latest_check': checks[-1] if checks else None,
+            'status_labels': status_labels,
+            'status_data': status_data,
+            'response_time_labels': response_time_labels,
+            'response_time_data': response_time_data,
+            'total_checks': ScbbCheck.objects.count(),
+        }
+        return render(request, 'homepage/scbb.html', context)

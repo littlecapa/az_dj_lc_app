@@ -18,7 +18,7 @@
 
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="card-title">Letzter Check</h5>
+            <h5 class="card-title">Letzter Check <span class="text-muted small fw-normal">(Berlin-Zeit)</span></h5>
             {% if latest_check %}
                 <p id="scbb-latest" class="mb-0">
                     {{ latest_check.checked_at|date:"d.m.Y H:i:s" }} —
