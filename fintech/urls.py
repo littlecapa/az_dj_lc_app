@@ -34,4 +34,5 @@ urlpatterns = [
     path("watchlist-performance/<path:watchlist_name>/delete/", views.watchlist_delete, name="watchlist-delete"),
     path("watchlist-performance/<path:watchlist_name>/", views.watchlist_detail, name="watchlist-detail"),
     path("news/", views.news, name="news"),
+    path("alarme/", views.alarme, name="alarme"),
 ]

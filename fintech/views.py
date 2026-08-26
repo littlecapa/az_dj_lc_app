@@ -3,13 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
-from django.db.models import F, ExpressionWrapper, DecimalField
+from django.db.models import F, ExpressionWrapper, DecimalField, Q
 from django.db import transaction
 from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding, FinConfig, NameAlias
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding, FinConfig, NameAlias, PriceAlarm, PriceAlarmEvent
 from .apis.services.name_matching import match_held_stock, load_aliases
 from .models_helper.category_class import CategoryClass
 from .models_helper.asset_class import AssetClass
@@ -1636,6 +1636,38 @@ def news(request):
         "events":      events,
         "show_all":    show_all,
         "unread_count": unread_count,
+    })
+
+
+@login_required
+def alarme(request):
+    if request.method == "POST":
+        if "create_alarm" in request.POST:
+            isin = request.POST.get("asset")
+            target_price = request.POST.get("target_price")
+            asset = Asset.objects.filter(isin=isin).first()
+            if asset and target_price:
+                try:
+                    PriceAlarm.objects.create(asset=asset, target_price=Decimal(target_price))
+                except (InvalidOperation, ValueError):
+                    messages.error(request, "Ungültiger Kurswert.")
+        elif "deactivate_alarm" in request.POST:
+            pk = request.POST.get("deactivate_alarm")
+            PriceAlarm.objects.filter(pk=pk).update(is_active=False)
+        return redirect("fintech:alarme")
+
+    # Assets, für die überhaupt Kurse aktualisiert werden (Holdings/Watchlist) —
+    # nur für diese kann ein Alarm sinnvoll auslösen, siehe update_prices._get_assets_to_update.
+    tracked_assets = (
+        Asset.objects.filter(Q(holdings__isnull=False) | Q(watchlistentry__isnull=False))
+        .distinct()
+        .order_by("name")
+    )
+
+    return render(request, "fintech/alarme.html", {
+        "events": PriceAlarmEvent.objects.select_related("asset")[:20],
+        "active_alarms": PriceAlarm.objects.filter(is_active=True).select_related("asset"),
+        "tracked_assets": tracked_assets,
     })
 
 

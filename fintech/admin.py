@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
 from decimal import Decimal
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -347,3 +347,21 @@ class NewsEventAdmin(admin.ModelAdmin):
     list_editable = ('is_read',)
     filter_horizontal = ('assets',)
     readonly_fields = ('created_at',)
+
+@admin.register(PriceAlarm)
+class PriceAlarmAdmin(admin.ModelAdmin):
+    list_display  = ('asset', 'target_price', 'is_active', 'created_at')
+    list_filter   = ('is_active',)
+    list_editable = ('is_active',)
+    search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
+    autocomplete_fields = ('asset',)
+    readonly_fields = ('created_at',)
+
+@admin.register(PriceAlarmEvent)
+class PriceAlarmEventAdmin(admin.ModelAdmin):
+    list_display  = ('asset', 'direction', 'target_price', 'previous_price', 'triggered_price', 'triggered_at')
+    list_filter   = ('direction', 'triggered_at')
+    search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
+    autocomplete_fields = ('asset', 'alarm')
+    readonly_fields = ('asset', 'alarm', 'target_price', 'direction', 'previous_price', 'triggered_price', 'triggered_at')
+    ordering = ('-triggered_at',)

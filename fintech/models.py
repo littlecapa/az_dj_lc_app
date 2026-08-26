@@ -10,6 +10,7 @@ from .models_helper.etf_extend_source import EtfExtendSource
 
 from django.utils import timezone
 from django.contrib.auth.models import User
+from telegram_app.libs.telegram_api import send_telegram_message
 
 
 class FinConfig(models.Model):
@@ -357,6 +358,8 @@ class Price(models.Model):
             self.asset.save(update_fields=['current_price', 'current_price_timestamp'])
         # 52W-Hoch/Tief aktualisieren falls vorhanden
         self._update_week52(self.current_price)
+        # Preis-Alarme prüfen (Kreuzung des Zielkurses seit dem letzten Kurs)
+        self._check_price_alarms(self.current_price)
 
     def _update_week52(self, price):
         """Prüft ob der neue Kurs ein neues 52W-Hoch oder -Tief darstellt."""
@@ -403,6 +406,49 @@ class Price(models.Model):
 
         if changed:
             r.save(update_fields=['week52_high', 'week52_high_date', 'week52_low', 'week52_low_date'])
+
+    def _check_price_alarms(self, price):
+        """
+        Prüft aktive PriceAlarm-Einträge des Assets auf Kreuzung des Zielkurses
+        seit dem vorherigen gespeicherten Kurs:
+          a) vorher < Ziel, jetzt >= Ziel  (Aufwärtskreuzung)
+          b) vorher > Ziel, jetzt <= Ziel  (Abwärtskreuzung)
+        Ohne einen vorherigen Kurs (erster Datenpunkt) kann keine Kreuzung
+        erkannt werden. Ausgelöste Alarme werden deaktiviert.
+        """
+        previous = self.asset.prices.exclude(pk=self.pk).order_by('-timestamp').first()
+        if previous is None:
+            return
+
+        prev_price = previous.current_price
+        for alarm in self.asset.price_alarms.filter(is_active=True):
+            target = alarm.target_price
+            if prev_price < target and price >= target:
+                direction = PriceAlarmEvent.Direction.UP
+            elif prev_price > target and price <= target:
+                direction = PriceAlarmEvent.Direction.DOWN
+            else:
+                continue
+
+            PriceAlarmEvent.objects.create(
+                alarm=alarm,
+                asset=self.asset,
+                target_price=target,
+                direction=direction,
+                previous_price=prev_price,
+                triggered_price=price,
+            )
+            alarm.is_active = False
+            alarm.save(update_fields=['is_active'])
+
+            emoji = "📈" if direction == PriceAlarmEvent.Direction.UP else "📉"
+            arrow = "über" if direction == PriceAlarmEvent.Direction.UP else "unter"
+            # Best-effort: send_telegram_message() wirft nie, meldet Fehler nur per Logging.
+            send_telegram_message(
+                f"{emoji} Preis-Alarm: {self.asset.name} ({self.asset.symbol or self.asset.isin}) "
+                f"{arrow} Zielkurs {target} — {prev_price} → {price}",
+                trigger="price_alarm",
+            )
 
     class Meta:
         verbose_name = "Kurs"
@@ -610,6 +656,70 @@ class NewsEvent(models.Model):
 
     def __str__(self):
         return f"{self.get_event_type_display()} @ {self.new_value} ({self.created_at:%Y-%m-%d})"
+
+
+class PriceAlarm(models.Model):
+    """
+    Vom Nutzer gesetzter Ziel-Kurswert für ein Asset. Löst aus, sobald der
+    Kurs die Schwelle in eine der beiden Richtungen kreuzt (siehe
+    Price._check_price_alarms), und wird danach automatisch deaktiviert.
+    """
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name='price_alarms',
+    )
+    target_price = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        validators=[MinValueValidator(Decimal('0.0001'))],
+        help_text="Kurswert, bei dessen Über- oder Unterschreiten der Alarm auslöst.",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Preis-Alarm"
+        verbose_name_plural = "Preis-Alarme"
+        ordering = ['asset__name', 'target_price']
+
+    def __str__(self):
+        status = "aktiv" if self.is_active else "ausgelöst"
+        return f"{self.asset.symbol or self.asset.isin} @ {self.target_price} ({status})"
+
+
+class PriceAlarmEvent(models.Model):
+    """
+    Protokoll eines ausgelösten PriceAlarm. Bleibt auch erhalten, wenn der
+    zugehörige Alarm später gelöscht wird (alarm dann NULL).
+    """
+    class Direction(models.TextChoices):
+        UP   = 'up',   'Aufwärts gekreuzt'
+        DOWN = 'down', 'Abwärts gekreuzt'
+
+    alarm = models.ForeignKey(
+        PriceAlarm,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='events',
+    )
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name='price_alarm_events',
+    )
+    target_price = models.DecimalField(max_digits=12, decimal_places=4)
+    direction = models.CharField(max_length=4, choices=Direction.choices)
+    previous_price = models.DecimalField(max_digits=12, decimal_places=4)
+    triggered_price = models.DecimalField(max_digits=12, decimal_places=4)
+    triggered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Preis-Alarm-Ereignis"
+        verbose_name_plural = "Preis-Alarm-Ereignisse"
+        ordering = ['-triggered_at']
+
+    def __str__(self):
+        return f"{self.asset.symbol or self.asset.isin}: {self.get_direction_display()} {self.target_price} ({self.triggered_at:%Y-%m-%d %H:%M})"
 
 
 class FondHolding(models.Model):
