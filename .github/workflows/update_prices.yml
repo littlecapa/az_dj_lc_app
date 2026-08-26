@@ -90,3 +90,12 @@ jobs:
           [ "$FORCE" = "true" ] && ARGS+=(--force)
           echo "Starte Kurs-Update (${ARGS[*]:-alle Asset-Klassen})"
           python manage.py update_prices "${ARGS[@]}"
+
+      - name: SCBB-Erreichbarkeits-Check anstoßen
+        if: always()  # läuft auch, wenn "Update prices" fehlschlägt — unabhängiges Anliegen
+        run: |
+          if curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 20 https://littlecapa.com/scbb/check/ | grep -q '^2'; then
+            echo "SCBB-Check ausgelöst."
+          else
+            echo "SCBB-Check fehlgeschlagen (ignoriert)."
+          fi
