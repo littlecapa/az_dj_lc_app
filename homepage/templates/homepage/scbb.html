@@ -1,0 +1,116 @@
+{% extends 'homepage/base_home.html' %}
+{% load static %}
+
+{% block title %}SCBB Monitoring{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>SCBB Monitoring</h2>
+    <p class="text-muted">
+        Erreichbarkeit von <a href="{{ target_url }}" target="_blank" rel="noopener">{{ target_url }}</a>
+        — {{ total_checks }} Check{{ total_checks|pluralize:"s" }} bisher.
+    </p>
+
+    <button id="scbb-check-btn" class="btn btn-primary mb-3" type="button">
+        Jetzt prüfen
+    </button>
+    <span id="scbb-check-status" class="ms-2 text-muted"></span>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Letzter Check</h5>
+            {% if latest_check %}
+                <p id="scbb-latest" class="mb-0">
+                    {{ latest_check.checked_at|date:"d.m.Y H:i:s" }} —
+                    Status: <strong>{{ latest_check.status_code|default:"Fehler" }}</strong>,
+                    Antwortzeit: <strong>{{ latest_check.response_time_ms }} ms</strong>
+                    {% if latest_check.error %}<br><span class="text-danger">{{ latest_check.error }}</span>{% endif %}
+                </p>
+            {% else %}
+                <p id="scbb-latest" class="mb-0 text-muted">Noch keine Checks vorhanden.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-5 mb-4">
+            <div class="card h-100">
+                <div class="card-header">HTTP-Statuscodes</div>
+                <div class="card-body">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7 mb-4">
+            <div class="card h-100">
+                <div class="card-header">Antwortzeiten (letzte {{ response_time_labels|length }} Checks)</div>
+                <div class="card-body">
+                    <canvas id="responseTimeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ status_labels|json_script:"status-labels" }}
+{{ status_data|json_script:"status-data" }}
+{{ response_time_labels|json_script:"response-time-labels" }}
+{{ response_time_data|json_script:"response-time-data" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const statusLabels = JSON.parse(document.getElementById('status-labels').textContent);
+    const statusData = JSON.parse(document.getElementById('status-data').textContent);
+    const rtLabels = JSON.parse(document.getElementById('response-time-labels').textContent);
+    const rtData = JSON.parse(document.getElementById('response-time-data').textContent);
+
+    new Chart(document.getElementById('statusChart'), {
+        type: 'pie',
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: statusData,
+                backgroundColor: ['#198754', '#dc3545', '#ffc107', '#0d6efd', '#6c757d', '#20c997'],
+            }],
+        },
+    });
+
+    new Chart(document.getElementById('responseTimeChart'), {
+        type: 'line',
+        data: {
+            labels: rtLabels,
+            datasets: [{
+                label: 'Antwortzeit (ms)',
+                data: rtData,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13,110,253,0.15)',
+                tension: 0.2,
+                fill: true,
+            }],
+        },
+        options: {
+            scales: { y: { beginAtZero: true, title: { display: true, text: 'ms' } } },
+        },
+    });
+
+    document.getElementById('scbb-check-btn').addEventListener('click', function () {
+        const btn = this;
+        const statusEl = document.getElementById('scbb-check-status');
+        btn.disabled = true;
+        statusEl.textContent = 'Prüfe...';
+
+        fetch("{% url 'homepage:scbb-check' %}", { method: 'POST' })
+            .then((r) => r.json())
+            .then(() => {
+                statusEl.textContent = '';
+                location.reload();
+            })
+            .catch((err) => {
+                statusEl.textContent = 'Fehler beim Check: ' + err;
+                btn.disabled = false;
+            });
+    });
+})();
+</script>
+{% endblock %}

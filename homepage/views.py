@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import ContactForm
 from .chess_captcha import fen_to_board_rows, get_random_position, is_captcha_answer_correct, CAPTCHA_QUESTION
-from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink, ChessPosition
+from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink, ChessPosition, ScbbCheck
 from django.contrib.auth.decorators import user_passes_test
 from django.views.generic import ListView, DetailView
 from django.http import JsonResponse, HttpResponseNotAllowed
@@ -11,9 +11,10 @@ from django.template.loader import render_to_string
 from azure.monitor.query import LogsQueryClient
 from azure.identity import DefaultAzureCredential
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
 from datetime import timedelta
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt
 from core.jira_client import JiraClient, JiraApiError
 import os, logging, time
 import requests
@@ -570,3 +571,90 @@ def api_overview(request):
         },
     ]
     return render(request, "homepage/api_overview.html", {"endpoints": endpoints})
+
+
+# =====================================================================
+# SCBB Monitoring (Erreichbarkeit https://scbb.de/)
+# =====================================================================
+
+SCBB_TARGET_URL = "https://scbb.de/"
+SCBB_CHECK_TIMEOUT = 15
+# Verhindert, dass viele schnell aufeinanderfolgende Aufrufe (Button-Doppelklick,
+# Cron-Fehlkonfiguration) scbb.de mit Requests fluten oder die Tabelle vollmüllen.
+SCBB_CHECK_MIN_INTERVAL = timedelta(seconds=5)
+
+
+def perform_scbb_check():
+    """Ruft SCBB_TARGET_URL auf, misst die Antwortzeit und speichert einen ScbbCheck-Datensatz."""
+    start = time.monotonic()
+    status_code = None
+    error = ""
+    try:
+        response = requests.get(SCBB_TARGET_URL, headers=CHESS_MAG_CHECK_HEADERS, timeout=SCBB_CHECK_TIMEOUT)
+        status_code = response.status_code
+    except requests.RequestException as exc:
+        error = str(exc)[:255]
+        logger.warning(f"SCBB-Check: {SCBB_TARGET_URL} nicht erreichbar: {exc}")
+
+    response_time_ms = round((time.monotonic() - start) * 1000)
+    return ScbbCheck.objects.create(
+        status_code=status_code,
+        response_time_ms=response_time_ms,
+        error=error,
+    )
+
+
+@csrf_exempt
+def scbb_check_api(request):
+    """
+    REST-Endpoint, um einen SCBB-Check auszulösen. Bewusst ohne Auth
+    (öffentlich erreichbar), z.B. für curl/Cron: POST /scbb/check/
+    CSRF-exempt, damit auch externe curl/Cron-Aufrufe ohne Session-Cookie
+    funktionieren.
+    """
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    last_check = ScbbCheck.objects.order_by('-checked_at').first()
+    if last_check and timezone.now() - last_check.checked_at < SCBB_CHECK_MIN_INTERVAL:
+        check = last_check
+        throttled = True
+    else:
+        check = perform_scbb_check()
+        throttled = False
+
+    return JsonResponse({
+        'checked_at': check.checked_at.isoformat(),
+        'status_code': check.status_code,
+        'response_time_ms': check.response_time_ms,
+        'error': check.error,
+        'throttled': throttled,
+    })
+
+
+def scbb_monitor_view(request):
+    """Öffentliche Monitoring-Seite für https://scbb.de/ — Button + Diagramme."""
+    checks = ScbbCheck.objects.order_by('-checked_at')[:200]
+    checks = list(reversed(checks))  # chronologisch für den Zeitverlauf
+
+    status_counts = (
+        ScbbCheck.objects.values('status_code')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    status_labels = [str(row['status_code']) if row['status_code'] is not None else 'Fehler' for row in status_counts]
+    status_data = [row['count'] for row in status_counts]
+
+    response_time_labels = [c.checked_at.strftime('%d.%m. %H:%M') for c in checks]
+    response_time_data = [c.response_time_ms for c in checks]
+
+    context = {
+        'target_url': SCBB_TARGET_URL,
+        'latest_check': checks[-1] if checks else None,
+        'status_labels': status_labels,
+        'status_data': status_data,
+        'response_time_labels': response_time_labels,
+        'response_time_data': response_time_data,
+        'total_checks': ScbbCheck.objects.count(),
+    }
+    return render(request, 'homepage/scbb.html', context)

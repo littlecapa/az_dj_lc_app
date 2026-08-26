@@ -71,6 +71,12 @@
                         href="{% url 'chess:index' %}">Chess</a>
                     </li>
 
+                    <!-- 7. SCBB MONITORING -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:scbb' %}active fw-bold{% endif %}"
+                        href="{% url 'homepage:scbb' %}">SCBB Monitoring</a>
+                    </li>
+
                 </ul>
             </div>
 

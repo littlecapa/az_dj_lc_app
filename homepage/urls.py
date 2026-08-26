@@ -10,6 +10,8 @@ urlpatterns = [
     path('contact/', views.contact, name='contact'),
     path('my-chess-club/', views.my_chess_club, name='my_chess_club'),
     path('monitoring/', views.monitoring_view, name='monitoring'),
+    path('scbb/', views.scbb_monitor_view, name='scbb'),
+    path('scbb/check/', views.scbb_check_api, name='scbb-check'),
     path('historical-chess-mags/', views.historical_chess_mags, name='historical-chess-mags'),
     path('historical-chess-mags/check/', views.check_historical_chess_mags, name='check-historical-chess-mags'),
     #

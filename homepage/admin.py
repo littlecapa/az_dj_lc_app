@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ContactMessage, HistChessMagazine, BlogPost, QuickLink, ChessPosition
+from .models import ContactMessage, HistChessMagazine, BlogPost, QuickLink, ChessPosition, ScbbCheck
 
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
@@ -32,3 +32,10 @@ class QuickLinkAdmin(admin.ModelAdmin):
 class ChessPositionAdmin(admin.ModelAdmin):
     list_display  = ('fen', 'valid_moves_regex')
     search_fields = ('fen', 'valid_moves_regex')
+
+@admin.register(ScbbCheck)
+class ScbbCheckAdmin(admin.ModelAdmin):
+    list_display  = ('checked_at', 'status_code', 'response_time_ms', 'error')
+    list_filter   = ('status_code',)
+    ordering      = ('-checked_at',)
+    readonly_fields = ('checked_at', 'status_code', 'response_time_ms', 'error')

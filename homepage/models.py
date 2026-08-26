@@ -95,6 +95,23 @@ class HistChessMagazine(models.Model):
         ordering = ['name']
 
 
+class ScbbCheck(models.Model):
+    """Ergebnis eines Erreichbarkeits-Checks von https://scbb.de/ (Homepage des Schachvereins)."""
+    checked_at = models.DateTimeField(default=timezone.now, db_index=True)
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True, help_text="HTTP-Statuscode, leer bei Verbindungsfehler/Timeout.")
+    response_time_ms = models.PositiveIntegerField(null=True, blank=True)
+    error = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-checked_at']
+        verbose_name = "SCBB Check"
+        verbose_name_plural = "SCBB Checks"
+
+    def __str__(self):
+        status = self.status_code if self.status_code is not None else "Fehler"
+        return f"{self.checked_at:%Y-%m-%d %H:%M:%S} — {status}"
+
+
 class ChessPosition(models.Model):
     """
     Stellung für das Schach-Captcha auf der Contact-Seite. Beim Laden der
