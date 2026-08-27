@@ -1158,6 +1158,15 @@ def watchlist_performance(request):
             # lässt die Hochrechnung auf 365 Tage den float-Wertebereich sprengen.
             annualized_display = None
 
+        # Für die Sortierung dieselbe Kennzahl verwenden, die auf der Karte auch
+        # angezeigt wird (p.a. ab 365 Tagen Haltedauer, sonst einfache Gesamtrendite) —
+        # sonst weicht die Reihenfolge von den sichtbaren Prozentwerten ab.
+        display_value = (
+            annualized_display
+            if annualized_display is not None and round(avg_days) >= 365
+            else simple * 100
+        )
+
         rows.append({
             "name":           wl.name,
             "entry_count":    len(entries),
@@ -1168,9 +1177,10 @@ def watchlist_performance(request):
             "simple":         simple * 100,
             "annualized":     annualized_display,
             "avg_days":       round(avg_days),
+            "sort_value":     display_value,
         })
 
-    rows.sort(key=lambda r: r["annualized"] if r["annualized"] is not None else Decimal("-999"), reverse=True)
+    rows.sort(key=lambda r: r.get("sort_value", Decimal("-999")), reverse=True)
     return render(request, "fintech/watchlist_performance.html", {"rows": rows})
 
 
