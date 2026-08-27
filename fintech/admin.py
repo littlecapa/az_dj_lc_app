@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent, TrailingStopLoss, TrailingStopEvent
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -362,4 +362,22 @@ class PriceAlarmEventAdmin(admin.ModelAdmin):
     search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
     autocomplete_fields = ('asset', 'alarm')
     readonly_fields = ('asset', 'alarm', 'target_price', 'direction', 'previous_price', 'triggered_price', 'triggered_at', 'notified_at')
+    ordering = ('-triggered_at',)
+
+@admin.register(TrailingStopLoss)
+class TrailingStopLossAdmin(admin.ModelAdmin):
+    list_display  = ('holdings', 'trail_percent', 'activated_price', 'reference_price', 'trigger_price', 'is_active', 'created_at')
+    list_filter   = ('is_active',)
+    list_editable = ('is_active',)
+    search_fields = ('holdings__asset__name', 'holdings__asset__symbol', 'holdings__asset__isin')
+    autocomplete_fields = ('holdings',)
+    readonly_fields = ('activated_price', 'reference_price', 'created_at')
+
+@admin.register(TrailingStopEvent)
+class TrailingStopEventAdmin(admin.ModelAdmin):
+    list_display  = ('asset', 'trail_percent', 'reference_price', 'triggered_price', 'triggered_at', 'notified_at')
+    list_filter   = ('triggered_at', ('notified_at', admin.EmptyFieldListFilter))
+    search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
+    autocomplete_fields = ('asset', 'trailing_stop')
+    readonly_fields = ('asset', 'trailing_stop', 'trail_percent', 'reference_price', 'triggered_price', 'triggered_at', 'notified_at')
     ordering = ('-triggered_at',)

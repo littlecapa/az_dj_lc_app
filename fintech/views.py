@@ -9,7 +9,7 @@ from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding, FinConfig, NameAlias, PriceAlarm, PriceAlarmEvent, format_price_alarm_message
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding, FinConfig, NameAlias, PriceAlarm, PriceAlarmEvent, format_price_alarm_message, TrailingStopLoss, TrailingStopEvent, format_trailing_stop_message
 from telegram_app.libs.telegram_api import send_telegram_message
 from .apis.services.name_matching import match_held_stock, load_aliases
 from .models_helper.category_class import CategoryClass
@@ -1665,6 +1665,31 @@ def alarme(request):
         elif "deactivate_alarm" in request.POST:
             pk = request.POST.get("deactivate_alarm")
             PriceAlarm.objects.filter(pk=pk).update(is_active=False)
+        elif "create_trailing_stop" in request.POST:
+            isin = request.POST.get("ts_asset")
+            trail_percent = request.POST.get("trail_percent") or "10"
+            holding = Holdings.objects.filter(asset__isin=isin).select_related("asset").first()
+            if holding is None:
+                messages.error(request, "Kein Bestand für dieses Asset gefunden.")
+            elif not holding.asset.current_price:
+                messages.error(request, "Kein aktueller Kurs für dieses Asset verfügbar.")
+            else:
+                try:
+                    pct = Decimal(trail_percent)
+                    TrailingStopLoss.objects.update_or_create(
+                        holdings=holding,
+                        defaults={
+                            "trail_percent": pct,
+                            "activated_price": holding.asset.current_price,
+                            "reference_price": holding.asset.current_price,
+                            "is_active": True,
+                        },
+                    )
+                except (InvalidOperation, ValueError):
+                    messages.error(request, "Ungültiger Prozentwert.")
+        elif "deactivate_trailing_stop" in request.POST:
+            pk = request.POST.get("deactivate_trailing_stop")
+            TrailingStopLoss.objects.filter(pk=pk).update(is_active=False)
         return redirect("fintech:alarme")
 
     # Assets, für die überhaupt Kurse aktualisiert werden (Holdings/Watchlist) —
@@ -1674,23 +1699,57 @@ def alarme(request):
         .distinct()
         .order_by("name")
     )
+    # Trailing-Stop macht nur für echte Bestände Sinn (quantity > 0), nicht für
+    # Dummy-Holdings (quantity=0, nur für den Aktien-Look-Through angelegt).
+    held_assets = (
+        Asset.objects.filter(holdings__quantity__gt=0)
+        .distinct()
+        .order_by("name")
+    )
+
+    price_events = [
+        {"kind": "price_alarm", "triggered_at": e.triggered_at, "obj": e}
+        for e in PriceAlarmEvent.objects.select_related("asset")[:20]
+    ]
+    trailing_events = [
+        {"kind": "trailing_stop", "triggered_at": e.triggered_at, "obj": e}
+        for e in TrailingStopEvent.objects.select_related("asset")[:20]
+    ]
+    combined_events = sorted(price_events + trailing_events, key=lambda r: r["triggered_at"], reverse=True)[:20]
 
     return render(request, "fintech/alarme.html", {
-        "events": PriceAlarmEvent.objects.select_related("asset")[:20],
+        "events": combined_events,
         "active_alarms": PriceAlarm.objects.filter(is_active=True).select_related("asset"),
+        "active_trailing_stops": TrailingStopLoss.objects.filter(is_active=True).select_related("holdings__asset"),
         "tracked_assets": tracked_assets,
+        "held_assets": held_assets,
     })
 
 
 @csrf_exempt
+def _notify_pending_events(queryset, format_fn, trigger):
+    """Verschickt Telegram für alle Events einer Queryset mit notified_at=NULL."""
+    pending = list(queryset.filter(notified_at__isnull=True).order_by("triggered_at")[:100])
+    sent = failed = 0
+    for event in pending:
+        if send_telegram_message(format_fn(event), trigger=trigger):
+            event.notified_at = timezone.now()
+            event.save(update_fields=["notified_at"])
+            sent += 1
+        else:
+            failed += 1
+    return len(pending), sent, failed
+
+
 def notify_price_alarms(request):
     """
-    Holt Telegram-Versand für PriceAlarmEvents nach, die entstanden sind, ohne
-    dass die Nachricht direkt verschickt werden konnte — z.B. weil Price.save()
-    im update_prices-Lauf auf GitHub Actions ausgeführt wurde, wo keine
-    TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID konfiguriert sind (bewusst so, um den
-    Telegram-Bot-Token nicht zusätzlich als GitHub-Secret duplizieren zu müssen).
-    Auth wie die anderen fintech-Export-Endpoints: X-Api-Key oder Staff-Login.
+    Holt Telegram-Versand für PriceAlarmEvent/TrailingStopEvent nach, die
+    entstanden sind, ohne dass die Nachricht direkt verschickt werden konnte —
+    z.B. weil Price.save() im update_prices-Lauf auf GitHub Actions ausgeführt
+    wurde, wo keine TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID konfiguriert sind
+    (bewusst so, um den Telegram-Bot-Token nicht zusätzlich als GitHub-Secret
+    duplizieren zu müssen). Auth wie die anderen fintech-Export-Endpoints:
+    X-Api-Key oder Staff-Login.
     """
     if not (_is_api_key_valid(request) or (request.user.is_active and request.user.is_staff)):
         return JsonResponse({"error": "Unauthorized"}, status=401)
@@ -1698,23 +1757,20 @@ def notify_price_alarms(request):
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(["POST"])
 
-    pending = list(
-        PriceAlarmEvent.objects.filter(notified_at__isnull=True)
-        .select_related("asset")
-        .order_by("triggered_at")[:100]
+    pa_pending, pa_sent, pa_failed = _notify_pending_events(
+        PriceAlarmEvent.objects.select_related("asset"), format_price_alarm_message, "price_alarm",
+    )
+    ts_pending, ts_sent, ts_failed = _notify_pending_events(
+        TrailingStopEvent.objects.select_related("asset"), format_trailing_stop_message, "trailing_stop",
     )
 
-    sent = 0
-    failed = 0
-    for event in pending:
-        if send_telegram_message(format_price_alarm_message(event), trigger="price_alarm"):
-            event.notified_at = timezone.now()
-            event.save(update_fields=["notified_at"])
-            sent += 1
-        else:
-            failed += 1
-
-    return JsonResponse({"pending": len(pending), "sent": sent, "failed": failed})
+    return JsonResponse({
+        "pending": pa_pending + ts_pending,
+        "sent": pa_sent + ts_sent,
+        "failed": pa_failed + ts_failed,
+        "price_alarms": {"pending": pa_pending, "sent": pa_sent, "failed": pa_failed},
+        "trailing_stops": {"pending": ts_pending, "sent": ts_sent, "failed": ts_failed},
+    })
 
 
 @staff_member_required

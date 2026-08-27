@@ -1,7 +1,7 @@
 {% extends "homepage/base_home.html" %}
 {% load static %}
 
-{% block title %}Preis-Alarme{% endblock %}
+{% block title %}Alarme{% endblock %}
 
 {% block content %}
 <style>
@@ -25,7 +25,7 @@
 <div class="container py-4">
 
     <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
-        <h2 class="mb-0">Preis-Alarme</h2>
+        <h2 class="mb-0">Alarme</h2>
         <a href="{% url 'fintech:portfolio-performance' %}" class="text-muted small ms-auto">← Portfolio</a>
     </div>
 
@@ -34,6 +34,8 @@
             <div class="alert alert-danger">{{ message }}</div>
         {% endfor %}
     {% endif %}
+
+    <h5 class="mb-3">Preis-Alarme</h5>
 
     <!-- Neuen Alarm anlegen -->
     <div class="card mb-4">
@@ -99,25 +101,109 @@
         </div>
     </div>
 
-    <!-- Ausgelöste Alarme -->
+    <h5 class="mb-3 mt-4">Trailing Stop-Loss</h5>
+
+    <!-- Neuen Trailing-Stop anlegen -->
+    <div class="card mb-4">
+        <div class="card-header">Neuen Trailing-Stop anlegen</div>
+        <div class="card-body">
+            <form method="post" class="row g-2 align-items-end">
+                {% csrf_token %}
+                <div class="col-sm-6">
+                    <label class="form-label small">Bestand</label>
+                    <select name="ts_asset" class="form-select" required>
+                        {% for a in held_assets %}
+                            <option value="{{ a.isin }}">{{ a.name }} ({{ a.symbol|default:a.isin }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-sm-3">
+                    <label class="form-label small">Trailing-Loss %</label>
+                    <input type="number" step="0.01" min="0.01" max="99.99" name="trail_percent" value="10" class="form-control" required>
+                </div>
+                <div class="col-sm-3">
+                    <button type="submit" name="create_trailing_stop" value="1" class="btn btn-primary w-100">Anlegen / neu starten</button>
+                </div>
+            </form>
+            <div class="form-text mt-2">
+                Referenzhoch startet beim aktuellen Kurs und zieht bei neuen Hochs mit. Auslösen bei Referenzhoch × (1 − %).
+                Für einen Bestand mit bereits aktivem Trailing-Stop wird dieser neu gestartet (aktueller Kurs als neues Referenzhoch).
+            </div>
+        </div>
+    </div>
+
+    <!-- Aktive Trailing-Stops -->
+    <div class="card mb-4">
+        <div class="card-header">Aktive Trailing-Stops ({{ active_trailing_stops|length }})</div>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th class="text-end">-%</th>
+                        <th class="text-end">Referenzhoch</th>
+                        <th class="text-end">Trigger-Kurs</th>
+                        <th class="text-end">Aktueller Kurs</th>
+                        <th>Angelegt</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tsl in active_trailing_stops %}
+                    <tr>
+                        <td>{{ tsl.holdings.asset.name }} <span class="text-muted small">{{ tsl.holdings.asset.symbol|default:tsl.holdings.asset.isin }}</span></td>
+                        <td class="text-end">{{ tsl.trail_percent }}</td>
+                        <td class="text-end">{{ tsl.reference_price }}</td>
+                        <td class="text-end">{{ tsl.trigger_price }}</td>
+                        <td class="text-end">{{ tsl.holdings.asset.current_price|default:"–" }}</td>
+                        <td>{{ tsl.created_at|date:"d.m.Y H:i" }}</td>
+                        <td class="text-end">
+                            <form method="post" style="margin:0;">
+                                {% csrf_token %}
+                                <button name="deactivate_trailing_stop" value="{{ tsl.pk }}"
+                                        class="btn btn-sm btn-outline-secondary" title="Trailing-Stop deaktivieren">
+                                    ✕
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted">Keine aktiven Trailing-Stops.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Ausgelöste Alarme (Preis-Alarme + Trailing-Stops zusammen) -->
     <h5 class="mb-3">Ausgelöste Alarme (letzte {{ events|length }})</h5>
     {% if events %}
-        {% for ev in events %}
+        {% for row in events %}
+        {% with ev=row.obj %}
         <div class="alarm-card">
             <div class="d-flex align-items-center gap-3 flex-wrap">
                 <div style="min-width: 140px;">
-                    {% if ev.direction == 'up' %}
-                        <span class="dir-up">↑ Aufwärts gekreuzt</span>
+                    {% if row.kind == 'price_alarm' %}
+                        {% if ev.direction == 'up' %}
+                            <span class="dir-up">↑ Aufwärts gekreuzt</span>
+                        {% else %}
+                            <span class="dir-down">↓ Abwärts gekreuzt</span>
+                        {% endif %}
                     {% else %}
-                        <span class="dir-down">↓ Abwärts gekreuzt</span>
+                        <span class="dir-down">🛑 Trailing-Stop</span>
                     {% endif %}
                 </div>
                 <div class="flex-grow-1">
                     <div>
                         {{ ev.asset.name }}
                         <span class="text-muted small">{{ ev.asset.symbol|default:ev.asset.isin }}</span>
-                        — Ziel <strong>{{ ev.target_price }}</strong>:
-                        {{ ev.previous_price }} → <strong>{{ ev.triggered_price }}</strong>
+                        {% if row.kind == 'price_alarm' %}
+                            — Ziel <strong>{{ ev.target_price }}</strong>:
+                            {{ ev.previous_price }} → <strong>{{ ev.triggered_price }}</strong>
+                        {% else %}
+                            — -{{ ev.trail_percent }}% ab Hoch <strong>{{ ev.reference_price }}</strong>:
+                            → <strong>{{ ev.triggered_price }}</strong>
+                        {% endif %}
                     </div>
                     <div class="ts">
                         {{ ev.triggered_at|date:"d.m.Y H:i:s" }}
@@ -130,6 +216,7 @@
                 </div>
             </div>
         </div>
+        {% endwith %}
         {% endfor %}
     {% else %}
         <div class="empty-state">Noch kein Alarm ausgelöst.</div>

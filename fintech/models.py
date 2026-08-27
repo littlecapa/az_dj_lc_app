@@ -359,6 +359,8 @@ class Price(models.Model):
         self._update_week52(self.current_price)
         # Preis-Alarme prüfen (Kreuzung des Zielkurses seit dem letzten Kurs)
         self._check_price_alarms(self.current_price)
+        # Trailing-Stop-Loss prüfen (Referenzhoch nachziehen, Auslösen bei Unterschreiten)
+        self._check_trailing_stops(self.current_price)
 
     def _update_week52(self, price):
         """Prüft ob der neue Kurs ein neues 52W-Hoch oder -Tief darstellt."""
@@ -447,6 +449,47 @@ class Price(models.Model):
             if send_telegram_message(format_price_alarm_message(event), trigger="price_alarm"):
                 event.notified_at = timezone.now()
                 event.save(update_fields=['notified_at'])
+
+    def _check_trailing_stops(self, price):
+        """
+        Zieht das Referenzhoch eines aktiven TrailingStopLoss für dieses Asset
+        nach (nur aufwärts) und löst aus, sobald der Kurs trail_percent unter
+        das Referenzhoch fällt. Nichts zu tun, wenn kein Bestand oder kein
+        Trailing-Stop für diesen Bestand existiert.
+        """
+        holding = self.asset.holdings.first()
+        if holding is None:
+            return
+        try:
+            tsl = holding.trailing_stop_loss
+        except TrailingStopLoss.DoesNotExist:
+            return
+        if not tsl.is_active:
+            return
+
+        update_fields = []
+        if price > tsl.reference_price:
+            tsl.reference_price = price
+            update_fields.append('reference_price')
+
+        if price <= tsl.trigger_price:
+            event = TrailingStopEvent.objects.create(
+                trailing_stop=tsl,
+                asset=self.asset,
+                trail_percent=tsl.trail_percent,
+                reference_price=tsl.reference_price,
+                triggered_price=price,
+            )
+            tsl.is_active = False
+            update_fields.append('is_active')
+
+            # Sofort-Versand nur als Optimierung — siehe _check_price_alarms oben.
+            if send_telegram_message(format_trailing_stop_message(event), trigger="trailing_stop"):
+                event.notified_at = timezone.now()
+                event.save(update_fields=['notified_at'])
+
+        if update_fields:
+            tsl.save(update_fields=update_fields)
 
     class Meta:
         verbose_name = "Kurs"
@@ -737,6 +780,98 @@ def format_price_alarm_message(event: "PriceAlarmEvent") -> str:
     return (
         f"{emoji} Preis-Alarm: {event.asset.name} ({event.asset.symbol or event.asset.isin}) "
         f"{arrow} Zielkurs {event.target_price} — {event.previous_price} → {event.triggered_price}"
+    )
+
+
+class TrailingStopLoss(models.Model):
+    """
+    Trailing-Stop-Loss für einen Bestand (Holdings). Der Referenzwert
+    (reference_price) beginnt beim Kurs bei Aktivierung und steigt mit neuen
+    Kurshochs mit, fällt aber nie. Löst aus, sobald der Kurs um trail_percent
+    unter den Referenzwert fällt (siehe Price._check_trailing_stops), und wird
+    danach automatisch deaktiviert.
+    """
+    holdings = models.OneToOneField(
+        Holdings,
+        on_delete=models.CASCADE,
+        related_name='trailing_stop_loss',
+    )
+    trail_percent = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        default=Decimal('10.00'),
+        validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(Decimal('99.99'))],
+        help_text="Prozentualer Abstand zum Referenzhoch, bei dessen Unterschreiten der Alarm auslöst.",
+    )
+    activated_price = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        help_text="Kurs bei Aktivierung — unveränderlicher Startwert des Referenzhochs.",
+    )
+    reference_price = models.DecimalField(
+        max_digits=12, decimal_places=4,
+        help_text="Aktuelles Referenzhoch seit Aktivierung. Steigt mit neuen Kurshochs, fällt nie.",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Trailing Stop-Loss"
+        verbose_name_plural = "Trailing Stop-Losses"
+
+    def __str__(self):
+        status = "aktiv" if self.is_active else "ausgelöst"
+        return f"{self.holdings.asset.symbol or self.holdings.asset.isin}: -{self.trail_percent}% ab {self.reference_price} ({status})"
+
+    @property
+    def trigger_price(self):
+        return (self.reference_price * (Decimal('100') - self.trail_percent) / Decimal('100')).quantize(Decimal('0.0001'))
+
+
+class TrailingStopEvent(models.Model):
+    """
+    Protokoll eines ausgelösten TrailingStopLoss. Bleibt auch erhalten, wenn
+    der zugehörige Trailing-Stop später gelöscht wird (trailing_stop dann NULL).
+    """
+    trailing_stop = models.ForeignKey(
+        TrailingStopLoss,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='events',
+    )
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name='trailing_stop_events',
+    )
+    trail_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    reference_price = models.DecimalField(max_digits=12, decimal_places=4)
+    triggered_price = models.DecimalField(max_digits=12, decimal_places=4)
+    triggered_at = models.DateTimeField(auto_now_add=True)
+    notified_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            "Zeitpunkt, an dem die Telegram-Nachricht erfolgreich verschickt wurde. "
+            "NULL = noch ausstehend — wird vom notify-price-alarms-Endpoint nachgeholt."
+        ),
+    )
+
+    class Meta:
+        verbose_name = "Trailing-Stop-Ereignis"
+        verbose_name_plural = "Trailing-Stop-Ereignisse"
+        ordering = ['-triggered_at']
+
+    def __str__(self):
+        return (
+            f"{self.asset.symbol or self.asset.isin}: Trailing-Stop -{self.trail_percent}% "
+            f"ab {self.reference_price} @ {self.triggered_price} ({self.triggered_at:%Y-%m-%d %H:%M})"
+        )
+
+
+def format_trailing_stop_message(event: "TrailingStopEvent") -> str:
+    """Telegram-Text für ein TrailingStopEvent — geteilt zwischen Sofort-Versand
+    (Price._check_trailing_stops) und dem notify-price-alarms-Nachhol-Endpoint."""
+    return (
+        f"🛑 Trailing-Stop: {event.asset.name} ({event.asset.symbol or event.asset.isin}) "
+        f"-{event.trail_percent}% unter Hoch {event.reference_price} ausgelöst — Kurs {event.triggered_price}"
     )
 
 
