@@ -35,4 +35,5 @@ urlpatterns = [
     path("watchlist-performance/<path:watchlist_name>/", views.watchlist_detail, name="watchlist-detail"),
     path("news/", views.news, name="news"),
     path("alarme/", views.alarme, name="alarme"),
+    path("notify-price-alarms/", views.notify_price_alarms, name="notify-price-alarms"),
 ]

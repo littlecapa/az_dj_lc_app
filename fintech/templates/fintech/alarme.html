@@ -119,7 +119,14 @@
                         — Ziel <strong>{{ ev.target_price }}</strong>:
                         {{ ev.previous_price }} → <strong>{{ ev.triggered_price }}</strong>
                     </div>
-                    <div class="ts">{{ ev.triggered_at|date:"d.m.Y H:i:s" }}</div>
+                    <div class="ts">
+                        {{ ev.triggered_at|date:"d.m.Y H:i:s" }}
+                        {% if ev.notified_at %}
+                            · <span title="Telegram verschickt {{ ev.notified_at|date:'d.m.Y H:i:s' }}">📨 Telegram gesendet</span>
+                        {% else %}
+                            · <span class="text-muted" title="Wird beim nächsten Kurs-Update-Lauf nachgeholt">📨 Telegram ausstehend</span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>

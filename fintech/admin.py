@@ -1,7 +1,5 @@
 from django.contrib import admin
-from django.db.models import Sum
 from django.utils.html import format_html
-from decimal import Decimal
 from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
@@ -359,9 +357,9 @@ class PriceAlarmAdmin(admin.ModelAdmin):
 
 @admin.register(PriceAlarmEvent)
 class PriceAlarmEventAdmin(admin.ModelAdmin):
-    list_display  = ('asset', 'direction', 'target_price', 'previous_price', 'triggered_price', 'triggered_at')
-    list_filter   = ('direction', 'triggered_at')
+    list_display  = ('asset', 'direction', 'target_price', 'previous_price', 'triggered_price', 'triggered_at', 'notified_at')
+    list_filter   = ('direction', 'triggered_at', ('notified_at', admin.EmptyFieldListFilter))
     search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
     autocomplete_fields = ('asset', 'alarm')
-    readonly_fields = ('asset', 'alarm', 'target_price', 'direction', 'previous_price', 'triggered_price', 'triggered_at')
+    readonly_fields = ('asset', 'alarm', 'target_price', 'direction', 'previous_price', 'triggered_price', 'triggered_at', 'notified_at')
     ordering = ('-triggered_at',)

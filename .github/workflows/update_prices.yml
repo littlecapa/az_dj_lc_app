@@ -91,6 +91,16 @@ jobs:
           echo "Starte Kurs-Update (${ARGS[*]:-alle Asset-Klassen})"
           python manage.py update_prices "${ARGS[@]}"
 
+      - name: Ausstehende Preis-Alarm-Telegram-Nachrichten nachholen
+        if: always()  # läuft auch, wenn "Update prices" fehlschlägt — holt trotzdem alte Rückstände nach
+        run: |
+          # Dieser Runner hat keine TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID (bewusst,
+          # um den Bot-Token nicht zusätzlich als GitHub-Secret zu duplizieren).
+          # Der Versand läuft daher über die Live-App, die die Telegram-Config schon hat.
+          curl -s -X POST -H "X-Api-Key: $FINTECH_API_KEY" --max-time 40 https://littlecapa.com/fintech/notify-price-alarms/ \
+            && echo "" \
+            || echo "notify-price-alarms fehlgeschlagen (ignoriert)."
+
       - name: SCBB-Erreichbarkeits-Check anstoßen
         if: always()  # läuft auch, wenn "Update prices" fehlschlägt — unabhängiges Anliegen
         run: |

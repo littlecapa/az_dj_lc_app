@@ -1,6 +1,5 @@
 from django.db import models
 from decimal import Decimal
-import re
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from .models_helper.asset_class import AssetClass
@@ -430,7 +429,7 @@ class Price(models.Model):
             else:
                 continue
 
-            PriceAlarmEvent.objects.create(
+            event = PriceAlarmEvent.objects.create(
                 alarm=alarm,
                 asset=self.asset,
                 target_price=target,
@@ -441,14 +440,13 @@ class Price(models.Model):
             alarm.is_active = False
             alarm.save(update_fields=['is_active'])
 
-            emoji = "📈" if direction == PriceAlarmEvent.Direction.UP else "📉"
-            arrow = "über" if direction == PriceAlarmEvent.Direction.UP else "unter"
-            # Best-effort: send_telegram_message() wirft nie, meldet Fehler nur per Logging.
-            send_telegram_message(
-                f"{emoji} Preis-Alarm: {self.asset.name} ({self.asset.symbol or self.asset.isin}) "
-                f"{arrow} Zielkurs {target} — {prev_price} → {price}",
-                trigger="price_alarm",
-            )
+            # Sofort-Versand nur als Optimierung, falls dieser Prozess Telegram
+            # konfiguriert hat (z.B. die Live-App). Prozesse ohne Konfiguration
+            # (z.B. update_prices auf GitHub Actions) lassen notified_at NULL —
+            # der notify-price-alarms-Endpoint holt das dann nach.
+            if send_telegram_message(format_price_alarm_message(event), trigger="price_alarm"):
+                event.notified_at = timezone.now()
+                event.save(update_fields=['notified_at'])
 
     class Meta:
         verbose_name = "Kurs"
@@ -712,6 +710,15 @@ class PriceAlarmEvent(models.Model):
     previous_price = models.DecimalField(max_digits=12, decimal_places=4)
     triggered_price = models.DecimalField(max_digits=12, decimal_places=4)
     triggered_at = models.DateTimeField(auto_now_add=True)
+    notified_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            "Zeitpunkt, an dem die Telegram-Nachricht erfolgreich verschickt wurde. "
+            "NULL = noch ausstehend — wird vom notify-price-alarms-Endpoint nachgeholt "
+            "(z.B. wenn das Event aus einem Prozess ohne Telegram-Konfiguration entstand, "
+            "etwa dem update_prices-Lauf auf GitHub Actions)."
+        ),
+    )
 
     class Meta:
         verbose_name = "Preis-Alarm-Ereignis"
@@ -720,6 +727,17 @@ class PriceAlarmEvent(models.Model):
 
     def __str__(self):
         return f"{self.asset.symbol or self.asset.isin}: {self.get_direction_display()} {self.target_price} ({self.triggered_at:%Y-%m-%d %H:%M})"
+
+
+def format_price_alarm_message(event: "PriceAlarmEvent") -> str:
+    """Telegram-Text für ein PriceAlarmEvent — geteilt zwischen Sofort-Versand
+    (Price._check_price_alarms) und dem notify-price-alarms-Nachhol-Endpoint."""
+    emoji = "📈" if event.direction == PriceAlarmEvent.Direction.UP else "📉"
+    arrow = "über" if event.direction == PriceAlarmEvent.Direction.UP else "unter"
+    return (
+        f"{emoji} Preis-Alarm: {event.asset.name} ({event.asset.symbol or event.asset.isin}) "
+        f"{arrow} Zielkurs {event.target_price} — {event.previous_price} → {event.triggered_price}"
+    )
 
 
 class FondHolding(models.Model):

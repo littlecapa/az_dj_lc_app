@@ -9,7 +9,8 @@ from django.db.models.functions import NullIf
 from .model_views import PortfolioSummary
 from .models import Price
 from django.db.models import OuterRef, Subquery
-from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding, FinConfig, NameAlias, PriceAlarm, PriceAlarmEvent
+from .models import WatchlistEntry, Watchlist, Asset, Holdings, NewsEvent, FiftyTwoWeekRange, FondHolding, ManualFondHolding, FinConfig, NameAlias, PriceAlarm, PriceAlarmEvent, format_price_alarm_message
+from telegram_app.libs.telegram_api import send_telegram_message
 from .apis.services.name_matching import match_held_stock, load_aliases
 from .models_helper.category_class import CategoryClass
 from .models_helper.asset_class import AssetClass
@@ -25,6 +26,7 @@ from .apis.services.csv_import import import_transactions
 from django.contrib import messages
 from django.core.management import call_command
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from .services import resolve_asset_with_price, refresh_asset_price, report_price_fetch_failures
 
@@ -598,21 +600,20 @@ def test_api_run(request):
         try:
             wkn = pm.just_etf_request.isin2wkn(isin)
             results.append({'provider': 'JustETF', 'value': wkn, 'ok': True})
-        except Exception as e:
+        except Exception:
             results.append({'provider': 'JustETF', 'value': 'n/a', 'ok': False})
 
         # AlleAktien
         try:
             wkn = pm.alle_aktien_request.isin2wkn(isin)
             results.append({'provider': 'AlleAktien', 'value': wkn, 'ok': True})
-        except Exception as e:
+        except Exception:
             results.append({'provider': 'AlleAktien', 'value': 'n/a', 'ok': False})
 
     elif action == 'week52':
         from .apis.services.yahoo_finance import YahooFinanceRequest
         from .apis.services.comdirect_finance import ComdirectFinanceRequest
         from .models import FiftyTwoWeekRange
-        from decimal import Decimal as _Dec
 
         save_to_db = body.get('save_to_db', False)
         asset = Asset.objects.filter(isin=isin).first()
@@ -1679,6 +1680,41 @@ def alarme(request):
         "active_alarms": PriceAlarm.objects.filter(is_active=True).select_related("asset"),
         "tracked_assets": tracked_assets,
     })
+
+
+@csrf_exempt
+def notify_price_alarms(request):
+    """
+    Holt Telegram-Versand für PriceAlarmEvents nach, die entstanden sind, ohne
+    dass die Nachricht direkt verschickt werden konnte — z.B. weil Price.save()
+    im update_prices-Lauf auf GitHub Actions ausgeführt wurde, wo keine
+    TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID konfiguriert sind (bewusst so, um den
+    Telegram-Bot-Token nicht zusätzlich als GitHub-Secret duplizieren zu müssen).
+    Auth wie die anderen fintech-Export-Endpoints: X-Api-Key oder Staff-Login.
+    """
+    if not (_is_api_key_valid(request) or (request.user.is_active and request.user.is_staff)):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if request.method != "POST":
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(["POST"])
+
+    pending = list(
+        PriceAlarmEvent.objects.filter(notified_at__isnull=True)
+        .select_related("asset")
+        .order_by("triggered_at")[:100]
+    )
+
+    sent = 0
+    failed = 0
+    for event in pending:
+        if send_telegram_message(format_price_alarm_message(event), trigger="price_alarm"):
+            event.notified_at = timezone.now()
+            event.save(update_fields=["notified_at"])
+            sent += 1
+        else:
+            failed += 1
+
+    return JsonResponse({"pending": len(pending), "sent": sent, "failed": failed})
 
 
 @staff_member_required
