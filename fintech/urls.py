@@ -12,6 +12,7 @@ urlpatterns = [
     path('test_api/lookup/', views.test_api_lookup, name="test-api-lookup"),
     path('trigger/update-prices/', views.trigger_update_prices, name="trigger-update-prices"),
     path('trigger/update-etf-holdings/', views.trigger_update_etf_holdings, name="trigger-update-etf-holdings"),
+    path('trigger/update-news/', views.trigger_update_news, name="trigger-update-news"),
     path('clean_up/', views.clean_up, name="clean-up"),
     path('backup/', views.backup_page, name="backup-page"),
     path('backup/download/', views.backup_download, name="backup-download"),

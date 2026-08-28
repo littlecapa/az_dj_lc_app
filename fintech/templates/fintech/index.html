@@ -65,20 +65,6 @@
             </a>
         </div>
         <div class="col-md-4">
-            <a href="{% url 'fintech:portfolio-export' %}" class="ft-card">
-                <div class="ft-icon">⬇</div>
-                <div class="ft-title">Portfolio Export</div>
-                <div class="ft-desc">Portfolio als JSON exportieren.</div>
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="{% url 'fintech:alarme' %}" class="ft-card">
-                <div class="ft-icon">🔔</div>
-                <div class="ft-title">Alarme</div>
-                <div class="ft-desc">Zielkurse und Trailing-Stop-Loss je Bestand setzen, ausgelöste Alarme einsehen.</div>
-            </a>
-        </div>
-        <div class="col-md-4">
             <a href="{% url 'fintech:news-feed' %}" class="ft-card">
                 <div class="ft-icon">📰</div>
                 <div class="ft-title">News-Feed</div>
@@ -194,6 +180,31 @@
                     <div class="ft-desc">Löscht ungültige 52W-Hoch/Tief-Einträge. Werden beim nächsten Overall-Aufruf neu geladen.</div>
                 </button>
             </form>
+        </div>
+        <div class="col-md-4">
+            <form method="post" action="{% url 'fintech:trigger-update-news' %}"
+                  onsubmit="return confirm('News-Update starten? Holt für alle Aktien über der Wertschwelle News von Yahoo Finance und Google News.')">
+                {% csrf_token %}
+                <button type="submit" class="ft-card w-100 border-0 text-start">
+                    <div class="ft-icon">📰</div>
+                    <div class="ft-title">News aktualisieren</div>
+                    <div class="ft-desc">Holt aktuelle News (Yahoo Finance + Google News) für Aktien über der Wertschwelle.</div>
+                </button>
+            </form>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-export' %}" class="ft-card">
+                <div class="ft-icon">⬇</div>
+                <div class="ft-title">Portfolio Export</div>
+                <div class="ft-desc">Portfolio als JSON exportieren.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:alarme' %}" class="ft-card">
+                <div class="ft-icon">🔔</div>
+                <div class="ft-title">Alarme</div>
+                <div class="ft-desc">Zielkurse und Trailing-Stop-Loss je Bestand setzen, ausgelöste Alarme einsehen.</div>
+            </a>
         </div>
     </div>
     {% endif %}

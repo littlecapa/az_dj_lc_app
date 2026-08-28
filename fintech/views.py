@@ -616,6 +616,19 @@ def trigger_update_etf_holdings(request):
 
 
 @staff_member_required
+def trigger_update_news(request):
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+    try:
+        call_command('update_news')
+        messages.success(request, 'News-Update erfolgreich abgeschlossen.')
+    except Exception as e:
+        messages.error(request, f'Fehler beim News-Update: {e}')
+    return redirect('fintech:fintech-index')
+
+
+@staff_member_required
 def trigger_refresh_week52(request):
     """Löscht alle abgelaufenen/ungültigen 52W-Einträge, damit sie beim nächsten
     Aufruf von /fintech/overall/ frisch von Yahoo/Comdirect geholt werden."""
