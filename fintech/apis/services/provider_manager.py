@@ -143,7 +143,18 @@ class ProviderManager:
                     return self._convert_to_euro(price, currency)
                 except (KeyNotFoundWarning, KeyNotFoundError):
                     pass
+                except Exception as fond_exc:
+                    logger.error(f"Comdirect FOND-Fallback unexpected error for {isin}: {fond_exc}")
             logger.warning(f"Comdirect price failed for {isin}: {exc}")
+            return None
+        except Exception as exc:
+            # Netzwerk-/Server-Fehler (Timeout, Connection-Error, 5xx via
+            # raise_for_status) sind KEINE KeyNotFoundWarning/-Error und wurden
+            # bisher nicht abgefangen — dadurch brach isin2price() komplett ab,
+            # OHNE dass Yahoo als Fallback überhaupt versucht wurde (siehe
+            # FIN-442: transiente Comdirect-Hänger, nicht nur fehlende
+            # Kursquellen). Wie bei Yahoo: als gescheitert werten, weitermachen.
+            logger.error(f"Comdirect unexpected error for {isin}: {exc}")
             return None
 
     def _fetch_yahoo_price(self, isin: str, symbol_override: Optional[str] = None) -> Optional[Decimal]:
