@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime, timezone
+
 import requests
 
 from .request_lib import KeyNotFoundWarning, KeyNotFoundError
@@ -31,6 +33,52 @@ class YahooFinanceRequest:
         logger.info(f"Request isin2price {isin} from Yahoo Finance")
         symbol = symbol_override or self._isin2symbol(isin)
         return self._symbol2price(symbol, isin)
+
+    def isin2news(self, isin: str, count: int = 5) -> list[dict]:
+        """Return up to *count* news items for *isin* from Yahoo Finance search.
+
+        Jedes Item: {'title', 'link', 'source', 'published_at', 'thumbnail_url'}.
+        Nutzt denselben Such-Endpoint wie _isin2symbol, aber mit newsCount>0 —
+        eigener Request statt Cache-Wiederverwendung, da _search() dafür
+        newsCount=0 fest verdrahtet hat (nur für Symbol-/Namenssuche gedacht)."""
+        logger.info(f"Request isin2news {isin} from Yahoo Finance")
+        resp = requests.get(
+            SEARCH_URL,
+            params={"q": isin, "quotesCount": 1, "newsCount": count},
+            headers=HEADERS,
+            timeout=10,
+        )
+        if resp.status_code in (400, 404):
+            raise KeyNotFoundWarning(f"Yahoo Finance search returned {resp.status_code} for {isin}")
+        resp.raise_for_status()
+
+        items = resp.json().get("news", [])
+        results = []
+        for item in items:
+            title = (item.get("title") or "").strip()
+            link  = (item.get("link") or "").strip()
+            if not title or not link:
+                continue
+
+            published_at = None
+            publish_ts = item.get("providerPublishTime")
+            if publish_ts:
+                published_at = datetime.fromtimestamp(publish_ts, tz=timezone.utc)
+
+            thumbnail_url = None
+            thumb = item.get("thumbnail") or {}
+            resolutions = thumb.get("resolutions") or []
+            if resolutions:
+                thumbnail_url = resolutions[0].get("url")
+
+            results.append({
+                "title": title,
+                "link": link,
+                "source": (item.get("publisher") or "").strip(),
+                "published_at": published_at,
+                "thumbnail_url": thumbnail_url,
+            })
+        return results
 
     def isin2name(self, isin: str) -> str:
         """Return the long name for *isin* from Yahoo Finance search."""

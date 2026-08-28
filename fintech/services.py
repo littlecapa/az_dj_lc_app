@@ -13,11 +13,15 @@ from typing import NamedTuple, Optional
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.text import slugify
 
 from core.jira_client import JiraClient, JiraApiError
 
 from .apis.services.provider_manager import ProviderManager
-from .models import Asset, Price
+from .apis.services.name_matching import match_held_stock, load_aliases
+from .models import Asset, Price, Holdings, FondHolding, ManualFondHolding
+from .models_helper.asset_class import AssetClass
+from .models_helper.category_class import CategoryClass
 
 logger = logging.getLogger(__name__)
 
@@ -209,3 +213,152 @@ def report_price_fetch_failures(failures: list) -> None:
             f"Sammel-Jira-Ticket für {len(failures)} fehlgeschlagene Kurs-Abrufe "
             f"konnte nicht angelegt werden: {exc}"
         )
+
+
+def compute_stock_lookthrough_rows() -> list[dict]:
+    """
+    Aktien-Look-Through: eine Zeile pro Aktie (direkt gehalten und/oder über
+    Fonds/ETFs gehalten via FondHolding-Mapping), mit direktem + über Fonds
+    gehaltenem Anteil. Extrahiert aus views.portfolio_overall_stocks, damit
+    dieselbe Logik auch für die Auswahl der News-Zielunternehmen
+    (management-Command update_news) genutzt werden kann.
+
+    Kategorie-Herkunft je Aktie (erste zutreffende Regel):
+      1. Holdings.category der Aktie selbst (falls direkt gehalten).
+      2. Holdings.category des Fonds mit dem höchsten Gewicht für diese Aktie.
+      3. 'Sonstiges'.
+
+    Rückgabe: Liste von dicts (row_key, name, isin, symbol, asset_class, logo,
+    holdings_id, category, value_stock, value_fund, value_total,
+    fund_breakdown), absteigend nach value_total sortiert.
+    """
+    # Direkter Aktienwert + Holdings-Objekt + Kategorie je Asset (nur STOCK-Holdings)
+    direct_value = {}
+    holdings_by_isin = {}   # isin -> Holdings (nur direkt gehaltene Aktien; für Edit-Link)
+    holding_category = {}   # isin (Aktie ODER Fonds) -> Holdings.category
+    stock_holdings = Holdings.objects.select_related('asset').filter(
+        asset__asset_class=AssetClass.STOCK, quantity__gt=0,
+    )
+    for h in stock_holdings:
+        price = h.asset.current_price or Decimal('0')
+        direct_value[h.asset_id] = h.quantity * price
+        holdings_by_isin[h.asset_id] = h
+        holding_category[h.asset_id] = h.category
+
+    # Aktueller Wert + Kategorie je gehaltenem Fonds/ETF
+    fund_value = {}
+    fund_holdings = Holdings.objects.select_related('asset').filter(
+        asset__asset_class__in=[AssetClass.ETF, AssetClass.FOND], quantity__gt=0,
+    )
+    for h in fund_holdings:
+        price = h.asset.current_price or Decimal('0')
+        fund_value[h.asset_id] = h.quantity * price
+        holding_category[h.asset_id] = h.category
+
+    # Fonds mit manuell gepflegten Holdings (ManualFondHolding) haben Vorrang:
+    # für diese Fonds wird FondHolding komplett ignoriert.
+    manual_override_fund_ids = set(
+        ManualFondHolding.objects.filter(fund_id__in=fund_value.keys())
+        .values_list('fund_id', flat=True).distinct()
+    ) if fund_value else set()
+
+    # Fonds-Wert über FondHolding-Mapping (bzw. ManualFondHolding für Fonds mit
+    # Vorrang) auf Aktien verteilen; je Aktie den Fonds mit dem höchsten
+    # Gewicht merken (Fallback-Kategorie-Quelle) und das Aktien-Asset selbst
+    # (für Aktien ohne eigene Holdings-Zeile).
+    look_through_value = {}
+    fund_breakdown = {}        # Stock-Key -> Liste der einzelnen Fonds-Beiträge (für Detail-Overlay)
+    best_fund_for_stock = {}   # Stock-Key -> (percentage, Fonds-ISIN)
+    holding_assets = {}        # Stock-Key -> Asset (nur für reine Look-Through-Aktien nötig)
+    virtual_stock_names = {}   # Stock-Key -> Name (manuell erfasste Position ohne Asset-Match)
+
+    def _record_contribution(stock_key, fund, fund_val, percentage, asset=None):
+        contribution = fund_val * (percentage / Decimal('100'))
+        look_through_value[stock_key] = look_through_value.get(stock_key, Decimal('0')) + contribution
+        if asset is not None:
+            holding_assets[stock_key] = asset
+        fund_breakdown.setdefault(stock_key, []).append({
+            'fund_name':    fund.name,
+            'fund_isin':    fund.isin,
+            'percentage':   percentage,
+            'fund_value':   fund_val,
+            'contribution': contribution,
+        })
+        current_best = best_fund_for_stock.get(stock_key)
+        if current_best is None or percentage > current_best[0]:
+            best_fund_for_stock[stock_key] = (percentage, fund.isin)
+
+    if fund_value:
+        auto_fund_ids = set(fund_value.keys()) - manual_override_fund_ids
+        mappings = FondHolding.objects.select_related('holding', 'fund').filter(fund_id__in=auto_fund_ids)
+        for m in mappings:
+            fund_val = fund_value.get(m.fund_id, Decimal('0'))
+            _record_contribution(m.holding_id, m.fund, fund_val, m.percentage, asset=m.holding)
+
+    if manual_override_fund_ids:
+        # Namensabgleich-Basis: ALLE STOCK-Assets — nicht nur mit Holdings-
+        # Zeile, dieselbe Logik wie update_etf_holdings' DAX-/MSCI-World-
+        # Tail-Erweiterung (siehe dort für die Begründung).
+        known_stock_assets = list(Asset.objects.filter(asset_class=AssetClass.STOCK))
+        aliases = load_aliases()
+        manual_entries = ManualFondHolding.objects.select_related('fund').filter(
+            fund_id__in=manual_override_fund_ids
+        )
+        for entry in manual_entries:
+            fund_val = fund_value.get(entry.fund_id, Decimal('0'))
+            matched_asset = match_held_stock(entry.holding_name, known_stock_assets, aliases)
+            if matched_asset is not None:
+                _record_contribution(matched_asset.isin, entry.fund, fund_val, entry.percentage, asset=matched_asset)
+            else:
+                stock_key = f"manual-{slugify(entry.fund_id)}-{slugify(entry.holding_name)}"
+                virtual_stock_names[stock_key] = entry.holding_name
+                _record_contribution(stock_key, entry.fund, fund_val, entry.percentage)
+
+    for breakdown in fund_breakdown.values():
+        breakdown.sort(key=lambda d: d['contribution'], reverse=True)
+
+    def resolve_category(stock_key):
+        cat = holding_category.get(stock_key)
+        if cat:
+            return cat
+        best = best_fund_for_stock.get(stock_key)
+        if best:
+            return holding_category.get(best[1])
+        return None
+
+    # Je Aktie (oder manuell erfasster Position ohne Asset-Match) eine Zeile
+    all_keys = set(direct_value) | set(look_through_value)
+    rows = []
+    for key in all_keys:
+        h = holdings_by_isin.get(key)
+        asset = h.asset if h else holding_assets.get(key)
+        virtual_name = virtual_stock_names.get(key)
+        if asset is None and virtual_name is None:
+            continue
+
+        value_stock = direct_value.get(key, Decimal('0'))
+        value_fund  = look_through_value.get(key, Decimal('0'))
+        cat = resolve_category(key)
+
+        rows.append({
+            'row_key':     key,
+            'name':        asset.name if asset else virtual_name,
+            'isin':        asset.isin if asset else '',
+            'symbol':      asset.symbol if asset and asset.symbol else '',
+            'asset_class': asset.asset_class if asset else AssetClass.STOCK,
+            'logo':        asset.logo if asset and asset.logo else '',
+            'holdings_id': h.pk if h else None,
+            'category':    CategoryClass(cat).label if cat else 'Sonstiges',
+            'value_stock': value_stock,
+            'value_fund':  value_fund,
+            'value_total': value_stock + value_fund,
+            'fund_breakdown': fund_breakdown.get(key, []),
+        })
+    rows.sort(key=lambda r: r['value_total'], reverse=True)
+    return rows
+
+
+def get_news_target_rows(min_value: Decimal) -> list[dict]:
+    """Look-Through-Zeilen (siehe compute_stock_lookthrough_rows) mit
+    value_total > min_value — Basis für die News-Feed-Auswahl (update_news)."""
+    return [r for r in compute_stock_lookthrough_rows() if r['value_total'] > min_value]

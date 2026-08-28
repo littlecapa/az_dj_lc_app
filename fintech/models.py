@@ -887,6 +887,46 @@ def format_trailing_stop_message(event: "TrailingStopEvent") -> str:
     )
 
 
+class NewsArticle(models.Model):
+    """
+    Nachrichtenartikel zu einem gehaltenen Unternehmen (News-Feed,
+    /fintech/news-feed/). Wird periodisch vom update_news-Command befüllt
+    (Yahoo Finance + Google News RSS) — bewusst gecacht statt live beim
+    Seitenaufruf abgerufen, sonst würde jeder Page-Load Dutzende externe
+    Requests auslösen.
+    """
+    class Provider(models.TextChoices):
+        YAHOO  = 'yahoo',        'Yahoo Finance'
+        GOOGLE = 'google_news',  'Google News'
+
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='news_articles',
+        help_text="NULL bei manuell erfassten Fonds-Positionen ohne Asset-Match (siehe company_name).",
+    )
+    company_name = models.CharField(max_length=200, help_text="Denormalisiert, auch wenn asset gesetzt ist.")
+    title = models.CharField(max_length=500)
+    link = models.URLField(max_length=2048, unique=True)
+    source = models.CharField(max_length=100, blank=True)
+    provider = models.CharField(max_length=20, choices=Provider.choices)
+    thumbnail_url = models.URLField(max_length=2048, blank=True, null=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    fetched_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "News-Artikel"
+        verbose_name_plural = "News-Artikel"
+        ordering = ['-published_at', '-fetched_at']
+        indexes = [
+            models.Index(fields=['-published_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.source or self.get_provider_display()})"
+
+
 class FondHolding(models.Model):
     """
     Manuell gepflegtes Mapping: Welche Einzelaktien hält ein Fonds/ETF, und mit

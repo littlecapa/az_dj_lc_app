@@ -1,6 +1,7 @@
 *.sh
 !trigger_price_update.sh
 !trigger_etf_holdings.sh
+!trigger_update_news.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

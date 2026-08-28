@@ -1,0 +1,67 @@
+name: 'Daily: Update News Feed'
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # täglich 06:00 UTC (08:00 MESZ)
+  workflow_dispatch:
+    inputs:
+      min_value:
+        description: 'Nur Aktien mit Look-Through-Wert über diesem EUR-Betrag (leer = Default 3000)'
+        required: false
+        type: string
+
+jobs:
+  update-news:
+    name: 'News aktualisieren'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DJANGO_ENV: production
+      DJANGO_SETTINGS_MODULE: azureproject.production
+      FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+      FINTECH_API_KEY: ${{ secrets.FINTECH_API_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.9'
+
+      - name: Install ODBC Driver for SQL Server
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list \
+            | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update -q \
+            -o Acquire::Retries=3 \
+            -o Acquire::http::Timeout=15 \
+            -o Acquire::https::Timeout=15
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt
+
+      - name: Update news
+        env:
+          MIN_VALUE: ${{ github.event.inputs.min_value }}
+        run: |
+          ARGS=()
+          [ -n "$MIN_VALUE" ] && ARGS+=(--min-value "$MIN_VALUE")
+          echo "Starte News-Update (${ARGS[*]:-Default-Schwelle})"
+          python manage.py update_news "${ARGS[@]}"

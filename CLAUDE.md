@@ -9,6 +9,7 @@
 - Manuelles Neu-Starten eines fehlgeschlagenen Runs: `gh run rerun <run-id>`
 - Preisupdate manuell triggern: `./trigger_price_update.sh`
 - ETF-Holdings-Update manuell triggern: `./trigger_etf_holdings.sh`
+- News-Update manuell triggern: `./trigger_update_news.sh`
 
 ## Django-Struktur
 - Hauptapp: `fintech/`
@@ -19,3 +20,7 @@
   Holdings-Zeile einen Dummy-Eintrag (quantity=0) an, damit sie im Aktien-Look-Through
   (`/fintech/overall-stocks/`) mit aktuellem Kurs erscheinen. `Holdings.quantity == 0` ist seitdem ein
   gültiger Dauerzustand (kein Bug) — wird in allen normalen Portfolio-Listen ausgeblendet.
+- News-Update: `python manage.py update_news [--min-value 3000] [--dry-run]` — holt News (Yahoo Finance +
+  Google News RSS) für Aktien mit Look-Through-Wert (siehe `/fintech/overall-stocks/`) über der Schwelle,
+  speichert sie dedupliziert in `NewsArticle`. Feed-Seite: `/fintech/news-feed/` (liest nur die DB, ruft
+  nichts live ab).

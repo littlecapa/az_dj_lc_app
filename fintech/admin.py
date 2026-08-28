@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent, TrailingStopLoss, TrailingStopEvent
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent, TrailingStopLoss, TrailingStopEvent, NewsArticle
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -385,3 +385,12 @@ class TrailingStopEventAdmin(admin.ModelAdmin):
     autocomplete_fields = ('asset', 'trailing_stop')
     readonly_fields = ('asset', 'trailing_stop', 'trail_percent', 'reference_price', 'triggered_price', 'triggered_at', 'notified_at')
     ordering = ('-triggered_at',)
+
+@admin.register(NewsArticle)
+class NewsArticleAdmin(admin.ModelAdmin):
+    list_display  = ('company_name', 'title', 'source', 'provider', 'published_at', 'fetched_at')
+    list_filter   = ('provider', 'source', 'published_at')
+    search_fields = ('company_name', 'title', 'source')
+    autocomplete_fields = ('asset',)
+    readonly_fields = ('asset', 'company_name', 'title', 'link', 'source', 'provider', 'thumbnail_url', 'published_at', 'fetched_at')
+    ordering = ('-published_at',)
