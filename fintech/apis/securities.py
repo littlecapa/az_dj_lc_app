@@ -15,6 +15,7 @@ import re
 from decimal import Decimal
 from typing import Optional
 from ..models_helper.asset_class import AssetClass
+from ..models import Asset
 
 from django.http import JsonResponse
 from django.views import View
@@ -57,8 +58,9 @@ class SecurityPriceView(View):
             )
 
         # --- fetch price ---
+        yahoo_symbol = Asset.objects.filter(isin=isin).values_list("yahoo_symbol", flat=True).first()
         try:
-            price: Optional[Decimal] = _provider_manager.isin2price(isin, security_type)
+            price: Optional[Decimal] = _provider_manager.isin2price(isin, security_type, yahoo_symbol=yahoo_symbol)
         except ValueError as exc:
             return JsonResponse({"error": "Bad Request", "detail": str(exc)}, status=400)
         except Exception as exc:

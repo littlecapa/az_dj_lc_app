@@ -21,10 +21,15 @@ class YahooFinanceRequest:
     # Public API
     # ------------------------------------------------------------------
 
-    def isin2price(self, isin: str) -> tuple[str, str]:
-        """Return (price_str, currency) for *isin*. Price uses dot as decimal separator."""
+    def isin2price(self, isin: str, symbol_override: str = None) -> tuple[str, str]:
+        """Return (price_str, currency) for *isin*. Price uses dot as decimal separator.
+
+        symbol_override: falls Yahoos ISIN-Suche für dieses Asset leer bleibt
+        (z.B. Anglo American, GB00B1XZS820 → kein Treffer), manuell gepflegtes
+        Yahoo-Ticker-Symbol (Asset.yahoo_symbol) statt der ISIN-Suche verwenden.
+        """
         logger.info(f"Request isin2price {isin} from Yahoo Finance")
-        symbol = self._isin2symbol(isin)
+        symbol = symbol_override or self._isin2symbol(isin)
         return self._symbol2price(symbol, isin)
 
     def isin2name(self, isin: str) -> str:

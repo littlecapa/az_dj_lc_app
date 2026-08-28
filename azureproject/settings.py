@@ -99,6 +99,11 @@ FMP_API_KEY = os.getenv('FMP_API_KEY')
 
 FINTECH_API_KEY = os.getenv('FINTECH_API_KEY')
 
+# Nur als schmaler FX-Rate-Fallback genutzt (CurrencyProxy), wenn frankfurter.dev
+# eine Währung nicht kennt (z.B. TWD) — Free-Tier-Limit (25 Req/Tag) reicht nicht
+# für breiteren Einsatz als Kurs-Provider, siehe FIN-442.
+ALPHAVANTAGE_API_KEY = os.getenv('AlphaVantage_API_KEY')
+
 SERPAPI_KEY = os.getenv('SERPAPI_KEY')
 AVIATIONSTACK_KEY = os.getenv('AVIATIONSTACK_API_KEY')
 

@@ -13,6 +13,14 @@ class CurrencyClass(models.TextChoices):  # FIX: TextChoices statt IntegerChoice
     DKK = 'DKK', 'DKK'
     SEK = 'SEK', 'SEK'
     AUD = 'AUD', 'AUD'
+    KRW = 'KRW', 'KRW'
+    CNY = 'CNY', 'CNY'
+    HKD = 'HKD', 'HKD'
+    MXN = 'MXN', 'MXN'
+    PLN = 'PLN', 'PLN'
+    ZAR = 'ZAR', 'ZAR'
+    ZAc = 'ZAc', 'ZAc'
+    TWD = 'TWD', 'TWD'  # nicht in frankfurter.dev — CurrencyProxy nutzt Alpha Vantage als Fallback
 
     @classmethod
     def get_currency_pattern(cls):

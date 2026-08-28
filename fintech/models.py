@@ -62,10 +62,22 @@ class Asset(models.Model):
     symbol = models.CharField(
         max_length=20,
         help_text="TradingView-Symbol (z.B. XETR:RHM, NASDAQ:AAPL)",
-        null=True, 
+        null=True,
         blank=True
     )
-    
+
+    yahoo_symbol = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text=(
+            "Manueller Yahoo-Finance-Ticker (z.B. 'AAL.L'), falls Yahoos ISIN-Suche "
+            "für dieses Asset nichts findet (isin2price schlägt sonst fehl). Nur "
+            "setzen, wenn nötig — sonst wird die ISIN-Suche normal verwendet. "
+            "Achtung: anderes Format als 'symbol' (TradingView)."
+        ),
+    )
+
     name = models.CharField(
         max_length=200,
         help_text="Vollständiger Name des Assets/Unternehmens"

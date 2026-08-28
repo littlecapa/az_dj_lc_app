@@ -167,6 +167,7 @@ class Command(BaseCommand):
                     self._fetch_price,
                     asset.isin,
                     asset.asset_class,
+                    asset.yahoo_symbol,
                 )
             except Exception as exc:
                 # Abruf-Fehler: erst ab 24h ununterbrochenem Fehlschlag wird
@@ -226,9 +227,9 @@ class Command(BaseCommand):
             except Exception as exc:
                 return ("error", f"ERR {asset.isin} — {exc}", None)
 
-    def _fetch_price(self, isin: str, asset_class: str) -> Optional[Decimal]:
+    def _fetch_price(self, isin: str, asset_class: str, yahoo_symbol: Optional[str] = None) -> Optional[Decimal]:
         pm = ProviderManager()
-        return pm.isin2price(isin, asset_class)
+        return pm.isin2price(isin, asset_class, yahoo_symbol=yahoo_symbol)
 
     @sync_to_async
     def _get_assets_to_update(self, isin_filter, asset_classes, cutoff):

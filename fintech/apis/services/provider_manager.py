@@ -68,7 +68,7 @@ class ProviderManager:
         logger.warning(f"WKN exhausted all providers for {isin}/{type_}")
         return None
 
-    def isin2price(self, isin: str, type_: str) -> Optional[Decimal]:
+    def isin2price(self, isin: str, type_: str, yahoo_symbol: Optional[str] = None) -> Optional[Decimal]:
         """Return current price in EUR or None on failure.
 
         Provider strategy:
@@ -78,6 +78,9 @@ class ProviderManager:
           3. The median of all available EUR prices is returned.
 
         This catches the sporadic bad prices that have been observed recently.
+
+        yahoo_symbol: manuelles Yahoo-Ticker-Override (Asset.yahoo_symbol),
+        falls Yahoos eigene ISIN-Suche für dieses Asset nichts findet.
         """
         self._validate_type(type_)
 
@@ -89,7 +92,7 @@ class ProviderManager:
             prices.append(comdirect_price)
 
         # --- Secondary provider: Yahoo Finance ---
-        yahoo_price = self._fetch_yahoo_price(isin)
+        yahoo_price = self._fetch_yahoo_price(isin, symbol_override=yahoo_symbol)
         if yahoo_price is not None:
             prices.append(yahoo_price)
 
@@ -143,9 +146,9 @@ class ProviderManager:
             logger.warning(f"Comdirect price failed for {isin}: {exc}")
             return None
 
-    def _fetch_yahoo_price(self, isin: str) -> Optional[Decimal]:
+    def _fetch_yahoo_price(self, isin: str, symbol_override: Optional[str] = None) -> Optional[Decimal]:
         try:
-            price, currency = self.yahoo_request.isin2price(isin)
+            price, currency = self.yahoo_request.isin2price(isin, symbol_override=symbol_override)
             return self._convert_to_euro(price, currency)
         except (KeyNotFoundWarning, KeyNotFoundError) as exc:
             logger.warning(f"Yahoo Finance price failed for {isin}: {exc}")

@@ -47,6 +47,7 @@ class AssetAdmin(admin.ModelAdmin):
             'fields': (
                 'current_price', 'current_price_timestamp', 'price_fetch_failing_since',
                 'price_fetch_blocked', 'suspicious_price', 'suspicious_price_since',
+                'yahoo_symbol',
             ),
             'description': (
                 'Preis wird automatisch via Price-Trigger aktualisiert. Schlägt der Abruf fehl, '
@@ -56,7 +57,10 @@ class AssetAdmin(admin.ModelAdmin):
                 'gecachten current_price ab (Plausibilitäts-Check), wird er stattdessen in '
                 'suspicious_price/suspicious_price_since getrackt und erst nach 24h '
                 'konsistenter Bestätigung automatisch übernommen — hier manuell auf leer '
-                'setzen, um einen falsch hängenden Wert sofort zu verwerfen.'
+                'setzen, um einen falsch hängenden Wert sofort zu verwerfen. '
+                'yahoo_symbol: nur setzen, wenn Yahoos ISIN-Suche für dieses Asset leer '
+                'bleibt (z.B. "AAL.L" für Anglo American) — Format wie auf finance.yahoo.com, '
+                'nicht TradingView.'
             )
         }),
         ('ETF-Holdings-Referenz', {

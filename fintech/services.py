@@ -89,7 +89,7 @@ def refresh_asset_price(asset: Asset, failures: Optional[list] = None) -> Option
         return None
 
     try:
-        price = _provider_manager.isin2price(asset.isin, asset.asset_class)
+        price = _provider_manager.isin2price(asset.isin, asset.asset_class, yahoo_symbol=asset.yahoo_symbol)
     except Exception as exc:
         logger.warning(f"Kurs-Abruf für {asset.isin} fehlgeschlagen: {exc}")
         escalated = flag_price_fetch_failure(asset, str(exc))
