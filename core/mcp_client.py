@@ -20,6 +20,7 @@ import base64
 import hashlib
 import json
 import logging
+import re
 import secrets
 from typing import Optional
 from urllib.parse import urlencode
@@ -71,11 +72,10 @@ def discover_oauth_metadata(mcp_server_url: str) -> dict:
     except requests.RequestException as exc:
         raise McpClientError(f"MCP-Server nicht erreichbar: {exc}") from exc
 
-    resource_metadata_url = None
-    for part in resp.headers.get("WWW-Authenticate", "").split(","):
-        part = part.strip()
-        if part.startswith("resource_metadata="):
-            resource_metadata_url = part.split("=", 1)[1].strip('"')
+    # WWW-Authenticate: Bearer resource_metadata="...", weitere_param="..." — Parameter sind
+    # kommasepariert, aber durch das führende Auth-Scheme ("Bearer ") per Leerzeichen getrennt.
+    match = re.search(r'resource_metadata="([^"]+)"', resp.headers.get("WWW-Authenticate", ""))
+    resource_metadata_url = match.group(1) if match else None
 
     if not resource_metadata_url:
         raise McpClientError(
