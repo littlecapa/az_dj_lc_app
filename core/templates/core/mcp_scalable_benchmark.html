@@ -88,6 +88,11 @@
                     <td data-value="{{ row.mcp_price|default_if_none:'' }}">
                         {% if row.mcp_price is not None %}
                             {{ row.mcp_price|floatformat:4 }}
+                            {% if row.mcp_is_outdated %}
+                                <span class="badge bg-warning text-dark" title="Scalable-Kurs vom {{ row.mcp_quote_timestamp }} — nicht aktuell">
+                                    veraltet
+                                </span>
+                            {% endif %}
                         {% else %}
                             <span class="text-danger" title="{{ row.mcp_error }}">Fehler</span>
                             <div class="small text-muted">{{ row.mcp_error|truncatechars:60 }}</div>

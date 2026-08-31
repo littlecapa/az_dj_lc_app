@@ -37,9 +37,13 @@ class ScalableMcpRequest:
 
     id = "scalable_mcp"
 
-    def isin2price(self, isin: str) -> Tuple[str, str]:
+    def get_quote(self, isin: str) -> dict:
         """
-        Return (price_str, currency) für *isin* — Mid-Price aus get_security_quote.
+        Rohes Quote-Dict von get_security_quote (midPrice, currency, isOutdated,
+        timestampUtc, ...). isin2price() ist ein dünner Wrapper darum; wer zusätzlich
+        z.B. isOutdated braucht (siehe fintech.mcp_benchmark_views — ein "isOutdated"
+        Scalable-Kurs erklärt sonst unerklärliche große Preis-Deltas im Benchmark),
+        nutzt diese Methode direkt statt isin2price().
 
         Raises:
             ScalableMcpNotConnectedError: kein gültiger Token vorhanden (fail-fast, kein
@@ -55,7 +59,11 @@ class ScalableMcpRequest:
             logger.warning(f"Scalable-MCP get_security_quote fehlgeschlagen für {isin}: {exc}")
             raise KeyNotFoundWarning(isin, message="Scalable MCP quote request failed") from exc
 
-        quote = self._extract_quote(result, isin)
+        return self._extract_quote(result, isin)
+
+    def isin2price(self, isin: str) -> Tuple[str, str]:
+        """Return (price_str, currency) für *isin* — Mid-Price aus get_security_quote."""
+        quote = self.get_quote(isin)
         mid_price = quote.get("midPrice")
         currency = quote.get("currency")
         if mid_price is None or not currency:

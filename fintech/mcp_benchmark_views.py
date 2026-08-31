@@ -116,7 +116,7 @@ async def _benchmark_asset(asset: Asset, semaphore: asyncio.Semaphore) -> dict:
     async with semaphore:
         old_task = asyncio.to_thread(_timed_old_price, asset)
         mcp_task = asyncio.to_thread(_timed_mcp_price, asset.isin)
-        (old_price, old_time_ms, old_error), (mcp_price, mcp_time_ms, mcp_error) = await asyncio.gather(
+        (old_price, old_time_ms, old_error), (mcp_price, mcp_time_ms, mcp_error, mcp_quote_meta) = await asyncio.gather(
             old_task, mcp_task
         )
 
@@ -129,6 +129,8 @@ async def _benchmark_asset(asset: Asset, semaphore: asyncio.Semaphore) -> dict:
         "mcp_price": mcp_price,
         "mcp_time_ms": mcp_time_ms,
         "mcp_error": mcp_error,
+        "mcp_is_outdated": mcp_quote_meta["is_outdated"] if mcp_quote_meta else False,
+        "mcp_quote_timestamp": mcp_quote_meta["timestamp_utc"] if mcp_quote_meta else None,
         "delta_time_ms": None,
         "delta_price_abs": None,
         "delta_price_pct": None,
@@ -161,24 +163,38 @@ def _timed_old_price(asset: Asset):
 
 
 def _timed_mcp_price(isin: str):
-    """Scalable-MCP-API. Return (price_in_eur|None, ms, error|None)."""
+    """
+    Scalable-MCP-API. Return (price_in_eur|None, ms, error|None, quote_meta|None).
+
+    quote_meta enthält isOutdated/timestampUtc der Scalable-Antwort — ein als
+    isOutdated markierter Kurs erklärt sonst rätselhaft große Preis-Deltas im
+    Benchmark (siehe Exxon-Fall: Scalable lieferte einen ~2 Monate alten Kurs,
+    kein Umrechnungs-/Code-Bug).
+    """
     start = time.monotonic()
     try:
-        price_str, currency = ScalableMcpRequest().isin2price(isin)
+        quote = ScalableMcpRequest().get_quote(isin)
     except ScalableMcpNotConnectedError as exc:
-        return None, round((time.monotonic() - start) * 1000), str(exc)
+        return None, round((time.monotonic() - start) * 1000), str(exc), None
     except (KeyNotFoundWarning, KeyNotFoundError) as exc:
-        return None, round((time.monotonic() - start) * 1000), str(exc)
+        return None, round((time.monotonic() - start) * 1000), str(exc), None
 
     elapsed_ms = round((time.monotonic() - start) * 1000)
+    quote_meta = {"is_outdated": bool(quote.get("isOutdated")), "timestamp_utc": quote.get("timestampUtc")}
+
+    price_str = quote.get("midPrice")
+    currency = quote.get("currency")
+    if price_str is None or not currency:
+        return None, elapsed_ms, "Antwort enthält keinen midPrice/currency", quote_meta
+
     try:
-        price = string2dec(price_str)
+        price = string2dec(str(price_str))
         if currency != "EUR":
             rate = CurrencyProxy().get_rate(currency)
             price = price / rate
     except InvalidOperation:
-        return None, elapsed_ms, f"Ungültiger Kurswert: {price_str}"
+        return None, elapsed_ms, f"Ungültiger Kurswert: {price_str}", quote_meta
     except Exception as exc:
-        return None, elapsed_ms, f"Währungsumrechnung fehlgeschlagen: {exc}"
+        return None, elapsed_ms, f"Währungsumrechnung fehlgeschlagen: {exc}", quote_meta
 
-    return price, elapsed_ms, None
+    return price, elapsed_ms, None, quote_meta
