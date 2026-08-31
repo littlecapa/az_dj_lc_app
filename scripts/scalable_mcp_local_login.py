@@ -18,10 +18,11 @@ Internetverbindung zum Server), werden die Werte stattdessen zum manuellen
 Einfügen ausgegeben.
 
 Nutzung:
-    python3 scripts/scalable_mcp_local_login.py [--isin IE00B4L5Y983] [--host URL] [--no-push]
+    python3 scripts/scalable_mcp_local_login.py [--isin IE00B4L5Y983] [--host URL] [--username NAME] [--no-push]
 
-Voraussetzung: MCP_TOKEN_ENCRYPTION_KEY, MCP_IMPORT_API_KEY und
-DJANGO_SUPERUSER_USERNAME müssen in .env stehen (wie in Django/Azure).
+Voraussetzung: MCP_TOKEN_ENCRYPTION_KEY, MCP_IMPORT_API_KEY und MCP_TARGET_USERNAME
+müssen in .env stehen (MCP_TARGET_USERNAME = der Django-Login-User, dem der Token
+zugeordnet werden soll — NICHT DJANGO_SUPERUSER_USERNAME).
 """
 import argparse
 import base64
@@ -103,35 +104,30 @@ def push_token(host, api_key, username, access_token, refresh_token, client_id, 
         "client_id": client_id,
         "token_expires_at": expires_at,
     }
+    started = datetime.datetime.now()
+    print(f"    [REST] PUT {url} — Start {started:%H:%M:%S}")
     try:
         resp = requests.put(url, json=payload, headers={"X-Api-Key": api_key}, timeout=15)
     except requests.RequestException as exc:
+        ended = datetime.datetime.now()
+        print(f"    [REST] Ende {ended:%H:%M:%S} — kein HTTP-Code (Verbindungsfehler): {exc}")
         return False, str(exc)
+
+    ended = datetime.datetime.now()
+    print(f"    [REST] Ende {ended:%H:%M:%S} — HTTP {resp.status_code}")
 
     if resp.status_code >= 400:
         return False, f"{resp.status_code}: {resp.text}"
     return True, resp.json()
 
 
-def print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at):
+def print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_at):
+    """Automatischer Push fehlgeschlagen — Werte für manuelles Einspielen via Django-Admin (Core -> Mcp-Verbindungen)."""
     access_token_encrypted = fernet.encrypt(access_token.encode()).decode()
     refresh_token_encrypted = fernet.encrypt(refresh_token.encode()).decode() if refresh_token else ""
-    expires_minutes = round(expires_in / 60) if expires_in else ""
 
     print("\n" + "=" * 78)
-    print("Option A (empfohlen): Formular 'Token manuell einfügen' auf")
-    print("littlecapa.com/mcp/scalable/ — folgende Werte reinkopieren:")
-    print("=" * 78)
-    for label, value in [
-        ("Access Token", access_token),
-        ("Refresh Token", refresh_token),
-        ("Client ID", client_id),
-        ("Gültig für (Minuten)", expires_minutes),
-    ]:
-        print(f"{label}:\n  {value}\n")
-
-    print("=" * 78)
-    print("Option B: Django-Admin -> Core -> Mcp-Verbindungen (verschlüsselte Werte):")
+    print("Fallback: Django-Admin -> Core -> Mcp-Verbindungen (verschlüsselte Werte einfügen):")
     print("=" * 78)
     for label, value in [
         ("provider", "scalable"),
@@ -157,6 +153,10 @@ def main():
     )
     parser.add_argument("--host", default=DEFAULT_HOST, help=f"Django-App-Host für den Token-Push (Default: {DEFAULT_HOST})")
     parser.add_argument("--no-push", action="store_true", help="Tokens nur ausgeben, nicht automatisch an die App pushen")
+    parser.add_argument(
+        "--username", default=None,
+        help="Django-Username, dem der Token zugeordnet wird (Default: MCP_TARGET_USERNAME aus .env)",
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -248,14 +248,17 @@ def main():
     )
 
     if args.no_push:
-        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at)
+        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_at)
         return
 
     api_key = os.getenv("MCP_IMPORT_API_KEY")
-    username = os.getenv("DJANGO_SUPERUSER_USERNAME")
+    # Bewusst NICHT DJANGO_SUPERUSER_USERNAME — das ist der App-Bootstrap-User (z.B. "admin") und
+    # muss nicht der Website-Login-User sein, dem der Token zugeordnet werden soll (siehe FIN-Bug:
+    # Push lief lange gegen 'admin', während auf der Seite mit einem anderen User eingeloggt wurde).
+    username = args.username or os.getenv("MCP_TARGET_USERNAME")
     if not api_key or not username:
-        print("\nMCP_IMPORT_API_KEY oder DJANGO_SUPERUSER_USERNAME fehlt in .env — kann nicht automatisch pushen.")
-        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at)
+        print("\nMCP_IMPORT_API_KEY oder MCP_TARGET_USERNAME fehlt in .env (bzw. --username fehlt) — kann nicht automatisch pushen.")
+        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_at)
         return
 
     print(f"\nPushe Token an {args.host} (User {username!r}) ...")
@@ -266,7 +269,7 @@ def main():
     else:
         print(f"    Push fehlgeschlagen: {detail}")
         print("    Fallback — manuell einfügen:")
-        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at)
+        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_at)
 
 
 if __name__ == "__main__":

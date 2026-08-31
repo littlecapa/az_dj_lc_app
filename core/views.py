@@ -8,7 +8,6 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
@@ -214,6 +213,8 @@ def mcp_scalable_page(request):
     if has_valid_token:
         context["access_token"] = connection.get_access_token()
         context["refresh_token"] = connection.get_refresh_token()
+        # ISO-8601 mit UTC-Offset, damit JS im Browser lokale Zeit + Countdown korrekt berechnet.
+        context["token_expires_at_iso"] = connection.token_expires_at.isoformat() if connection.token_expires_at else None
 
     return render(request, "core/mcp_scalable.html", context)
 
@@ -276,53 +277,14 @@ def _apply_token_import(connection, access_token, refresh_token, client_id, expi
     connection.save()
 
 
-@login_required
-@require_POST
-def mcp_scalable_import_token(request):
-    """
-    PoC-Fallback: Access-/Refresh-Token manuell einspielen (z.B. Ausgabe von
-    scripts/scalable_mcp_local_login.py per Copy&Paste), solange littlecapa.com
-    noch nicht auf Scalables OAuth-Redirect-Allowlist steht und der reguläre
-    Login-Button (core:mcp_scalable_login) deshalb nicht funktioniert.
-    """
-    connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
-
-    access_token = request.POST.get("access_token", "").strip()
-    minutes_raw = request.POST.get("expires_minutes", "").strip()
-
-    if not access_token:
-        request.session["mcp_result"] = {"ok": False, "message": "Access Token darf nicht leer sein."}
-        return redirect("core:mcp_scalable")
-
-    expires_at = None
-    if minutes_raw:
-        try:
-            expires_at = timezone.now() + timezone.timedelta(minutes=int(minutes_raw))
-        except ValueError:
-            request.session["mcp_result"] = {"ok": False, "message": "Gültigkeit muss eine Zahl (Minuten) sein."}
-            return redirect("core:mcp_scalable")
-
-    _apply_token_import(
-        connection,
-        access_token=access_token,
-        refresh_token=request.POST.get("refresh_token", "").strip(),
-        client_id=request.POST.get("client_id", "").strip(),
-        expires_at=expires_at,
-    )
-
-    request.session["mcp_result"] = {"ok": True, "message": "Token übernommen."}
-    return redirect("core:mcp_scalable")
-
-
 @csrf_exempt
 @require_http_methods(["PUT"])
 def mcp_scalable_api_import_token(request):
     """
-    REST-Gegenstück zu mcp_scalable_import_token für scripts/scalable_mcp_local_login.py
-    (--push, Default an): erlaubt automatisches Einspielen frischer Tokens direkt nach dem
-    lokalen OAuth-Login, ohne Copy&Paste. Auth über X-Api-Key-Header (settings.MCP_IMPORT_API_KEY)
-    statt Session-Login, da der Aufruf von einem Skript kommt, nicht aus dem Browser — daher
-    auch CSRF-exempt.
+    Nimmt frische Tokens von scripts/scalable_mcp_local_login.py entgegen (--push, Default
+    an) und speichert sie über _apply_token_import(). Auth über X-Api-Key-Header
+    (settings.MCP_IMPORT_API_KEY) statt Session-Login, da der Aufruf von einem Skript
+    kommt, nicht aus dem Browser — daher auch CSRF-exempt.
 
     Erwarteter JSON-Body: {"username", "access_token", "refresh_token"?, "client_id"?,
     "token_expires_at"?} — token_expires_at als ISO-8601-String (UTC).
