@@ -123,6 +123,10 @@ MCP_TOKEN_ENCRYPTION_KEY = os.getenv('MCP_TOKEN_ENCRYPTION_KEY')
 # erlaubt scripts/scalable_mcp_local_login.py, frische Tokens automatisch zu pushen.
 MCP_IMPORT_API_KEY = os.getenv('MCP_IMPORT_API_KEY')
 
+# Django-User, dessen McpConnection für serverseitige MCP-Kursabfragen verwendet wird
+# (fintech.apis.services.mcp_scalable) — NICHT DJANGO_SUPERUSER_USERNAME.
+MCP_TARGET_USERNAME = os.getenv('MCP_TARGET_USERNAME')
+
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 

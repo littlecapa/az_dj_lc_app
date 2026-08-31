@@ -1,0 +1,137 @@
+{% extends "homepage/base_home.html" %}
+
+{% block title %}MCP Benchmark — Scalable Capital{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 1100px;">
+    <h2 class="mb-1">MCP Benchmark — Scalable Capital</h2>
+    <p class="text-muted mb-4">
+        <a href="{% url 'core:mcp_scalable' %}">&larr; zurück zur Verbindung</a>
+    </p>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                Status:
+                {% if connected %}
+                    <span class="badge bg-success">verbunden</span>
+                {% else %}
+                    <span class="badge bg-secondary">nicht verbunden</span>
+                {% endif %}
+            </div>
+            <form method="post" action="{% url 'core:mcp_scalable_benchmark_run' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" {% if not connected %}disabled{% endif %}>
+                    Start
+                </button>
+            </form>
+        </div>
+        {% if not connected %}
+        <div class="card-body pt-0">
+            <p class="text-muted small mb-0">
+                Erst auf der <a href="{% url 'core:mcp_scalable' %}">Verbindungsseite</a> einloggen
+                (Status muss "verbunden" sein), dann steht der Start-Button hier bereit.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if rows %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="mb-1">{{ asset_count }} Asset(s) verglichen.</p>
+            <p class="mb-0">
+                <strong>Summe Delta Antwortzeit (MCP − bisherige API):</strong>
+                {{ total_delta_time_ms }} ms
+                {% if total_delta_time_ms >= 1000 or total_delta_time_ms <= -1000 %}
+                    ({{ total_delta_time_s }} s)
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover" id="benchmark-table">
+            <thead>
+                <tr>
+                    <th class="sortable" data-type="text" onclick="sortBenchmarkTable(0, 'text')">Name</th>
+                    <th class="sortable" data-type="text" onclick="sortBenchmarkTable(1, 'text')">ISIN</th>
+                    <th class="sortable" data-type="number" onclick="sortBenchmarkTable(2, 'number')">Kurs aktuelle API</th>
+                    <th class="sortable" data-type="number" onclick="sortBenchmarkTable(3, 'number')">Antwortzeit aktuelle API</th>
+                    <th class="sortable" data-type="number" onclick="sortBenchmarkTable(4, 'number')">Kurs MCP API</th>
+                    <th class="sortable" data-type="number" onclick="sortBenchmarkTable(5, 'number')">Antwortzeit MCP API</th>
+                    <th class="sortable" data-type="number" onclick="sortBenchmarkTable(6, 'number')">Delta Antwortzeit</th>
+                    <th class="sortable" data-type="number" onclick="sortBenchmarkTable(7, 'number')">Delta Kurs (abs.)</th>
+                    <th class="sortable" data-type="number" onclick="sortBenchmarkTable(8, 'number')">Delta Kurs (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td data-value="{{ row.name }}">{{ row.name }}</td>
+                    <td data-value="{{ row.isin }}">{{ row.isin }}</td>
+                    <td data-value="{{ row.old_price|default_if_none:'' }}" {% if row.old_error %}title="{{ row.old_error }}"{% endif %}>
+                        {% if row.old_price is not None %}{{ row.old_price|floatformat:4 }}{% else %}<span class="text-danger">Fehler</span>{% endif %}
+                    </td>
+                    <td data-value="{{ row.old_time_ms|default_if_none:'' }}">{{ row.old_time_ms|default:"—" }} ms</td>
+                    <td data-value="{{ row.mcp_price|default_if_none:'' }}" {% if row.mcp_error %}title="{{ row.mcp_error }}"{% endif %}>
+                        {% if row.mcp_price is not None %}{{ row.mcp_price|floatformat:4 }}{% else %}<span class="text-danger">Fehler</span>{% endif %}
+                    </td>
+                    <td data-value="{{ row.mcp_time_ms|default_if_none:'' }}">{{ row.mcp_time_ms|default:"—" }} ms</td>
+                    <td data-value="{{ row.delta_time_ms|default_if_none:'' }}">
+                        {% if row.delta_time_ms is not None %}{{ row.delta_time_ms }} ms{% else %}—{% endif %}
+                    </td>
+                    <td data-value="{{ row.delta_price_abs|default_if_none:'' }}">
+                        {% if row.delta_price_abs is not None %}{{ row.delta_price_abs|floatformat:4 }}{% else %}—{% endif %}
+                    </td>
+                    <td data-value="{{ row.delta_price_pct|default_if_none:'' }}">
+                        {% if row.delta_price_pct is not None %}{{ row.delta_price_pct|floatformat:2 }}%{% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% elif connected %}
+    <p class="text-muted">Noch kein Lauf — "Start" klicken.</p>
+    {% endif %}
+</div>
+
+<style>
+    #benchmark-table th.sortable { cursor: pointer; user-select: none; }
+    #benchmark-table th.sortable:hover { background-color: rgba(0,0,0,0.04); }
+</style>
+
+<script>
+function sortBenchmarkTable(colIndex, type) {
+    const table = document.getElementById('benchmark-table');
+    const tbody = table.tBodies[0];
+    const rows = Array.from(tbody.rows);
+    const th = table.tHead.rows[0].cells[colIndex];
+    const asc = th.dataset.sortDir !== 'asc';
+
+    Array.from(table.tHead.rows[0].cells).forEach((c) => { c.dataset.sortDir = ''; });
+    th.dataset.sortDir = asc ? 'asc' : 'desc';
+
+    rows.sort((a, b) => {
+        const av = a.cells[colIndex].dataset.value;
+        const bv = b.cells[colIndex].dataset.value;
+        if (type === 'text') {
+            return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+        }
+        const an = av === '' ? null : parseFloat(av);
+        const bn = bv === '' ? null : parseFloat(bv);
+        if (an === null && bn === null) return 0;
+        if (an === null) return 1;   // Fehlerzeilen immer ans Ende, unabhängig von der Richtung
+        if (bn === null) return -1;
+        return asc ? an - bn : bn - an;
+    });
+
+    rows.forEach((r) => tbody.appendChild(r));
+}
+</script>
+{% endblock %}

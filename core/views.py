@@ -14,7 +14,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_http_methods
 
 from .jira_client import JiraClient, JiraApiError
-from .mcp_client import McpOAuthFlow, McpToolClient, McpClientError, discover_oauth_metadata
+from .mcp_client import (
+    McpOAuthFlow, McpToolClient, McpClientError, discover_oauth_metadata,
+    has_valid_token as check_has_valid_token,
+)
 from .models import McpConnection
 
 logger = logging.getLogger(__name__)
@@ -184,11 +187,6 @@ def _get_or_create_connection(request, provider):
     return connection
 
 
-def _has_valid_token(connection) -> bool:
-    """Token vorhanden UND noch nicht abgelaufen (unbekannte Ablaufzeit zählt als gültig)."""
-    return connection.is_connected and not connection.is_token_expired
-
-
 @never_cache
 @login_required
 def mcp_scalable_page(request):
@@ -201,7 +199,7 @@ def mcp_scalable_page(request):
     """
     connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
     result = request.session.pop("mcp_result", None)
-    has_valid_token = _has_valid_token(connection)
+    has_valid_token = check_has_valid_token(connection)
     connected = has_valid_token and request.session.get("mcp_scalable_connected", False)
 
     context = {
@@ -231,7 +229,7 @@ def mcp_scalable_connect(request):
     """
     connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
 
-    if not _has_valid_token(connection):
+    if not check_has_valid_token(connection):
         request.session["mcp_scalable_connected"] = False
         request.session["mcp_result"] = {
             "ok": False,
@@ -404,7 +402,7 @@ def mcp_scalable_command(request):
     command = request.POST.get("command", "")
     isin = request.POST.get("isin", "").strip()
 
-    if not _has_valid_token(connection):
+    if not check_has_valid_token(connection):
         request.session["mcp_result"] = {"ok": False, "message": "Kein gültiger Token vorhanden — bitte zuerst verbinden."}
         return redirect("core:mcp_scalable")
 

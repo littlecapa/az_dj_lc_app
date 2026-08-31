@@ -1,5 +1,8 @@
 from django.urls import path
 from . import views
+# Benchmark-Views leben in fintech (brauchen Asset/ProviderManager/ScalableMcpRequest),
+# reihen sich URL-seitig aber unter /mcp/scalable/... ein — siehe fintech/mcp_benchmark_views.py.
+from fintech import mcp_benchmark_views
 
 app_name = "core"
 
@@ -13,4 +16,6 @@ urlpatterns = [
     path("mcp/scalable/api/import-token/", views.mcp_scalable_api_import_token, name="mcp_scalable_api_import_token"),
     path("mcp/scalable/logout/", views.mcp_scalable_logout, name="mcp_scalable_logout"),
     path("mcp/scalable/command/", views.mcp_scalable_command, name="mcp_scalable_command"),
+    path("mcp/scalable/benchmark/", mcp_benchmark_views.mcp_scalable_benchmark_page, name="mcp_scalable_benchmark"),
+    path("mcp/scalable/benchmark/run/", mcp_benchmark_views.mcp_scalable_benchmark_run, name="mcp_scalable_benchmark_run"),
 ]

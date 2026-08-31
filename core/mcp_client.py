@@ -46,6 +46,11 @@ def _b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
+def has_valid_token(connection) -> bool:
+    """Token vorhanden UND noch nicht abgelaufen (unbekannte Ablaufzeit zählt als gültig)."""
+    return connection.is_connected and not connection.is_token_expired
+
+
 def _get_json(url: str) -> dict:
     try:
         resp = requests.get(url, timeout=DEFAULT_TIMEOUT)
