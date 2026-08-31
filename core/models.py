@@ -1,3 +1,5 @@
+from typing import Optional
+
 from cryptography.fernet import Fernet
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -68,12 +70,12 @@ class McpConnection(models.Model):
             timezone.now() + timezone.timedelta(seconds=expires_in) if expires_in else None
         )
 
-    def get_access_token(self) -> str | None:
+    def get_access_token(self) -> Optional[str]:
         if not self.access_token_encrypted:
             return None
         return _fernet().decrypt(self.access_token_encrypted.encode()).decode()
 
-    def get_refresh_token(self) -> str | None:
+    def get_refresh_token(self) -> Optional[str]:
         if not self.refresh_token_encrypted:
             return None
         return _fernet().decrypt(self.refresh_token_encrypted.encode()).decode()
