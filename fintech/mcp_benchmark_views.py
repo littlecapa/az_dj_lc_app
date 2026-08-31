@@ -74,6 +74,17 @@ def mcp_scalable_benchmark_run(request):
             "error": "Nicht verbunden — Benchmark abgebrochen.",
         })
 
+    # Vorab-Check der MCP-Seite (nutzt settings.MCP_TARGET_USERNAME, unabhängig von
+    # request.user/_is_connected oben) — bricht sofort mit einer Meldung ab, statt
+    # 50x denselben Fehler zu produzieren UND 50 langsame Alt-API-Calls zu verschwenden.
+    try:
+        ScalableMcpRequest()._get_connected_connection()
+    except ScalableMcpNotConnectedError as exc:
+        return render(request, "core/mcp_scalable_benchmark.html", {
+            "connected": True,
+            "error": f"MCP-Seite nicht bereit — Benchmark abgebrochen: {exc}",
+        })
+
     assets = _sample_assets_with_holdings(BENCHMARK_SAMPLE_SIZE)
     rows = async_to_sync(_run_benchmark)(assets)
 

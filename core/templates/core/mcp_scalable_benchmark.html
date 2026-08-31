@@ -74,14 +74,28 @@
                 <tr>
                     <td data-value="{{ row.name }}">{{ row.name }}</td>
                     <td data-value="{{ row.isin }}">{{ row.isin }}</td>
-                    <td data-value="{{ row.old_price|default_if_none:'' }}" {% if row.old_error %}title="{{ row.old_error }}"{% endif %}>
-                        {% if row.old_price is not None %}{{ row.old_price|floatformat:4 }}{% else %}<span class="text-danger">Fehler</span>{% endif %}
+                    <td data-value="{{ row.old_price|default_if_none:'' }}">
+                        {% if row.old_price is not None %}
+                            {{ row.old_price|floatformat:4 }}
+                        {% else %}
+                            <span class="text-danger" title="{{ row.old_error }}">Fehler</span>
+                            <div class="small text-muted">{{ row.old_error|truncatechars:60 }}</div>
+                        {% endif %}
                     </td>
-                    <td data-value="{{ row.old_time_ms|default_if_none:'' }}">{{ row.old_time_ms|default:"—" }} ms</td>
-                    <td data-value="{{ row.mcp_price|default_if_none:'' }}" {% if row.mcp_error %}title="{{ row.mcp_error }}"{% endif %}>
-                        {% if row.mcp_price is not None %}{{ row.mcp_price|floatformat:4 }}{% else %}<span class="text-danger">Fehler</span>{% endif %}
+                    <td data-value="{{ row.old_time_ms|default_if_none:'' }}">
+                        {% if row.old_time_ms is not None %}{{ row.old_time_ms }} ms{% else %}—{% endif %}
                     </td>
-                    <td data-value="{{ row.mcp_time_ms|default_if_none:'' }}">{{ row.mcp_time_ms|default:"—" }} ms</td>
+                    <td data-value="{{ row.mcp_price|default_if_none:'' }}">
+                        {% if row.mcp_price is not None %}
+                            {{ row.mcp_price|floatformat:4 }}
+                        {% else %}
+                            <span class="text-danger" title="{{ row.mcp_error }}">Fehler</span>
+                            <div class="small text-muted">{{ row.mcp_error|truncatechars:60 }}</div>
+                        {% endif %}
+                    </td>
+                    <td data-value="{{ row.mcp_time_ms|default_if_none:'' }}">
+                        {% if row.mcp_time_ms is not None %}{{ row.mcp_time_ms }} ms{% else %}—{% endif %}
+                    </td>
                     <td data-value="{{ row.delta_time_ms|default_if_none:'' }}">
                         {% if row.delta_time_ms is not None %}{{ row.delta_time_ms }} ms{% else %}—{% endif %}
                     </td>
