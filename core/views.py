@@ -8,7 +8,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from .jira_client import JiraClient, JiraApiError
-from .mcp_client import McpOAuthFlow, McpToolClient, McpClientError
+from .mcp_client import McpOAuthFlow, McpToolClient, McpClientError, discover_oauth_metadata
 from .models import McpConnection
 
 logger = logging.getLogger(__name__)
@@ -185,6 +185,55 @@ def mcp_scalable_page(request):
     connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
     result = request.session.pop("mcp_result", None)
     return render(request, "core/mcp_scalable.html", {"connection": connection, "result": result})
+
+
+@login_required
+@require_POST
+def mcp_scalable_import_token(request):
+    """
+    PoC-Fallback: Access-/Refresh-Token manuell einspielen (z.B. Ausgabe von
+    scripts/scalable_mcp_local_login.py per Copy&Paste), solange littlecapa.com
+    noch nicht auf Scalables OAuth-Redirect-Allowlist steht und der reguläre
+    Login-Button (core:mcp_scalable_login) deshalb nicht funktioniert.
+    """
+    connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
+
+    access_token = request.POST.get("access_token", "").strip()
+    refresh_token = request.POST.get("refresh_token", "").strip()
+    client_id = request.POST.get("client_id", "").strip()
+    minutes_raw = request.POST.get("expires_minutes", "").strip()
+
+    if not access_token:
+        request.session["mcp_result"] = {"ok": False, "message": "Access Token darf nicht leer sein."}
+        return redirect("core:mcp_scalable")
+
+    expires_in = None
+    if minutes_raw:
+        try:
+            expires_in = int(minutes_raw) * 60
+        except ValueError:
+            request.session["mcp_result"] = {"ok": False, "message": "Gültigkeit muss eine Zahl (Minuten) sein."}
+            return redirect("core:mcp_scalable")
+
+    # token_endpoint wird für spätere automatische Refreshs gebraucht (McpOAuthFlow.refresh);
+    # beim regulären Login-Flow käme das aus ensure_configured(), hier holen wir es separat nach.
+    if not connection.token_endpoint:
+        try:
+            meta = discover_oauth_metadata(connection.mcp_server_url)
+            connection.authorization_endpoint = meta["authorization_endpoint"]
+            connection.token_endpoint = meta["token_endpoint"]
+            connection.registration_endpoint = meta["registration_endpoint"]
+        except McpClientError as exc:
+            logger.warning(f"Discovery beim manuellen Token-Import fehlgeschlagen: {exc}")
+
+    if client_id:
+        connection.client_id = client_id
+
+    connection.set_tokens(access_token=access_token, refresh_token=refresh_token or None, expires_in=expires_in)
+    connection.save()
+
+    request.session["mcp_result"] = {"ok": True, "message": "Token übernommen."}
+    return redirect("core:mcp_scalable")
 
 
 @login_required

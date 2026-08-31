@@ -31,6 +31,37 @@
         </div>
     </div>
 
+    <div class="card mb-4">
+        <div class="card-header">Token manuell einfügen <span class="text-muted small fw-normal">(PoC, solange der Login-Button noch nicht freigeschaltet ist)</span></div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Ausgabe von <code>scripts/scalable_mcp_local_login.py</code> hier reinkopieren.
+            </p>
+            <form method="post" action="{% url 'core:mcp_scalable_import_token' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="access_token" class="form-label">Access Token *</label>
+                    <textarea class="form-control" id="access_token" name="access_token" rows="2" required></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="refresh_token" class="form-label">Refresh Token</label>
+                        <input type="text" class="form-control" id="refresh_token" name="refresh_token">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="client_id" class="form-label">Client ID</label>
+                        <input type="text" class="form-control" id="client_id" name="client_id">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="expires_minutes" class="form-label">Gültig für (Min.)</label>
+                        <input type="number" class="form-control" id="expires_minutes" name="expires_minutes" min="1" placeholder="z. B. 20">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-outline-primary">Übernehmen</button>
+            </form>
+        </div>
+    </div>
+
     {% if connection.is_connected %}
     <div class="card mb-4">
         <div class="card-header">Kommando ausführen</div>

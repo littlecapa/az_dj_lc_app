@@ -188,9 +188,22 @@ def main():
         if expires_in else ""
     )
 
+    expires_minutes = round(expires_in / 60) if expires_in else ""
+
     print("\n" + "=" * 78)
-    print("Werte zum Einfügen in Django-Admin -> Core -> Mcp-Verbindungen")
-    print("(bestehenden 'scalable'-Datensatz für deinen User bearbeiten, oder neu anlegen):")
+    print("Option A (empfohlen): Formular 'Token manuell einfügen' auf")
+    print("littlecapa.com/mcp/scalable/ — folgende Werte reinkopieren:")
+    print("=" * 78)
+    for label, value in [
+        ("Access Token", access_token),
+        ("Refresh Token", refresh_token),
+        ("Client ID", client_id),
+        ("Gültig für (Minuten)", expires_minutes),
+    ]:
+        print(f"{label}:\n  {value}\n")
+
+    print("=" * 78)
+    print("Option B: Django-Admin -> Core -> Mcp-Verbindungen (verschlüsselte Werte):")
     print("=" * 78)
     for label, value in [
         ("provider", "scalable"),
