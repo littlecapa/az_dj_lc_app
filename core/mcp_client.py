@@ -251,6 +251,18 @@ class McpToolClient:
         session_id = self._initialize(conn.mcp_server_url, token)
         return self._call(conn.mcp_server_url, token, session_id, tool_name, arguments)
 
+    def verify(self) -> None:
+        """Prüft nur, ob der gespeicherte Token beim MCP-Server gültig ist (initialize-Handshake, kein Tool-Call)."""
+        conn = self.connection
+        if conn.is_token_expired:
+            McpOAuthFlow(conn).refresh()
+
+        token = conn.get_access_token()
+        if not token:
+            raise McpClientError("Keine gültige MCP-Verbindung — bitte erneut einloggen.")
+
+        self._initialize(conn.mcp_server_url, token)
+
     @staticmethod
     def _headers(token: str, session_id: Optional[str] = None) -> dict:
         headers = {

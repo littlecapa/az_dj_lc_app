@@ -185,13 +185,69 @@ def _get_or_create_connection(request, provider):
     return connection
 
 
+def _has_valid_token(connection) -> bool:
+    """Token vorhanden UND noch nicht abgelaufen (unbekannte Ablaufzeit zählt als gültig)."""
+    return connection.is_connected and not connection.is_token_expired
+
+
 @never_cache
 @login_required
 def mcp_scalable_page(request):
-    """Seite für die Scalable-Capital-MCP-Verbindung: Login, Kommandos, Logout."""
+    """
+    Seite für die Scalable-Capital-MCP-Verbindung. Drei Zustände:
+    - kein gültiger Token in der DB -> "nicht verbunden", Login-Button deaktiviert
+    - gültiger Token vorhanden, aber diese Session hat ihn noch nicht live geprüft -> "bereit",
+      Login-Button aktiv, Token-/Client-Werte werden angezeigt
+    - Login gedrückt und initialize-Handshake erfolgreich -> "verbunden", Kommando-Formular sichtbar
+    """
     connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
     result = request.session.pop("mcp_result", None)
-    return render(request, "core/mcp_scalable.html", {"connection": connection, "result": result})
+    has_valid_token = _has_valid_token(connection)
+    connected = has_valid_token and request.session.get("mcp_scalable_connected", False)
+
+    context = {
+        "connection": connection,
+        "result": result,
+        "has_valid_token": has_valid_token,
+        "connected": connected,
+    }
+    if has_valid_token:
+        context["access_token"] = connection.get_access_token()
+        context["refresh_token"] = connection.get_refresh_token()
+
+    return render(request, "core/mcp_scalable.html", context)
+
+
+@login_required
+@require_POST
+def mcp_scalable_connect(request):
+    """
+    Prüft den in der DB gespeicherten Token live gegen Scalable (initialize-Handshake,
+    kein Tool-Call) und markiert die Browser-Session als verbunden. Ersetzt für den
+    Alltag den OAuth-Redirect-Login (core:mcp_scalable_login), solange littlecapa.com
+    nicht auf Scalables Redirect-Allowlist steht — der Token kommt stattdessen von
+    scripts/scalable_mcp_local_login.py (per Push oder manuellem Formular).
+    """
+    connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
+
+    if not _has_valid_token(connection):
+        request.session["mcp_scalable_connected"] = False
+        request.session["mcp_result"] = {
+            "ok": False,
+            "message": "Kein gültiger Token vorhanden — zuerst ./trigger_scalable.sh ausführen.",
+        }
+        return redirect("core:mcp_scalable")
+
+    try:
+        McpToolClient(connection).verify()
+        request.session["mcp_scalable_connected"] = True
+        request.session["mcp_result"] = {"ok": True, "message": "Erfolgreich mit Scalable verbunden."}
+    except McpClientError as exc:
+        logger.warning(f"MCP-Connect (Scalable) fehlgeschlagen: {exc}")
+        request.session["mcp_scalable_connected"] = False
+        request.session["mcp_result"] = {"ok": False, "message": str(exc)}
+
+    return redirect("core:mcp_scalable")
 
 
 def _apply_token_import(connection, access_token, refresh_token, client_id, expires_at):
@@ -370,10 +426,11 @@ def mcp_callback(request):
 @login_required
 @require_POST
 def mcp_scalable_logout(request):
-    """Trennt die Verbindung lokal (löscht die gespeicherten Tokens)."""
+    """Trennt die Verbindung lokal (löscht die gespeicherten Tokens + Session-Verbindungsstatus)."""
     McpConnection.objects.filter(
         user=request.user, provider=McpConnection.Provider.SCALABLE,
     ).update(access_token_encrypted="", refresh_token_encrypted="", token_expires_at=None)
+    request.session.pop("mcp_scalable_connected", None)
     return redirect("core:mcp_scalable")
 
 
@@ -384,6 +441,10 @@ def mcp_scalable_command(request):
     connection = get_object_or_404(McpConnection, user=request.user, provider=McpConnection.Provider.SCALABLE)
     command = request.POST.get("command", "")
     isin = request.POST.get("isin", "").strip()
+
+    if not _has_valid_token(connection):
+        request.session["mcp_result"] = {"ok": False, "message": "Kein gültiger Token vorhanden — bitte zuerst verbinden."}
+        return redirect("core:mcp_scalable")
 
     if command == "get_quote":
         if not isin:

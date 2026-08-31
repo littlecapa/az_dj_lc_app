@@ -20,25 +20,62 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     Status:
-                    {% if connection.is_connected %}
+                    {% if connected %}
                         <span class="badge bg-success">verbunden</span>
+                    {% elif has_valid_token %}
+                        <span class="badge bg-warning text-dark">bereit zum Verbinden</span>
                     {% else %}
                         <span class="badge bg-secondary">nicht verbunden</span>
                     {% endif %}
                 </div>
-                {% if not connection.is_connected %}
-                    <a href="{% url 'core:mcp_scalable_login' %}" class="btn btn-primary">Login</a>
-                {% endif %}
+                <form method="post" action="{% url 'core:mcp_scalable_connect' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary" {% if not has_valid_token %}disabled{% endif %}>Login</button>
+                </form>
             </div>
-            {% if not connection.is_connected %}
+            {% if not has_valid_token %}
                 <p class="text-muted small mt-2 mb-0">
-                    Login-Button funktioniert erst, sobald littlecapa.com bei Scalable auf der
-                    Redirect-Allowlist steht. Bis dahin: <code>./trigger_scalable.sh</code> lokal
-                    ausführen — verbindet automatisch, kein Copy&amp;Paste nötig.
+                    Kein gültiger Token vorhanden. Zuerst lokal <code>./trigger_scalable.sh</code>
+                    ausführen (verbindet automatisch, kein Copy&amp;Paste nötig) — der Login-Button hier
+                    aktiviert sich danach von selbst.
+                </p>
+            {% elif not connected %}
+                <p class="text-muted small mt-2 mb-0">
+                    Gültiger Token gefunden. "Login" klicken, um die Verbindung live gegen Scalable zu prüfen.
                 </p>
             {% endif %}
         </div>
     </div>
+
+    {% if has_valid_token %}
+    <div class="card mb-4">
+        <div class="card-header">Aktuelle Token-Werte <span class="text-muted small fw-normal">(read-only)</span></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Client ID</label>
+                    <input type="text" class="form-control" value="{{ connection.client_id }}" readonly>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Scopes</label>
+                    <input type="text" class="form-control" value="{{ connection.scopes }}" readonly>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Access Token</label>
+                <textarea class="form-control" rows="2" readonly>{{ access_token }}</textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Refresh Token</label>
+                <textarea class="form-control" rows="2" readonly>{{ refresh_token }}</textarea>
+            </div>
+            <div>
+                <label class="form-label">Gültig bis</label>
+                <input type="text" class="form-control" value="{{ connection.token_expires_at }}" readonly>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="card mb-4">
         <div class="card-header">Token manuell einfügen <span class="text-muted small fw-normal">(Fallback, falls der automatische Push von trigger_scalable.sh fehlschlägt)</span></div>
@@ -71,7 +108,7 @@
         </div>
     </div>
 
-    {% if connection.is_connected %}
+    {% if connected %}
     <div class="card mb-4">
         <div class="card-header">Kommando ausführen</div>
         <div class="card-body">
@@ -103,7 +140,9 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 
+    {% if connection.is_connected %}
     <form method="post" action="{% url 'core:mcp_scalable_logout' %}">
         {% csrf_token %}
         <button type="submit" class="btn btn-outline-secondary">Logout</button>
