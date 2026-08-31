@@ -11,15 +11,17 @@ funktionieren sofort ohne Freigabe.
 
 Dieses Skript führt den kompletten OAuth-Flow lokal aus (Login + 2FA passiert
 in deinem Browser auf Scalables eigener Seite), ruft danach testweise
-get_security_quote auf, und gibt am Ende Fernet-verschlüsselte Tokens aus, die
-sich direkt in den Django-Admin (McpConnection) einfügen lassen — damit auch
-die deployte /mcp/scalable/-Seite ("Get Quote") funktioniert, bis die echte
-littlecapa.com-Redirect-URI bei Scalable freigeschaltet ist.
+get_security_quote auf und pusht die frischen Tokens automatisch per PUT an
+core.views.mcp_scalable_api_import_token — die Seite littlecapa.com/mcp/scalable/
+ist danach ohne weiteres Zutun einsatzbereit. Schlägt der Push fehl (z.B. keine
+Internetverbindung zum Server), werden die Werte stattdessen zum manuellen
+Einfügen ausgegeben.
 
 Nutzung:
-    python3 scripts/scalable_mcp_local_login.py [--isin IE00B4L5Y983]
+    python3 scripts/scalable_mcp_local_login.py [--isin IE00B4L5Y983] [--host URL] [--no-push]
 
-Voraussetzung: MCP_TOKEN_ENCRYPTION_KEY muss in .env stehen (wie in Django).
+Voraussetzung: MCP_TOKEN_ENCRYPTION_KEY, MCP_IMPORT_API_KEY und
+DJANGO_SUPERUSER_USERNAME müssen in .env stehen (wie in Django/Azure).
 """
 import argparse
 import base64
@@ -48,6 +50,7 @@ REDIRECT_URI = f"http://127.0.0.1:{LOOPBACK_PORT}/callback"
 CLIENT_NAME = "littlecapa.com (lokaler PoC-Login)"
 SCOPES = "openid profile offline_access"
 CALLBACK_TIMEOUT = 300  # Sekunden
+DEFAULT_HOST = "https://littlecapa.com"
 
 
 def _b64url(raw: bytes) -> str:
@@ -90,12 +93,70 @@ class _StaticConnection:
         return self._access_token
 
 
+def push_token(host, api_key, username, access_token, refresh_token, client_id, expires_at):
+    """PUT an core.views.mcp_scalable_api_import_token. Gibt (ok, detail) zurück."""
+    url = f"{host.rstrip('/')}/mcp/scalable/api/import-token/"
+    payload = {
+        "username": username,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "client_id": client_id,
+        "token_expires_at": expires_at,
+    }
+    try:
+        resp = requests.put(url, json=payload, headers={"X-Api-Key": api_key}, timeout=15)
+    except requests.RequestException as exc:
+        return False, str(exc)
+
+    if resp.status_code >= 400:
+        return False, f"{resp.status_code}: {resp.text}"
+    return True, resp.json()
+
+
+def print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at):
+    access_token_encrypted = fernet.encrypt(access_token.encode()).decode()
+    refresh_token_encrypted = fernet.encrypt(refresh_token.encode()).decode() if refresh_token else ""
+    expires_minutes = round(expires_in / 60) if expires_in else ""
+
+    print("\n" + "=" * 78)
+    print("Option A (empfohlen): Formular 'Token manuell einfügen' auf")
+    print("littlecapa.com/mcp/scalable/ — folgende Werte reinkopieren:")
+    print("=" * 78)
+    for label, value in [
+        ("Access Token", access_token),
+        ("Refresh Token", refresh_token),
+        ("Client ID", client_id),
+        ("Gültig für (Minuten)", expires_minutes),
+    ]:
+        print(f"{label}:\n  {value}\n")
+
+    print("=" * 78)
+    print("Option B: Django-Admin -> Core -> Mcp-Verbindungen (verschlüsselte Werte):")
+    print("=" * 78)
+    for label, value in [
+        ("provider", "scalable"),
+        ("mcp_server_url", SCALABLE_MCP_URL),
+        ("authorization_endpoint", meta["authorization_endpoint"]),
+        ("token_endpoint", meta["token_endpoint"]),
+        ("registration_endpoint", meta["registration_endpoint"]),
+        ("client_id", client_id),
+        ("scopes", SCOPES),
+        ("access_token_encrypted", access_token_encrypted),
+        ("refresh_token_encrypted", refresh_token_encrypted),
+        ("token_expires_at (UTC)", expires_at),
+    ]:
+        print(f"{label}:\n  {value}\n")
+    print("=" * 78)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--isin", default="IE00B4L5Y983",
         help="ISIN für den Test-Quote-Call (Default: iShares Core MSCI World)",
     )
+    parser.add_argument("--host", default=DEFAULT_HOST, help=f"Django-App-Host für den Token-Push (Default: {DEFAULT_HOST})")
+    parser.add_argument("--no-push", action="store_true", help="Tokens nur ausgeben, nicht automatisch an die App pushen")
     args = parser.parse_args()
 
     load_dotenv()
@@ -181,50 +242,31 @@ def main():
     except McpClientError as exc:
         print(f"    Tool-Call fehlgeschlagen: {exc} (detail: {exc.detail})")
 
-    access_token_encrypted = fernet.encrypt(access_token.encode()).decode()
-    refresh_token_encrypted = fernet.encrypt(refresh_token.encode()).decode() if refresh_token else ""
     expires_at = (
         (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=expires_in)).isoformat()
         if expires_in else ""
     )
 
-    expires_minutes = round(expires_in / 60) if expires_in else ""
+    if args.no_push:
+        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at)
+        return
 
-    print("\n" + "=" * 78)
-    print("Option A (empfohlen): Formular 'Token manuell einfügen' auf")
-    print("littlecapa.com/mcp/scalable/ — folgende Werte reinkopieren:")
-    print("=" * 78)
-    for label, value in [
-        ("Access Token", access_token),
-        ("Refresh Token", refresh_token),
-        ("Client ID", client_id),
-        ("Gültig für (Minuten)", expires_minutes),
-    ]:
-        print(f"{label}:\n  {value}\n")
+    api_key = os.getenv("MCP_IMPORT_API_KEY")
+    username = os.getenv("DJANGO_SUPERUSER_USERNAME")
+    if not api_key or not username:
+        print("\nMCP_IMPORT_API_KEY oder DJANGO_SUPERUSER_USERNAME fehlt in .env — kann nicht automatisch pushen.")
+        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at)
+        return
 
-    print("=" * 78)
-    print("Option B: Django-Admin -> Core -> Mcp-Verbindungen (verschlüsselte Werte):")
-    print("=" * 78)
-    for label, value in [
-        ("provider", "scalable"),
-        ("mcp_server_url", SCALABLE_MCP_URL),
-        ("authorization_endpoint", meta["authorization_endpoint"]),
-        ("token_endpoint", meta["token_endpoint"]),
-        ("registration_endpoint", meta["registration_endpoint"]),
-        ("client_id", client_id),
-        ("scopes", SCOPES),
-        ("access_token_encrypted", access_token_encrypted),
-        ("refresh_token_encrypted", refresh_token_encrypted),
-        ("token_expires_at (UTC)", expires_at),
-    ]:
-        print(f"{label}:\n  {value}\n")
-    print("=" * 78)
-    print(
-        "Hinweis: client_id ist an die Loopback-Redirect-URI gebunden, Refresh-Token-\n"
-        "Anfragen brauchen aber keine redirect_uri — automatisches Token-Refresh über\n"
-        "die Django-App funktioniert daher trotzdem. Sobald littlecapa.com auf der\n"
-        "Scalable-Allowlist steht, einmal über den echten Login-Button neu verbinden."
-    )
+    print(f"\nPushe Token an {args.host} (User {username!r}) ...")
+    ok, detail = push_token(args.host, api_key, username, access_token, refresh_token, client_id, expires_at)
+    if ok:
+        print(f"    OK: {detail}")
+        print(f"    -> {args.host.rstrip('/')}/mcp/scalable/ ist jetzt einsatzbereit.")
+    else:
+        print(f"    Push fehlgeschlagen: {detail}")
+        print("    Fallback — manuell einfügen:")
+        print_manual_fallback(meta, client_id, access_token, refresh_token, fernet, expires_in, expires_at)
 
 
 if __name__ == "__main__":

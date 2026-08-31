@@ -1,11 +1,18 @@
+import hmac
+import json
 import logging
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST, require_http_methods
 
 from .jira_client import JiraClient, JiraApiError
 from .mcp_client import McpOAuthFlow, McpToolClient, McpClientError, discover_oauth_metadata
@@ -187,6 +194,32 @@ def mcp_scalable_page(request):
     return render(request, "core/mcp_scalable.html", {"connection": connection, "result": result})
 
 
+def _apply_token_import(connection, access_token, refresh_token, client_id, expires_at):
+    """
+    Gemeinsame Übernahme-Logik für importierte Tokens (manuelles Formular + REST-API),
+    da beide Wege exakt dasselbe tun müssen: Discovery nachholen, Client-ID setzen,
+    Tokens verschlüsselt speichern.
+    """
+    # token_endpoint wird für spätere automatische Refreshs gebraucht (McpOAuthFlow.refresh);
+    # beim regulären Login-Flow käme das aus ensure_configured(), hier holen wir es separat nach.
+    if not connection.token_endpoint:
+        try:
+            meta = discover_oauth_metadata(connection.mcp_server_url)
+            connection.authorization_endpoint = meta["authorization_endpoint"]
+            connection.token_endpoint = meta["token_endpoint"]
+            connection.registration_endpoint = meta["registration_endpoint"]
+        except McpClientError as exc:
+            logger.warning(f"Discovery beim Token-Import fehlgeschlagen: {exc}")
+
+    if client_id:
+        connection.client_id = client_id
+
+    connection.set_tokens(access_token=access_token, refresh_token=refresh_token or None)
+    if expires_at:
+        connection.token_expires_at = expires_at
+    connection.save()
+
+
 @login_required
 @require_POST
 def mcp_scalable_import_token(request):
@@ -199,41 +232,86 @@ def mcp_scalable_import_token(request):
     connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
 
     access_token = request.POST.get("access_token", "").strip()
-    refresh_token = request.POST.get("refresh_token", "").strip()
-    client_id = request.POST.get("client_id", "").strip()
     minutes_raw = request.POST.get("expires_minutes", "").strip()
 
     if not access_token:
         request.session["mcp_result"] = {"ok": False, "message": "Access Token darf nicht leer sein."}
         return redirect("core:mcp_scalable")
 
-    expires_in = None
+    expires_at = None
     if minutes_raw:
         try:
-            expires_in = int(minutes_raw) * 60
+            expires_at = timezone.now() + timezone.timedelta(minutes=int(minutes_raw))
         except ValueError:
             request.session["mcp_result"] = {"ok": False, "message": "Gültigkeit muss eine Zahl (Minuten) sein."}
             return redirect("core:mcp_scalable")
 
-    # token_endpoint wird für spätere automatische Refreshs gebraucht (McpOAuthFlow.refresh);
-    # beim regulären Login-Flow käme das aus ensure_configured(), hier holen wir es separat nach.
-    if not connection.token_endpoint:
-        try:
-            meta = discover_oauth_metadata(connection.mcp_server_url)
-            connection.authorization_endpoint = meta["authorization_endpoint"]
-            connection.token_endpoint = meta["token_endpoint"]
-            connection.registration_endpoint = meta["registration_endpoint"]
-        except McpClientError as exc:
-            logger.warning(f"Discovery beim manuellen Token-Import fehlgeschlagen: {exc}")
-
-    if client_id:
-        connection.client_id = client_id
-
-    connection.set_tokens(access_token=access_token, refresh_token=refresh_token or None, expires_in=expires_in)
-    connection.save()
+    _apply_token_import(
+        connection,
+        access_token=access_token,
+        refresh_token=request.POST.get("refresh_token", "").strip(),
+        client_id=request.POST.get("client_id", "").strip(),
+        expires_at=expires_at,
+    )
 
     request.session["mcp_result"] = {"ok": True, "message": "Token übernommen."}
     return redirect("core:mcp_scalable")
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def mcp_scalable_api_import_token(request):
+    """
+    REST-Gegenstück zu mcp_scalable_import_token für scripts/scalable_mcp_local_login.py
+    (--push, Default an): erlaubt automatisches Einspielen frischer Tokens direkt nach dem
+    lokalen OAuth-Login, ohne Copy&Paste. Auth über X-Api-Key-Header (settings.MCP_IMPORT_API_KEY)
+    statt Session-Login, da der Aufruf von einem Skript kommt, nicht aus dem Browser — daher
+    auch CSRF-exempt.
+
+    Erwarteter JSON-Body: {"username", "access_token", "refresh_token"?, "client_id"?,
+    "token_expires_at"?} — token_expires_at als ISO-8601-String (UTC).
+    """
+    api_key = getattr(settings, "MCP_IMPORT_API_KEY", None)
+    provided = request.headers.get("X-Api-Key", "")
+    if not api_key or not hmac.compare_digest(provided, api_key):
+        return JsonResponse({"error": "Unauthorized", "detail": "Valid X-Api-Key header required."}, status=401)
+
+    try:
+        payload = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    username = payload.get("username", "").strip()
+    access_token = payload.get("access_token", "").strip()
+    if not username or not access_token:
+        return JsonResponse({"error": "'username' und 'access_token' sind erforderlich."}, status=400)
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return JsonResponse({"error": f"User {username!r} nicht gefunden."}, status=404)
+
+    expires_at = None
+    expires_at_raw = payload.get("token_expires_at")
+    if expires_at_raw:
+        expires_at = parse_datetime(expires_at_raw)
+        if expires_at is None:
+            return JsonResponse({"error": "'token_expires_at' ist kein gültiges ISO-8601-Datum."}, status=400)
+
+    connection, _ = McpConnection.objects.get_or_create(
+        user=user, provider=McpConnection.Provider.SCALABLE,
+        defaults={"mcp_server_url": MCP_PROVIDER_DEFAULTS[McpConnection.Provider.SCALABLE]},
+    )
+    _apply_token_import(
+        connection,
+        access_token=access_token,
+        refresh_token=payload.get("refresh_token", "").strip(),
+        client_id=payload.get("client_id", "").strip(),
+        expires_at=expires_at,
+    )
+
+    logger.info(f"MCP-Token für {user} ({connection.provider}) per API-Push aktualisiert.")
+    return JsonResponse({"ok": True, "provider": connection.provider, "is_connected": connection.is_connected})
 
 
 @login_required

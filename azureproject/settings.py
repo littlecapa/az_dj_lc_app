@@ -119,6 +119,10 @@ JIRA_PROJECT_KEY = os.getenv('JIRA_PROJECT_KEY')
 # Fernet-Key zur Verschlüsselung der OAuth-Tokens in core.models.McpConnection (core.mcp_client)
 MCP_TOKEN_ENCRYPTION_KEY = os.getenv('MCP_TOKEN_ENCRYPTION_KEY')
 
+# Shared Secret für core.views.mcp_scalable_api_import_token (X-Api-Key-Header) —
+# erlaubt scripts/scalable_mcp_local_login.py, frische Tokens automatisch zu pushen.
+MCP_IMPORT_API_KEY = os.getenv('MCP_IMPORT_API_KEY')
+
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 
