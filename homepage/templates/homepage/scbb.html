@@ -50,6 +50,32 @@
             </div>
         </div>
     </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Letzte Fehler <span class="text-muted small fw-normal">(max. 10, ohne Status 200)</span></div>
+        <div class="card-body">
+            {% if failed_checks %}
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>Wann</th><th>Was</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for check in failed_checks %}
+                        <tr>
+                            <td>{{ check.checked_at|date:"d.m.Y H:i:s" }}</td>
+                            <td>
+                                Status: <strong>{{ check.status_code|default:"Fehler" }}</strong>
+                                {% if check.error %}<br><span class="text-danger small">{{ check.error }}</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="mb-0 text-muted">Keine Fehler bisher.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 {{ status_labels|json_script:"status-labels" }}

@@ -653,6 +653,10 @@ def scbb_monitor_view(request):
         response_time_labels = [timezone.localtime(c.checked_at).strftime('%d.%m. %H:%M') for c in checks]
         response_time_data = [c.response_time_ms for c in checks]
 
+        failed_checks = list(
+            ScbbCheck.objects.exclude(status_code=200).order_by('-checked_at')[:10]
+        )
+
         context = {
             'target_url': SCBB_TARGET_URL,
             'latest_check': checks[-1] if checks else None,
@@ -661,5 +665,6 @@ def scbb_monitor_view(request):
             'response_time_labels': response_time_labels,
             'response_time_data': response_time_data,
             'total_checks': ScbbCheck.objects.count(),
+            'failed_checks': failed_checks,
         }
         return render(request, 'homepage/scbb.html', context)
