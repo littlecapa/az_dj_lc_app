@@ -26,6 +26,7 @@ from typing import Optional
 from urllib.parse import urlencode
 
 import requests
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,21 @@ def _b64url(raw: bytes) -> str:
 def has_valid_token(connection) -> bool:
     """Token vorhanden UND noch nicht abgelaufen (unbekannte Ablaufzeit zählt als gültig)."""
     return connection.is_connected and not connection.is_token_expired
+
+
+def sync_connection_status(connection) -> bool:
+    """
+    Einzige Quelle für den 'verbunden'-Status — hält McpConnection.verified_at dabei
+    konsistent mit der Realität: ein abgelaufener/fehlender Token räumt eine noch
+    vorhandene Verifizierung automatisch in der DB ab, statt das nur in der Anzeige
+    zu verstecken. Aufrufer (core.views, fintech.mcp_benchmark_views) müssen dadurch
+    nie mehr getrennt DB- und Session-Zustand abgleichen.
+    """
+    token_ok = has_valid_token(connection)
+    if not token_ok and connection.verified_at is not None:
+        connection.verified_at = None
+        connection.save(update_fields=["verified_at"])
+    return token_ok and connection.verified_at is not None
 
 
 def _get_json(url: str) -> dict:
@@ -189,6 +205,9 @@ class McpOAuthFlow:
             refresh_token=data.get("refresh_token"),
             expires_in=data.get("expires_in"),
         )
+        # Der Token-Endpoint hat den Code gerade akzeptiert — das ist bereits ein
+        # erfolgreicher Live-Beweis, ein zusätzlicher initialize-Handshake wäre redundant.
+        self.connection.verified_at = timezone.now()
         self.connection.save()
 
     def refresh(self) -> None:
@@ -207,6 +226,8 @@ class McpOAuthFlow:
             refresh_token=data.get("refresh_token", refresh_token),
             expires_in=data.get("expires_in"),
         )
+        # Erfolgreicher Refresh ist ebenfalls ein Live-Beweis gegen den Server.
+        self.connection.verified_at = timezone.now()
         self.connection.save()
 
     def _post_token(self, payload: dict) -> dict:

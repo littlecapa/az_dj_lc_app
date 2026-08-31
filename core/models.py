@@ -41,6 +41,16 @@ class McpConnection(models.Model):
     refresh_token_encrypted = models.TextField(blank=True)
     token_expires_at = models.DateTimeField(null=True, blank=True)
 
+    verified_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            "Zeitpunkt des letzten erfolgreichen Live-Checks (initialize-Handshake) gegen "
+            "den MCP-Server. Einzige Quelle für 'verbunden' — DB-persistiert statt "
+            "Browser-Session, damit Status und Anzeige immer übereinstimmen und ein "
+            "Seitenwechsel/-besuch keinen erneuten Login braucht."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -69,6 +79,8 @@ class McpConnection(models.Model):
         self.token_expires_at = (
             timezone.now() + timezone.timedelta(seconds=expires_in) if expires_in else None
         )
+        # Ein neuer Token ist per Definition noch nicht live geprüft.
+        self.verified_at = None
 
     def get_access_token(self) -> Optional[str]:
         if not self.access_token_encrypted:

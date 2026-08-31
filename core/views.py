@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
@@ -16,7 +17,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from .jira_client import JiraClient, JiraApiError
 from .mcp_client import (
     McpOAuthFlow, McpToolClient, McpClientError, discover_oauth_metadata,
-    has_valid_token as check_has_valid_token,
+    has_valid_token as check_has_valid_token, sync_connection_status,
 )
 from .models import McpConnection
 
@@ -191,16 +192,18 @@ def _get_or_create_connection(request, provider):
 @login_required
 def mcp_scalable_page(request):
     """
-    Seite für die Scalable-Capital-MCP-Verbindung. Drei Zustände:
-    - kein gültiger Token in der DB -> "nicht verbunden", Login-Button deaktiviert
-    - gültiger Token vorhanden, aber diese Session hat ihn noch nicht live geprüft -> "bereit",
-      Login-Button aktiv, Token-/Client-Werte werden angezeigt
-    - Login gedrückt und initialize-Handshake erfolgreich -> "verbunden", Kommando-Formular sichtbar
+    Seite für die Scalable-Capital-MCP-Verbindung. Drei Zustände, alle aus der DB
+    abgeleitet (McpConnection.verified_at) statt aus der Browser-Session — Status in
+    DB und Anzeige sind dadurch immer deckungsgleich, auch nach Seitenwechsel/-besuch:
+    - kein gültiger Token -> "nicht verbunden", Login-Button deaktiviert
+    - gültiger Token, aber noch nicht (mehr) live geprüft -> "bereit", Login-Button aktiv,
+      Token-/Client-Werte werden angezeigt
+    - gültiger Token UND verified_at gesetzt -> "verbunden", Kommando-Formular sichtbar
     """
     connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
     result = request.session.pop("mcp_result", None)
     has_valid_token = check_has_valid_token(connection)
-    connected = has_valid_token and request.session.get("mcp_scalable_connected", False)
+    connected = sync_connection_status(connection)
 
     context = {
         "connection": connection,
@@ -222,15 +225,16 @@ def mcp_scalable_page(request):
 def mcp_scalable_connect(request):
     """
     Prüft den in der DB gespeicherten Token live gegen Scalable (initialize-Handshake,
-    kein Tool-Call) und markiert die Browser-Session als verbunden. Ersetzt für den
-    Alltag den OAuth-Redirect-Login (core:mcp_scalable_login), solange littlecapa.com
-    nicht auf Scalables Redirect-Allowlist steht — der Token kommt stattdessen von
-    scripts/scalable_mcp_local_login.py (per Push oder manuellem Formular).
+    kein Tool-Call) und persistiert das Ergebnis in McpConnection.verified_at. Ersetzt
+    für den Alltag den OAuth-Redirect-Login (core:mcp_scalable_login), solange
+    littlecapa.com nicht auf Scalables Redirect-Allowlist steht — der Token kommt
+    stattdessen von scripts/scalable_mcp_local_login.py (per Push oder Formular).
     """
     connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
 
     if not check_has_valid_token(connection):
-        request.session["mcp_scalable_connected"] = False
+        connection.verified_at = None
+        connection.save(update_fields=["verified_at"])
         request.session["mcp_result"] = {
             "ok": False,
             "message": "Kein gültiger Token vorhanden — zuerst ./trigger_scalable.sh ausführen.",
@@ -239,11 +243,13 @@ def mcp_scalable_connect(request):
 
     try:
         McpToolClient(connection).verify()
-        request.session["mcp_scalable_connected"] = True
+        connection.verified_at = timezone.now()
+        connection.save(update_fields=["verified_at"])
         request.session["mcp_result"] = {"ok": True, "message": "Erfolgreich mit Scalable verbunden."}
     except McpClientError as exc:
         logger.warning(f"MCP-Connect (Scalable) fehlgeschlagen: {exc}")
-        request.session["mcp_scalable_connected"] = False
+        connection.verified_at = None
+        connection.save(update_fields=["verified_at"])
         request.session["mcp_result"] = {"ok": False, "message": str(exc)}
 
     return redirect("core:mcp_scalable")
@@ -386,11 +392,10 @@ def mcp_callback(request):
 @login_required
 @require_POST
 def mcp_scalable_logout(request):
-    """Trennt die Verbindung lokal (löscht die gespeicherten Tokens + Session-Verbindungsstatus)."""
+    """Trennt die Verbindung (löscht Tokens + Verifizierungsstatus in der DB)."""
     McpConnection.objects.filter(
         user=request.user, provider=McpConnection.Provider.SCALABLE,
-    ).update(access_token_encrypted="", refresh_token_encrypted="", token_expires_at=None)
-    request.session.pop("mcp_scalable_connected", None)
+    ).update(access_token_encrypted="", refresh_token_encrypted="", token_expires_at=None, verified_at=None)
     return redirect("core:mcp_scalable")
 
 
@@ -402,6 +407,7 @@ def mcp_scalable_command(request):
     command = request.POST.get("command", "")
     isin = request.POST.get("isin", "").strip()
 
+    sync_connection_status(connection)  # räumt verified_at auf, falls der Token zwischenzeitlich abgelaufen ist
     if not check_has_valid_token(connection):
         request.session["mcp_result"] = {"ok": False, "message": "Kein gültiger Token vorhanden — bitte zuerst verbinden."}
         return redirect("core:mcp_scalable")
