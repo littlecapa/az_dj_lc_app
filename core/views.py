@@ -2,16 +2,25 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
 
 from .jira_client import JiraClient, JiraApiError
+from .mcp_client import McpOAuthFlow, McpToolClient, McpClientError
+from .models import McpConnection
 
 logger = logging.getLogger(__name__)
 
 JIRA_ISSUE_TYPES = ["Task", "Bug", "Story", "Feature", "Epic"]
 DELETE_RANGE_PROJECT_KEY = "FIN"
 DELETE_RANGE_MAX = 50  # Sicherheitsgrenze pro Löschvorgang
+
+MCP_CLIENT_NAME = "littlecapa.com"
+MCP_PROVIDER_DEFAULTS = {
+    McpConnection.Provider.SCALABLE: "https://mcp.scalable.capital/mcp",
+}
 
 
 @never_cache
@@ -137,3 +146,129 @@ def jira_page(request):
         "default_project_key": getattr(settings, "JIRA_PROJECT_KEY", ""),
         "delete_range_max": DELETE_RANGE_MAX,
     })
+
+
+# ----------------------------------------------------------------------
+# MCP (Model Context Protocol) — Broker-Anbindungen per OAuth, aktuell Scalable Capital.
+# Weitere Provider: Eintrag in MCP_PROVIDER_DEFAULTS + eigene Seite/URLs analog "scalable".
+
+@login_required
+def mcp_index(request):
+    """Übersicht aller MCP-Provider und ob der eingeloggte User jeweils verbunden ist."""
+    connected_providers = set(
+        McpConnection.objects.filter(user=request.user, access_token_encrypted__gt="")
+        .values_list("provider", flat=True)
+    )
+    providers = [
+        {
+            "label": McpConnection.Provider.SCALABLE.label,
+            "url_name": "core:mcp_scalable",
+            "connected": McpConnection.Provider.SCALABLE in connected_providers,
+        },
+    ]
+    return render(request, "core/mcp_index.html", {"providers": providers})
+
+
+def _get_or_create_connection(request, provider):
+    connection, _ = McpConnection.objects.get_or_create(
+        user=request.user,
+        provider=provider,
+        defaults={"mcp_server_url": MCP_PROVIDER_DEFAULTS[provider]},
+    )
+    return connection
+
+
+@never_cache
+@login_required
+def mcp_scalable_page(request):
+    """Seite für die Scalable-Capital-MCP-Verbindung: Login, Kommandos, Logout."""
+    connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
+    result = request.session.pop("mcp_result", None)
+    return render(request, "core/mcp_scalable.html", {"connection": connection, "result": result})
+
+
+@login_required
+def mcp_scalable_login(request):
+    """Startet den OAuth-Authorization-Code-Flow (mit PKCE) gegen den Scalable-MCP-Server."""
+    connection = _get_or_create_connection(request, McpConnection.Provider.SCALABLE)
+    redirect_uri = request.build_absolute_uri(reverse("core:mcp_callback"))
+
+    flow = McpOAuthFlow(connection)
+    try:
+        flow.ensure_configured(redirect_uri, MCP_CLIENT_NAME)
+        auth_url, pkce_state = flow.build_authorization_url(redirect_uri)
+    except McpClientError as exc:
+        logger.warning(f"MCP-Login (Scalable) fehlgeschlagen: {exc}")
+        request.session["mcp_result"] = {"ok": False, "message": str(exc)}
+        return redirect("core:mcp_scalable")
+
+    request.session["mcp_oauth_flow"] = pkce_state
+    return redirect(auth_url)
+
+
+@login_required
+def mcp_callback(request):
+    """Gemeinsamer OAuth-Redirect-Endpoint für alle MCP-Provider (Provider steckt im Session-State)."""
+    flow_state = request.session.pop("mcp_oauth_flow", None)
+
+    if not flow_state:
+        request.session["mcp_result"] = {"ok": False, "message": "Kein laufender Login-Vorgang gefunden."}
+        return redirect("core:mcp_index")
+
+    connection = get_object_or_404(McpConnection, id=flow_state["connection_id"], user=request.user)
+    return_url = f"core:mcp_{connection.provider}"
+
+    error = request.GET.get("error")
+    if error:
+        request.session["mcp_result"] = {"ok": False, "message": f"Login abgelehnt: {error}"}
+        return redirect(return_url)
+
+    if request.GET.get("state") != flow_state["state"]:
+        request.session["mcp_result"] = {"ok": False, "message": "State-Mismatch — Login abgebrochen."}
+        return redirect(return_url)
+
+    code = request.GET.get("code")
+    redirect_uri = request.build_absolute_uri(reverse("core:mcp_callback"))
+
+    try:
+        McpOAuthFlow(connection).exchange_code(code, redirect_uri, flow_state["code_verifier"])
+        request.session["mcp_result"] = {"ok": True, "message": "Erfolgreich verbunden."}
+    except McpClientError as exc:
+        logger.warning(f"MCP-Token-Tausch fehlgeschlagen ({connection.provider}): {exc}")
+        request.session["mcp_result"] = {"ok": False, "message": str(exc)}
+
+    return redirect(return_url)
+
+
+@login_required
+@require_POST
+def mcp_scalable_logout(request):
+    """Trennt die Verbindung lokal (löscht die gespeicherten Tokens)."""
+    McpConnection.objects.filter(
+        user=request.user, provider=McpConnection.Provider.SCALABLE,
+    ).update(access_token_encrypted="", refresh_token_encrypted="", token_expires_at=None)
+    return redirect("core:mcp_scalable")
+
+
+@login_required
+@require_POST
+def mcp_scalable_command(request):
+    """Führt ein Kommando gegen den Scalable-MCP-Server aus. Aktuell nur 'get_quote'."""
+    connection = get_object_or_404(McpConnection, user=request.user, provider=McpConnection.Provider.SCALABLE)
+    command = request.POST.get("command", "")
+    isin = request.POST.get("isin", "").strip()
+
+    if command == "get_quote":
+        if not isin:
+            request.session["mcp_result"] = {"ok": False, "message": "ISIN darf nicht leer sein."}
+        else:
+            try:
+                data = McpToolClient(connection).call_tool("get_security_quote", {"isin": isin})
+                request.session["mcp_result"] = {"ok": True, "command": "get_quote", "isin": isin, "data": data}
+            except McpClientError as exc:
+                logger.warning(f"MCP-Tool-Call get_security_quote fehlgeschlagen: {exc}")
+                request.session["mcp_result"] = {"ok": False, "message": str(exc)}
+    else:
+        request.session["mcp_result"] = {"ok": False, "message": f"Unbekanntes Kommando: {command!r}"}
+
+    return redirect("core:mcp_scalable")

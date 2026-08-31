@@ -116,6 +116,9 @@ JIRA_EMAIL = os.getenv('JIRA_EMAIL')
 JIRA_API_TOKEN = os.getenv('JIRA_API_TOKEN')
 JIRA_PROJECT_KEY = os.getenv('JIRA_PROJECT_KEY')
 
+# Fernet-Key zur Verschlüsselung der OAuth-Tokens in core.models.McpConnection (core.mcp_client)
+MCP_TOKEN_ENCRYPTION_KEY = os.getenv('MCP_TOKEN_ENCRYPTION_KEY')
+
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 

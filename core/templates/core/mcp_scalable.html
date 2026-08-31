@@ -1,0 +1,73 @@
+{% extends "homepage/base_home.html" %}
+
+{% block title %}MCP — Scalable Capital{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 720px;">
+    <h2 class="mb-1">MCP — Scalable Capital</h2>
+    <p class="text-muted mb-4"><a href="{% url 'core:mcp_index' %}">&larr; alle Verbindungen</a></p>
+
+    {% if result %}
+        {% if result.ok %}
+            <div class="alert alert-success">{{ result.message|default:"OK" }}</div>
+        {% else %}
+            <div class="alert alert-danger">{{ result.message }}</div>
+        {% endif %}
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                Status:
+                {% if connection.is_connected %}
+                    <span class="badge bg-success">verbunden</span>
+                {% else %}
+                    <span class="badge bg-secondary">nicht verbunden</span>
+                {% endif %}
+            </div>
+            {% if not connection.is_connected %}
+                <a href="{% url 'core:mcp_scalable_login' %}" class="btn btn-primary">Login</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if connection.is_connected %}
+    <div class="card mb-4">
+        <div class="card-header">Kommando ausführen</div>
+        <div class="card-body">
+            <form method="post" action="{% url 'core:mcp_scalable_command' %}">
+                {% csrf_token %}
+                <div class="row g-2 align-items-end">
+                    <div class="col-auto">
+                        <label for="command" class="form-label">Kommando</label>
+                        <select class="form-select" id="command" name="command">
+                            <option value="get_quote">Get Quote</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label for="isin" class="form-label">ISIN</label>
+                        <input type="text" class="form-control" id="isin" name="isin"
+                               placeholder="z. B. IE00B4L5Y983" required maxlength="12">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">Ausführen</button>
+                    </div>
+                </div>
+            </form>
+
+            {% if result.ok and result.command == "get_quote" %}
+            <div class="mt-4">
+                <div class="small text-muted mb-1">Antwort für ISIN {{ result.isin }} (Rohformat, PoC):</div>
+                <pre class="bg-light p-3 border rounded">{{ result.data }}</pre>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="post" action="{% url 'core:mcp_scalable_logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-secondary">Logout</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

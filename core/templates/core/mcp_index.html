@@ -1,0 +1,22 @@
+{% extends "homepage/base_home.html" %}
+
+{% block title %}MCP{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 720px;">
+    <h2 class="mb-4">MCP-Verbindungen</h2>
+
+    <div class="list-group">
+        {% for provider in providers %}
+        <a href="{% url provider.url_name %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            {{ provider.label }}
+            {% if provider.connected %}
+                <span class="badge bg-success">verbunden</span>
+            {% else %}
+                <span class="badge bg-secondary">nicht verbunden</span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
