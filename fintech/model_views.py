@@ -73,7 +73,7 @@ class PortfolioSummaryManager(models.Manager):
             )
             .order_by(F('delta_perc_yesterday').desc(nulls_last=True))
             .values(
-                'name', 'isin',
+                'name', 'isin', 'symbol',
                 'asset_class',
                 'total_quantity', 'purchase_price',
                 'current_value', 'delta_abs', 'delta_perc',

@@ -4,34 +4,60 @@
 {% block content %}
 <div id="content-main">
 
-  <h1>Portfolio Export (JSON)</h1>
+  <h1>Portfolio Export</h1>
 
-  <p style="color: var(--body-quiet-color, #666); margin-bottom: 0.5rem;">
-    {{ json_str|length }} Zeichen &nbsp;·&nbsp;
-    <a href="#" onclick="copyJson(); return false;">In Zwischenablage kopieren</a>
-  </p>
+  <div class="fmt-toggle">
+    <div class="fmt-thumb" style="transform: translateX({% if format == 'yahoo_csv' %}100%{% else %}0{% endif %});"></div>
+    <a href="?format=json" class="fmt-option {% if format != 'yahoo_csv' %}active{% endif %}">JSON</a>
+    <a href="?format=yahoo_csv" class="fmt-option {% if format == 'yahoo_csv' %}active{% endif %}">Yahoo CSV</a>
+  </div>
 
-  <button type="button" onclick="downloadJson();" class="button default" style="padding:6px 16px; margin-bottom: 0.75rem;">
-    Als Datei herunterladen
-  </button>
+  {% if format == 'yahoo_csv' %}
 
-  <textarea
-    id="json-export"
-    readonly
-    spellcheck="false"
-    style="
-      width: 100%;
-      height: 70vh;
-      font-family: monospace;
-      font-size: 0.85rem;
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fafafa;
-      resize: vertical;
-      box-sizing: border-box;
-    "
-  >{{ json_str }}</textarea>
+    <p style="color: var(--body-quiet-color, #666); margin: 0.75rem 0 0.5rem;">
+      {{ csv_str|length }} Zeichen &nbsp;·&nbsp;
+      <a href="#" onclick="copyExport(); return false;">In Zwischenablage kopieren</a>
+    </p>
+
+    {% if skipped %}
+    <div style="background:#fff3cd; border:1px solid #ffeeba; border-radius:4px; padding:8px 12px; margin-bottom:0.75rem; font-size:0.85rem;">
+      <strong>{{ skipped|length }} Position(en) übersprungen:</strong>
+      <ul style="margin:4px 0 0; padding-left:1.2rem;">
+        {% for reason in skipped %}<li>{{ reason }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <button type="button" onclick="downloadExport();" class="button default" style="padding:6px 16px; margin-bottom: 0.75rem;">
+      Als Datei herunterladen
+    </button>
+
+    <textarea
+      id="export-content"
+      readonly
+      spellcheck="false"
+      style="width:100%; height:70vh; font-family:monospace; font-size:0.85rem; padding:12px; border:1px solid #ccc; border-radius:4px; background:#fafafa; resize:vertical; box-sizing:border-box;"
+    >{{ csv_str }}</textarea>
+
+  {% else %}
+
+    <p style="color: var(--body-quiet-color, #666); margin: 0.75rem 0 0.5rem;">
+      {{ json_str|length }} Zeichen &nbsp;·&nbsp;
+      <a href="#" onclick="copyExport(); return false;">In Zwischenablage kopieren</a>
+    </p>
+
+    <button type="button" onclick="downloadExport();" class="button default" style="padding:6px 16px; margin-bottom: 0.75rem;">
+      Als Datei herunterladen
+    </button>
+
+    <textarea
+      id="export-content"
+      readonly
+      spellcheck="false"
+      style="width:100%; height:70vh; font-family:monospace; font-size:0.85rem; padding:12px; border:1px solid #ccc; border-radius:4px; background:#fafafa; resize:vertical; box-sizing:border-box;"
+    >{{ json_str }}</textarea>
+
+  {% endif %}
 
   <p id="copy-msg" style="color: #2e7d32; display: none; margin-top: 0.5rem;">
     ✓ In Zwischenablage kopiert
@@ -39,9 +65,45 @@
 
 </div>
 
+<style>
+  .fmt-toggle {
+    position: relative;
+    display: inline-flex;
+    background: #eee;
+    border-radius: 20px;
+    padding: 3px;
+    width: 220px;
+  }
+  .fmt-option {
+    flex: 1;
+    text-align: center;
+    padding: 6px 0;
+    position: relative;
+    z-index: 1;
+    text-decoration: none;
+    color: #333;
+    font-size: 0.85rem;
+  }
+  .fmt-option.active {
+    color: #fff;
+    font-weight: bold;
+  }
+  .fmt-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    height: calc(100% - 6px);
+    background: #417690;
+    border-radius: 16px;
+    transition: transform 0.2s ease;
+    z-index: 0;
+  }
+</style>
+
 <script>
-function copyJson() {
-  const ta = document.getElementById('json-export');
+function copyExport() {
+  const ta = document.getElementById('export-content');
   navigator.clipboard.writeText(ta.value).then(function () {
     const msg = document.getElementById('copy-msg');
     msg.style.display = 'block';
@@ -49,9 +111,10 @@ function copyJson() {
   });
 }
 
-function downloadJson() {
-  const ta = document.getElementById('json-export');
-  const blob = new Blob([ta.value], { type: 'application/json' });
+function downloadExport() {
+  const ta = document.getElementById('export-content');
+  const mimeType = "{{ format }}" === "yahoo_csv" ? "text/csv" : "application/json";
+  const blob = new Blob([ta.value], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

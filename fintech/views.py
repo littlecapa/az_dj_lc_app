@@ -16,11 +16,15 @@ from .models_helper.asset_class import AssetClass
 from django.utils.text import slugify
 from django.http import Http404
 from .apis.services.openfigi import OpenFigiService
+import asyncio
 import json
 import csv
 import io
 import zipfile
 from decimal import Decimal, InvalidOperation
+from typing import Tuple
+
+from asgiref.sync import async_to_sync, sync_to_async
 from .apis.services.csv_import import import_transactions
 from django.contrib import messages
 from django.core.management import call_command
@@ -716,14 +720,98 @@ def portfolio_export(request):
     if not (_is_api_key_valid(request) or (request.user.is_active and request.user.is_staff)):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
+    fmt = request.GET.get("format", "json")
+    timestamp = timezone.now().strftime('%Y-%m-%d_%H%M%S')
+
+    if fmt == "yahoo_csv":
+        csv_str, skipped = _build_yahoo_portfolio_csv()
+        return render(request, "fintech/portfolio_export.html", {
+            "format": "yahoo_csv",
+            "csv_str": csv_str,
+            "skipped": skipped,
+            "download_filename": f"portfolio_yahoo_{timestamp}.csv",
+        })
+
     data = list(PortfolioSummary.objects.portfolio())
     json_str = json.dumps(data, indent=2, ensure_ascii=False, default=decimal_serializer)
-    filename = f"portfolio_export_{timezone.now().strftime('%Y-%m-%d_%H%M%S')}.json"
 
     return render(request, "fintech/portfolio_export.html", {
+        "format": "json",
         "json_str": json_str,
-        "download_filename": filename,
+        "download_filename": f"portfolio_export_{timestamp}.json",
     })
+
+
+def _build_yahoo_portfolio_csv() -> Tuple[str, list]:
+    """
+    CSV im Yahoo-Finance-Portfolio-Import-Format: Symbol,Trade Date,Purchase Price,Quantity.
+    "Trade Date" gibt es in Holdings nicht (nur ein aggregierter Bestand pro Asset, keine
+    Einzeltransaktionen mit Datum, siehe csv_import.py) — Holdings.created_at (erster
+    Bestandseintrag) ist die einzig verfügbare Näherung dafür.
+    """
+    holdings = list(
+        Holdings.objects.filter(quantity__gt=Decimal('0'))
+        .select_related('asset')
+        .order_by('asset__name')
+    )
+    symbols = async_to_sync(_resolve_yahoo_symbols)([h.asset for h in holdings])
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Symbol", "Trade Date", "Purchase Price", "Quantity"])
+
+    skipped = []
+    for h in holdings:
+        symbol = symbols.get(h.asset.isin)
+        if not symbol:
+            skipped.append(f"{h.asset.isin} ({h.asset.name}): kein Yahoo-Symbol gefunden")
+            continue
+        if h.average_purchase_price is None:
+            skipped.append(f"{h.asset.isin} ({h.asset.name}): kein Einkaufspreis hinterlegt")
+            continue
+        writer.writerow([
+            symbol,
+            h.created_at.strftime('%Y-%m-%d'),
+            f"{h.average_purchase_price:.2f}",
+            format(h.quantity.normalize(), 'f'),  # "10" statt "10.000000", aber "0.333333" bleibt exakt
+        ])
+    return buf.getvalue(), skipped
+
+
+async def _resolve_yahoo_symbols(assets: list) -> dict:
+    """ISIN -> Yahoo-Symbol für alle *assets*, parallel (gleiches Muster wie update_prices/Benchmark).
+    Nutzt Asset.yahoo_symbol falls gesetzt, sonst Live-Suche — neu aufgelöste Symbole werden
+    zurückgeschrieben, damit spätere Exporte/Kursabrufe dieselbe Suche nicht wiederholen müssen."""
+    semaphore = asyncio.Semaphore(5)
+    tasks = [_resolve_one_yahoo_symbol(asset, semaphore) for asset in assets]
+    results = await asyncio.gather(*tasks)
+    return dict(results)
+
+
+async def _resolve_one_yahoo_symbol(asset, semaphore: asyncio.Semaphore):
+    if asset.yahoo_symbol:
+        return asset.isin, asset.yahoo_symbol
+
+    async with semaphore:
+        symbol = await asyncio.to_thread(_lookup_yahoo_symbol, asset.isin)
+
+    if symbol:
+        await sync_to_async(_save_yahoo_symbol)(asset, symbol)
+    return asset.isin, symbol
+
+
+def _lookup_yahoo_symbol(isin: str):
+    from .apis.services.yahoo_finance import YahooFinanceRequest
+    try:
+        return YahooFinanceRequest()._isin2symbol(isin)
+    except Exception as exc:
+        logger.warning(f"Yahoo-Symbol-Suche fehlgeschlagen für {isin}: {exc}")
+        return None
+
+
+def _save_yahoo_symbol(asset, symbol: str) -> None:
+    asset.yahoo_symbol = symbol
+    asset.save(update_fields=["yahoo_symbol"])
 
 
 def watchlist_export(request):
