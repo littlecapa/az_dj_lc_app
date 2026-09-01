@@ -30,7 +30,7 @@ echo "🚀 Starting Gunicorn..." | tee -a $LOGFILE
 # - --chdir /home/site/wwwroot explizit setzen
 # - exec sorgt dafür, dass Gunicorn PID 1 übernimmt (wichtig für Signale)
 
-exec gunicorn --workers 2 --threads 4 --timeout 60 \
+exec gunicorn --workers 2 --threads 4 --timeout 180 \
     --access-logfile '-' \
     --error-logfile '-' \
     --bind=0.0.0.0:8000 \

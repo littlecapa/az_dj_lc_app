@@ -1,9 +1,7 @@
 """
 Benchmark: vergleicht Kurs + Antwortzeit der bisherigen Kursquelle (ProviderManager,
 i.d.R. Comdirect+Yahoo) mit der neuen Scalable-MCP-Anbindung
-(fintech.apis.services.mcp_scalable.ScalableMcpRequest) für eine zufällige Stichprobe
-von Assets mit Bestand (siehe BENCHMARK_SAMPLE_SIZE — bei allen Assets lief ein
-Durchlauf zuvor in den Gunicorn-Timeout).
+(fintech.apis.services.mcp_scalable.ScalableMcpRequest) für alle Assets mit Bestand.
 
 Rein diagnostisch — berührt update_prices/ProviderManager nicht (siehe deren eigene,
 unveränderte Dateien). Lebt bewusst in fintech (nicht core), da es fintech-Modelle und
@@ -12,7 +10,6 @@ referenziert diese Views direkt), damit sie sich in /mcp/scalable/... einreiht.
 """
 import asyncio
 import logging
-import random
 import time
 from decimal import InvalidOperation
 
@@ -35,7 +32,6 @@ from .models import Asset
 logger = logging.getLogger(__name__)
 
 BENCHMARK_CONCURRENCY = 5
-BENCHMARK_SAMPLE_SIZE = 50
 
 
 def _is_connected(request) -> bool:
@@ -45,15 +41,6 @@ def _is_connected(request) -> bool:
         defaults={"mcp_server_url": "https://mcp.scalable.capital/mcp"},
     )
     return sync_connection_status(connection)
-
-
-def _sample_assets_with_holdings(sample_size: int) -> list[Asset]:
-    """Bis zu *sample_size* zufällig gewählte Assets mit Bestand (Python-seitiges
-    random.sample statt order_by('?'), um DB-spezifische RAND()/DISTINCT-Eigenheiten
-    zu vermeiden — die Zeilenzahl hier ist klein genug, dass das nicht ins Gewicht fällt)."""
-    isins = list(Asset.objects.filter(holdings__isnull=False).distinct().values_list("isin", flat=True))
-    sampled_isins = random.sample(isins, min(sample_size, len(isins)))
-    return list(Asset.objects.filter(isin__in=sampled_isins).order_by("name"))
 
 
 @never_cache
@@ -85,7 +72,7 @@ def mcp_scalable_benchmark_run(request):
             "error": f"MCP-Seite nicht bereit — Benchmark abgebrochen: {exc}",
         })
 
-    assets = _sample_assets_with_holdings(BENCHMARK_SAMPLE_SIZE)
+    assets = list(Asset.objects.filter(holdings__isnull=False).distinct().order_by("name"))
     rows = async_to_sync(_run_benchmark)(assets)
 
     total_delta_time_ms = sum(r["delta_time_ms"] for r in rows if r["delta_time_ms"] is not None)
