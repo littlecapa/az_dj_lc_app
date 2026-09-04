@@ -40,7 +40,9 @@ class AssetResolution(NamedTuple):
     error: Optional[str]
 
 
-def resolve_asset_with_price(isin: str, name: str, asset_class: str, dry_run: bool = False) -> AssetResolution:
+def resolve_asset_with_price(
+    isin: str, name: str, asset_class: str, dry_run: bool = False, yahoo_symbol: Optional[str] = None
+) -> AssetResolution:
     """
     Liefert das bestehende Asset zu *isin*, oder legt bei einem neuen Asset nur
     dann eines an, wenn zuvor ein aktueller Kurs erfolgreich abgerufen wurde.
@@ -52,13 +54,19 @@ def resolve_asset_with_price(isin: str, name: str, asset_class: str, dry_run: bo
       gespeichert, aber created=True und price sind gesetzt (Vorschau).
     - Asset ist neu, Kurs-Abruf erfolgreich, dry_run=False: Asset + Price
       werden angelegt.
+
+    yahoo_symbol: manuelles Yahoo-Ticker-Override, falls Yahoos eigene
+    ISIN-Suche für dieses neue Asset nichts findet (z.B. Auslandsnotierungen
+    wie TE Connectivity, CH-ISIN aber NYSE-gelistet). Wird bei Erfolg gleich
+    auf dem neuen Asset gespeichert, damit spätere Kurs-Updates (refresh_asset_price)
+    denselben Override nutzen.
     """
     existing = Asset.objects.filter(isin=isin).first()
     if existing:
         return AssetResolution(existing, False, existing.current_price, None)
 
     try:
-        price = _provider_manager.isin2price(isin, asset_class)
+        price = _provider_manager.isin2price(isin, asset_class, yahoo_symbol=yahoo_symbol)
     except Exception as exc:
         logger.warning(f"Kurs-Abruf für neues Asset {isin} fehlgeschlagen: {exc}")
         return AssetResolution(None, False, None, f"Kurs-Abruf fehlgeschlagen: {exc}")
@@ -71,7 +79,7 @@ def resolve_asset_with_price(isin: str, name: str, asset_class: str, dry_run: bo
         return AssetResolution(None, True, price, None)
 
     with transaction.atomic():
-        asset = Asset.objects.create(isin=isin, name=name, asset_class=asset_class)
+        asset = Asset.objects.create(isin=isin, name=name, asset_class=asset_class, yahoo_symbol=yahoo_symbol or None)
         Price.objects.create(asset=asset, current_price=price, timestamp=timezone.now())
     asset.refresh_from_db()
     logger.info(f"Neues Asset angelegt: {isin} ({name}) @ {price}")

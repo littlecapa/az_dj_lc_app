@@ -907,6 +907,14 @@ _WATCHLIST_IMPORT_EXAMPLE = json.dumps([
         "asset_class": "STOCK",
         "source": "",
         "notes": "Auf Einstiegsniveau beobachten"
+    },
+    {
+        "watchlist": "Tech Favoriten",
+        "isin": "CH0102993182",
+        "name": "TE Connectivity",
+        "asset_class": "STOCK",
+        "yahoo_symbol": "TEL",
+        "notes": "Yahoos ISIN-Suche findet Auslandsnotierungen wie diese nicht — yahoo_symbol als manuelles Ticker-Override angeben"
     }
 ], indent=2, ensure_ascii=False)
 
@@ -949,6 +957,7 @@ def watchlist_import(request):
         notes          = str(item.get("notes", "")).strip()
         asset_name     = str(item.get("name", "")).strip() or isin
         asset_class    = str(item.get("asset_class", "STOCK")).strip().upper()
+        yahoo_symbol   = str(item.get("yahoo_symbol", "")).strip() or None
 
         # Pflichtfelder prüfen
         if not isin:
@@ -971,7 +980,7 @@ def watchlist_import(request):
             # Asset suchen oder neu anlegen — ein NEUES Asset wird nur angelegt
             # (bzw. im Dry-Run als anlegbar gewertet), wenn der Kurs-Abruf
             # erfolgreich war. Schlägt er fehl, gilt der Eintrag als Fehler.
-            resolution = resolve_asset_with_price(isin, asset_name, asset_class, dry_run=dry_run)
+            resolution = resolve_asset_with_price(isin, asset_name, asset_class, dry_run=dry_run, yahoo_symbol=yahoo_symbol)
             if resolution.error:
                 errors.append(f"Eintrag {idx} ({isin}): {resolution.error}")
                 details.append({"isin": isin, "watchlist": watchlist_name, "status": "error", "price_at_add": None})
