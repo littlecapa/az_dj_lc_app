@@ -35,6 +35,7 @@
 </style>
 
 <div class="container py-4">
+    {% include "fintech/_demo_banner.html" %}
     <!-- Breadcrumb + Navigation -->
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <nav aria-label="breadcrumb">
@@ -158,8 +159,10 @@
                             {% endif %}
                             {% if row.stake_recovered %}<span class="badge badge-free ms-1">free</span>{% endif %}
                             {% if row.not_for_sale %}<span class="badge badge-hold ms-1">hold</span>{% endif %}
+                            {% if not demo %}
                             <a href="/admin/fintech/holdings/{{ row.holdings_id }}/change/"
                                title="Bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
+                            {% endif %}
                         </div>
                         <div class="text-muted" style="font-size:.78rem">{{ row.isin }} &middot; {{ row.asset_class }}</div>
                     </td>

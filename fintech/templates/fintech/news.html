@@ -82,7 +82,7 @@
             <a href="{% url 'fintech:news' %}?all=1" class="btn btn-sm btn-outline-secondary">Alle anzeigen</a>
         {% endif %}
 
-        {% if unread_count > 0 %}
+        {% if unread_count > 0 and not demo %}
         <form method="post" style="margin:0;">
             {% csrf_token %}
             <button name="mark_all_read" value="1" class="btn btn-sm btn-outline-secondary">
@@ -136,7 +136,7 @@
                 </div>
 
                 <!-- Als gelesen markieren -->
-                {% if not ev.is_read %}
+                {% if not ev.is_read and not demo %}
                 <form method="post" style="margin:0;flex-shrink:0;">
                     {% csrf_token %}
                     <button name="mark_read" value="{{ ev.pk }}"

@@ -1,0 +1,97 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Fintech – Demo{% endblock %}
+
+{% block content %}
+<style>
+    .ft-card {
+        display: flex; flex-direction: column;
+        border: 1px solid #e3e6ea; border-radius: 12px;
+        padding: 1.5rem; background: #fff;
+        text-decoration: none; color: inherit;
+        transition: box-shadow .15s, border-color .15s, transform .1s;
+        height: 100%;
+    }
+    .ft-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,.1);
+        border-color: #ced4da;
+        transform: translateY(-2px);
+        color: inherit;
+    }
+    .ft-icon { font-size: 2rem; margin-bottom: .75rem; }
+    .ft-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
+    .ft-desc  { font-size: .85rem; color: #6c757d; flex: 1; }
+    .ft-group-label {
+        font-size: .72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; color: #6c757d;
+        margin-bottom: .75rem; margin-top: 1.5rem;
+    }
+    .ft-group-label:first-child { margin-top: 0; }
+</style>
+
+<div class="container py-5">
+    <h2 class="mb-2">Fintech – Demo</h2>
+    <div class="alert alert-info py-2 small mb-4">
+        🔎 Demo-Ansicht ohne Login. Die Holdings-Ansichten zeigen nur ausgewählte
+        Beispiel-Positionen, Watchlisten und News werden vollständig angezeigt.
+    </div>
+
+    <div class="ft-group-label">📊 Portfolio</div>
+    <div class="row g-3 mb-2">
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-performance' %}" class="ft-card">
+                <div class="ft-icon">📈</div>
+                <div class="ft-title">Portfolio Performance</div>
+                <div class="ft-desc">Demo-Holdings nach Kategorie mit Gesamt- und Tagesperformance.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-winners' %}" class="ft-card">
+                <div class="ft-icon">🏆</div>
+                <div class="ft-title">Winners &amp; Losers</div>
+                <div class="ft-desc">Top-10 / Flop-10 der Demo-Holdings nach Tages- und Gesamtperformance.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:portfolio-overall' %}" class="ft-card">
+                <div class="ft-icon">📋</div>
+                <div class="ft-title">Overall</div>
+                <div class="ft-desc">Alle Demo-Holdings in einer Tabelle, sortiert nach Performance.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:news-feed' %}" class="ft-card">
+                <div class="ft-icon">📰</div>
+                <div class="ft-title">News-Feed</div>
+                <div class="ft-desc">Aktuelle Nachrichten zu größeren Positionen.</div>
+            </a>
+        </div>
+    </div>
+
+    <div class="ft-group-label">👁 Watchlist</div>
+    <div class="row g-3 mb-2">
+        <div class="col-md-4">
+            <a href="{% url 'fintech:watchlist-performance' %}" class="ft-card">
+                <div class="ft-icon">📉</div>
+                <div class="ft-title">Watchlist Performance</div>
+                <div class="ft-desc">Alle Watchlisten mit annualisierter Rendite p.a.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:watchlists-all' %}" class="ft-card">
+                <div class="ft-icon">📜</div>
+                <div class="ft-title">Alle Watchlisten</div>
+                <div class="ft-desc">Jede Position aus jeder Watchlist in einer sortierbaren Tabelle.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'fintech:news' %}" class="ft-card">
+                <div class="ft-icon">🗞</div>
+                <div class="ft-title">Markt-News</div>
+                <div class="ft-desc">52-Wochen-Hoch/Tief-Events zu gehaltenen Positionen.</div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

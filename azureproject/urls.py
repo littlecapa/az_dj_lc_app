@@ -9,6 +9,7 @@ urlpatterns = [
     path('chess/', include('chess.urls')),
     path('rezepte/', include('recipes.urls')),
     path('fintech/', include('fintech.urls')),
+    path('demo/fintech/', include(('fintech.urls_demo', 'fintech'), namespace='fintech_demo')),
     path('health/', include('health.urls')),
     path('travel/', include('travel.urls')),
     path('telegram/', include('telegram_app.urls')),

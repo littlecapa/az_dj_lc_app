@@ -144,6 +144,7 @@
         </table>
     </div>
 
+    {% if not demo %}
     <form method="post"
           action="{% url 'fintech:watchlist-reset-prices' watchlist.name %}"
           onsubmit="return confirm('Wirklich für ALLE Einträge dieser Watchlist den Einstiegspreis auf den aktuellen Kurs zurücksetzen? Das kann nicht rückgängig gemacht werden.');"
@@ -152,7 +153,9 @@
         <button type="submit" class="btn btn-outline-danger btn-sm">Reset Einstiegspreis</button>
     </form>
     {% endif %}
+    {% endif %}
 
+    {% if not demo %}
     <form method="post"
           action="{% url 'fintech:watchlist-delete' watchlist.name %}"
           onsubmit="return confirm('Watchlist &quot;{{ watchlist.name }}&quot; mit {{ entry_rows|length }} Eintrag(en) wirklich UNWIDERRUFLICH löschen?');"
@@ -160,5 +163,6 @@
         {% csrf_token %}
         <button type="submit" class="btn btn-danger btn-sm">Watchlist löschen</button>
     </form>
+    {% endif %}
 </div>
 {% endblock %}

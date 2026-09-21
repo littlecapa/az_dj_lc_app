@@ -115,15 +115,17 @@ class HoldingsAdmin(admin.ModelAdmin):
         'category',
         'not_for_sale',
         'stake_recovered',
+        'demo',
     )
-    list_filter = ('category', 'asset__asset_class', 'not_for_sale', 'stake_recovered')
+    list_filter = ('category', 'asset__asset_class', 'not_for_sale', 'stake_recovered', 'demo')
     search_fields = ('asset__name', 'asset__symbol', 'asset__isin')
     autocomplete_fields = ('asset',)
     list_select_related = ('asset',)
+    list_editable = ('demo',)
     readonly_fields = ('get_total_investment', 'get_current_value', 'created_at', 'updated_at', 'get_week52_info')
 
     fieldsets = (
-        (None, {'fields': ('asset', 'quantity', 'category', 'not_for_sale', 'stake_recovered')}),
+        (None, {'fields': ('asset', 'quantity', 'category', 'not_for_sale', 'stake_recovered', 'demo')}),
         ('Finanzen', {'fields': ('average_purchase_price', 'get_total_investment', 'get_current_value')}),
         ('52-Wochen-Range', {'fields': ('get_week52_info',)}),
         ('Notizen', {'fields': ('notes',), 'classes': ('collapse',)}),

@@ -23,6 +23,7 @@ import io
 import zipfile
 from decimal import Decimal, InvalidOperation
 from typing import Tuple
+from functools import wraps
 
 from asgiref.sync import async_to_sync, sync_to_async
 from .apis.services.csv_import import import_transactions
@@ -47,6 +48,25 @@ def _is_api_key_valid(request) -> bool:
     if not api_key:
         return False
     return request.headers.get("X-Api-Key", "") == api_key
+
+
+def _demo_filter(holdings, demo: bool):
+    """Im Demo-Bereich nur die als Holdings.demo=True markierten Positionen."""
+    return holdings.filter(demo=True) if demo else holdings
+
+
+def login_required_unless_demo(view_func):
+    """
+    Wie @login_required, außer die View wurde über die /demo/fintech/-URLs
+    aufgerufen (erkennbar am 'demo=True'-URL-Kwarg) — dort ist kein Login
+    nötig, siehe fintech/urls.py.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if kwargs.get('demo'):
+            return view_func(request, *args, **kwargs)
+        return login_required(view_func)(request, *args, **kwargs)
+    return wrapper
 
 def _enrich_symbols(rows: list) -> None:
     """
@@ -186,8 +206,8 @@ def _enrich_week52(rows: list) -> None:
             row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
 
 
-@login_required
-def portfolio_overall(request):
+@login_required_unless_demo
+def portfolio_overall(request, demo=False):
     """Alle Holdings, sortiert nach Gesamtperformance. Inkl. CSV-Export."""
     import csv
     from django.http import HttpResponse
@@ -207,6 +227,7 @@ def portfolio_overall(request):
         ))
         .order_by('asset__name')
     )
+    holdings = _demo_filter(holdings, demo)
 
     rows = []
     for h in holdings:
@@ -298,6 +319,7 @@ def portfolio_overall(request):
         'simple_total':  (total_cur / total_inv - 1) * 100 if total_inv else None,
         'day_total_abs': day_total_abs,
         'day_total_pct': day_total_pct,
+        'demo':          demo,
     })
 
 
@@ -588,8 +610,10 @@ def test_api_run(request):
     return JsonResponse({'results': results})
 
 
-@login_required
-def fintech_index(request):
+@login_required_unless_demo
+def fintech_index(request, demo=False):
+    if demo:
+        return render(request, 'fintech/index_demo.html')
     return render(request, 'fintech/index.html')
 
 
@@ -1097,8 +1121,8 @@ def _entry_perf(entry):
         return None
 
 
-@login_required
-def watchlist_performance(request):
+@login_required_unless_demo
+def watchlist_performance(request, demo=False):
     """Übersicht: alle Watchlisten mit annualisierter Performance."""
     watchlists = Watchlist.objects.prefetch_related(
         "entries__asset"
@@ -1165,7 +1189,7 @@ def watchlist_performance(request):
         })
 
     rows.sort(key=lambda r: r.get("sort_value", Decimal("-999")), reverse=True)
-    return render(request, "fintech/watchlist_performance.html", {"rows": rows})
+    return render(request, "fintech/watchlist_performance.html", {"rows": rows, "demo": demo})
 
 
 # ---------------------------------------------------------------------------
@@ -1185,8 +1209,8 @@ _openfigi = OpenFigiService()
 TOP_N = 10
 
 
-@login_required
-def portfolio_winners(request):
+@login_required_unless_demo
+def portfolio_winners(request, demo=False):
     """4-Spalten-Übersicht: Tages/Gesamt-Top5 und -Flop5."""
     today = timezone.now().date()
     yesterday_sq = Price.objects.filter(
@@ -1202,6 +1226,7 @@ def portfolio_winners(request):
             yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)
         ))
     )
+    holdings = _demo_filter(holdings, demo)
 
     rows = []
     for h in holdings:
@@ -1249,6 +1274,7 @@ def portfolio_winners(request):
         'simple_total':  (total_cur / total_inv  - 1) * 100 if total_inv  else None,
         'day_abs_total': total_cur - total_yest            if total_yest else None,
         'day_pct_total': (total_cur / total_yest - 1) * 100 if total_yest else None,
+        'demo':          demo,
     })
 
 
@@ -1279,8 +1305,8 @@ def _fetch_missing_symbols(holdings):
             logger.warning(f"Kein Symbol gefunden für {asset.isin} ({asset.name})")
 
 
-@login_required
-def portfolio_performance(request):
+@login_required_unless_demo
+def portfolio_performance(request, demo=False):
     """Übersicht: alle neuen Kategorien mit Gesamt- und Tagesperformance."""
     today = timezone.now().date()
 
@@ -1297,6 +1323,7 @@ def portfolio_performance(request):
         .annotate(yesterday_price=Subquery(yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)))
         .order_by('category', 'asset__name')
     )
+    holdings = _demo_filter(holdings, demo)
 
     cat_labels = {v: label for v, label in CategoryClass.choices}
 
@@ -1363,11 +1390,12 @@ def portfolio_performance(request):
         'simple_total':  (total_cur / total_inv  - 1) * 100 if total_inv  else None,
         'day_total':     (total_cur / total_yest - 1) * 100 if total_yest else None,
         'day_abs_total': total_cur - total_yest            if total_yest else None,
+        'demo':          demo,
     })
 
 
-@login_required
-def portfolio_category_detail(request, category_slug):
+@login_required_unless_demo
+def portfolio_category_detail(request, category_slug, demo=False):
     """Drill-down: alle Holdings einer Kategorie (per Slug)."""
     category_id = _SLUG_TO_ID.get(category_slug)
     if category_id is None:
@@ -1393,6 +1421,7 @@ def portfolio_category_detail(request, category_slug):
         .annotate(yesterday_price=Subquery(yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)))
         .order_by('asset__name')
     )
+    holdings = _demo_filter(holdings, demo)
 
     # ── Symbol-Lookup via OpenFIGI für Stocks ohne Symbol ────────────────
     _fetch_missing_symbols(holdings)
@@ -1467,11 +1496,12 @@ def portfolio_category_detail(request, category_slug):
         'next_slug':     next_slug,
         'prev_label':    CategoryClass(_SLUG_TO_ID[prev_slug]).label if prev_slug else None,
         'next_label':    CategoryClass(_SLUG_TO_ID[next_slug]).label if next_slug else None,
+        'demo':          demo,
     })
 
 
-@login_required
-def watchlist_detail(request, watchlist_name):
+@login_required_unless_demo
+def watchlist_detail(request, watchlist_name, demo=False):
     """Drill-down: Einzelpositionen einer Watchlist mit Performance."""
     wl = get_object_or_404(Watchlist, name=watchlist_name)
     entries = wl.entries.select_related("asset").order_by("asset__name")
@@ -1511,6 +1541,7 @@ def watchlist_detail(request, watchlist_name):
         "entry_rows": entry_rows,
         "hypothetical": HYPOTHETICAL_INVESTMENT,
         "reset_result": reset_result,
+        "demo": demo,
     })
 
 
@@ -1528,8 +1559,8 @@ def watchlist_delete(request, watchlist_name):
     return redirect("fintech:watchlist-performance")
 
 
-@login_required
-def watchlists_all(request):
+@login_required_unless_demo
+def watchlists_all(request, demo=False):
     """
     Alle Einträge aus ALLEN Watchlisten in einer Tabelle — wie watchlist_detail,
     aber mit einer Watchlist-Namen-Spalte statt Quelle, sortierbar per JS
@@ -1571,6 +1602,7 @@ def watchlists_all(request):
     return render(request, "fintech/watchlists_all.html", {
         "entry_rows": entry_rows,
         "hypothetical": HYPOTHETICAL_INVESTMENT,
+        "demo": demo,
     })
 
 
@@ -1607,9 +1639,9 @@ def watchlist_reset_prices(request, watchlist_name):
     return redirect("fintech:watchlist-detail", watchlist_name=watchlist_name)
 
 
-@login_required
-def news(request):
-    if request.method == "POST":
+@login_required_unless_demo
+def news(request, demo=False):
+    if request.method == "POST" and not demo:
         pk = request.POST.get("mark_read")
         if pk:
             NewsEvent.objects.filter(pk=pk).update(is_read=True)
@@ -1630,11 +1662,12 @@ def news(request):
         "events":      events,
         "show_all":    show_all,
         "unread_count": unread_count,
+        "demo":        demo,
     })
 
 
-@login_required
-def news_feed(request):
+@login_required_unless_demo
+def news_feed(request, demo=False):
     """
     RSS-Reader-artiger News-Feed für gehaltene Aktien (Yahoo Finance + Google
     News RSS, periodisch via update_news-Command befüllt — siehe dort für die
@@ -1662,6 +1695,7 @@ def news_feed(request):
         "companies": companies,
         "company_filter": company_filter,
         "total_count": NewsArticle.objects.count(),
+        "demo": demo,
     })
 
 

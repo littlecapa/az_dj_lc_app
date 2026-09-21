@@ -37,6 +37,7 @@
 </style>
 
 <div class="container py-4">
+    {% include "fintech/_demo_banner.html" %}
     <div class="d-flex align-items-center mb-3 gap-3">
         <h2 class="mb-0">Winners &amp; Losers</h2>
         <a href="{% url 'fintech:portfolio-performance' %}" class="text-muted small">← Portfolio</a>
@@ -116,7 +117,7 @@
                             {% else %}
                                 <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
                             {% endif %}
-                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                            {% if not demo %}<a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>{% endif %}
                         </div>
                         <div class="entry-isin">{{ r.isin }}</div>
                     </div>
@@ -142,7 +143,7 @@
                             {% else %}
                                 <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
                             {% endif %}
-                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                            {% if not demo %}<a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>{% endif %}
                         </div>
                         <div class="entry-isin">{{ r.isin }}</div>
                     </div>
@@ -168,7 +169,7 @@
                             {% else %}
                                 <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
                             {% endif %}
-                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                            {% if not demo %}<a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>{% endif %}
                         </div>
                         <div class="entry-isin">{{ r.isin }}</div>
                     </div>
@@ -194,7 +195,7 @@
                             {% else %}
                                 <a href="https://www.onvista.de/aktien/ISIN/{{ r.isin }}" target="_blank" rel="noopener noreferrer">{{ r.name }}</a>
                             {% endif %}
-                            <a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>
+                            {% if not demo %}<a href="/admin/fintech/holdings/{{ r.holdings_id }}/change/" class="edit-link" title="Bearbeiten">✏</a>{% endif %}
                         </div>
                         <div class="entry-isin">{{ r.isin }}</div>
                     </div>

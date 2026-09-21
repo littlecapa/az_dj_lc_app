@@ -34,6 +34,7 @@
 </style>
 
 <div class="container py-4">
+    {% include "fintech/_demo_banner.html" %}
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <div class="d-flex align-items-center gap-3">
@@ -50,7 +51,9 @@
                 </div>
                 <span class="label-r">Tag</span>
             </div>
+            {% if not demo %}
             <a href="{% url 'fintech:portfolio-overall-stocks' %}" class="btn btn-sm btn-outline-secondary">Aktien Look-Through</a>
+            {% endif %}
             <a href="{% url 'fintech:fintech-index' %}" class="btn btn-sm btn-outline-secondary">← Fintech</a>
         </div>
     </div>
@@ -134,7 +137,9 @@
                             {% endif %}
                             {% if row.stake_recovered %}<span class="badge badge-free ms-1">free</span>{% endif %}
                             {% if row.not_for_sale %}<span class="badge badge-hold ms-1">hold</span>{% endif %}
+                            {% if not demo %}
                             <a href="/admin/fintech/holdings/{{ row.holdings_id }}/change/" title="Bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
+                            {% endif %}
                         </div>
                         <div class="text-muted" style="font-size:.78rem">{{ row.isin }} &middot; {{ row.asset_class }}</div>
                     </td>
