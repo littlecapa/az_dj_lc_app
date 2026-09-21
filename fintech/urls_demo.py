@@ -18,6 +18,7 @@ from . import views
 urlpatterns = [
     path('', views.fintech_index, {'demo': True}, name="fintech-index"),
     path('overall/', views.portfolio_overall, {'demo': True}, name="portfolio-overall"),
+    path('overall-stocks/', views.portfolio_overall_stocks, {'demo': True}, name="portfolio-overall-stocks"),
     path('portfolio/', views.portfolio_performance, {'demo': True}, name="portfolio-performance"),
     path('winner/', views.portfolio_winners, {'demo': True}, name="portfolio-winners"),
     path('portfolio/<slug:category_slug>/', views.portfolio_category_detail, {'demo': True}, name="portfolio-category-detail"),

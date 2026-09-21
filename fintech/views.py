@@ -323,14 +323,15 @@ def portfolio_overall(request, demo=False):
     })
 
 
-def portfolio_overall_stocks(request):
+@login_required_unless_demo
+def portfolio_overall_stocks(request, demo=False):
     """
     Aktien-Look-Through-Übersicht: eine Zeile pro Aktie (direkt gehalten
     und/oder über Fonds/ETFs gehalten via FondHolding-Mapping), mit direktem
     + über Fonds gehaltenem Anteil. Berechnung siehe
     services.compute_stock_lookthrough_rows (auch von update_news genutzt).
     """
-    rows = compute_stock_lookthrough_rows()
+    rows = compute_stock_lookthrough_rows(demo=demo)
 
     total_stock = sum(r['value_stock'] for r in rows) if rows else Decimal('0')
     total_fund  = sum(r['value_fund']  for r in rows) if rows else Decimal('0')
@@ -340,6 +341,7 @@ def portfolio_overall_stocks(request):
         'total_stock': total_stock,
         'total_fund':  total_fund,
         'total_all':   total_stock + total_fund,
+        'demo':        demo,
     })
 
 

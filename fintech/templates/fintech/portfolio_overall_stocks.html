@@ -19,6 +19,7 @@
 </style>
 
 <div class="container py-4">
+    {% include "fintech/_demo_banner.html" %}
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <div class="d-flex align-items-center gap-3">
             <h2 class="mb-0">Aktien Look-Through</h2>
@@ -67,10 +68,12 @@
                             {% else %}
                                 <a href="https://www.onvista.de/aktien/ISIN/{{ row.isin }}" target="_blank" rel="noopener noreferrer" title="onvista">{{ row.name }}</a>
                             {% endif %}
-                            {% if row.holdings_id %}
-                                <a href="/admin/fintech/holdings/{{ row.holdings_id }}/change/" title="Bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
-                            {% elif row.isin %}
-                                <a href="/admin/fintech/asset/{{ row.isin }}/change/" title="Nur über Fonds gehalten — Asset bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
+                            {% if not demo %}
+                                {% if row.holdings_id %}
+                                    <a href="/admin/fintech/holdings/{{ row.holdings_id }}/change/" title="Bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
+                                {% elif row.isin %}
+                                    <a href="/admin/fintech/asset/{{ row.isin }}/change/" title="Nur über Fonds gehalten — Asset bearbeiten" style="color:#adb5bd;font-size:.85rem;text-decoration:none;">✏</a>
+                                {% endif %}
                             {% endif %}
                         </div>
                         <div class="text-muted" style="font-size:.78rem">
@@ -124,7 +127,11 @@
                                 {% for fb in row.fund_breakdown %}
                                 <tr>
                                     <td>
-                                        <a href="/admin/fintech/asset/{{ fb.fund_isin }}/change/" title="Fonds bearbeiten">{{ fb.fund_name }}</a>
+                                        {% if demo %}
+                                            {{ fb.fund_name }}
+                                        {% else %}
+                                            <a href="/admin/fintech/asset/{{ fb.fund_isin }}/change/" title="Fonds bearbeiten">{{ fb.fund_name }}</a>
+                                        {% endif %}
                                         <div class="text-muted" style="font-size:.75rem">{{ fb.fund_isin }}</div>
                                     </td>
                                     <td class="text-end">{{ fb.percentage|de_decimal:2 }} %</td>

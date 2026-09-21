@@ -223,13 +223,18 @@ def report_price_fetch_failures(failures: list) -> None:
         )
 
 
-def compute_stock_lookthrough_rows() -> list[dict]:
+def compute_stock_lookthrough_rows(demo: bool = False) -> list[dict]:
     """
     Aktien-Look-Through: eine Zeile pro Aktie (direkt gehalten und/oder über
     Fonds/ETFs gehalten via FondHolding-Mapping), mit direktem + über Fonds
     gehaltenem Anteil. Extrahiert aus views.portfolio_overall_stocks, damit
     dieselbe Logik auch für die Auswahl der News-Zielunternehmen
     (management-Command update_news) genutzt werden kann.
+
+    demo=True (Demo-Bereich /demo/fintech/): nur Aktien- UND Fonds-Holdings
+    mit Holdings.demo=True fließen ein — ein nicht als Demo markierter Fonds
+    trägt seinen Look-Through-Anteil (und damit indirekt seinen Wert) nicht
+    bei, genau wie eine nicht markierte Aktie nicht direkt auftaucht.
 
     Kategorie-Herkunft je Aktie (erste zutreffende Regel):
       1. Holdings.category der Aktie selbst (falls direkt gehalten).
@@ -247,6 +252,8 @@ def compute_stock_lookthrough_rows() -> list[dict]:
     stock_holdings = Holdings.objects.select_related('asset').filter(
         asset__asset_class=AssetClass.STOCK, quantity__gt=0,
     )
+    if demo:
+        stock_holdings = stock_holdings.filter(demo=True)
     for h in stock_holdings:
         price = h.asset.current_price or Decimal('0')
         direct_value[h.asset_id] = h.quantity * price
@@ -258,6 +265,8 @@ def compute_stock_lookthrough_rows() -> list[dict]:
     fund_holdings = Holdings.objects.select_related('asset').filter(
         asset__asset_class__in=[AssetClass.ETF, AssetClass.FOND], quantity__gt=0,
     )
+    if demo:
+        fund_holdings = fund_holdings.filter(demo=True)
     for h in fund_holdings:
         price = h.asset.current_price or Decimal('0')
         fund_value[h.asset_id] = h.quantity * price
