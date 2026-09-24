@@ -16,6 +16,7 @@ from datetime import timedelta
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from core.jira_client import JiraClient, JiraApiError
+from telegram_app.libs.telegram_api import send_telegram_message
 import os, logging, time
 import requests
 from zoneinfo import ZoneInfo
@@ -210,6 +211,15 @@ def links_page(request):
 
 HARD_LIMIT = 20
 SOFT_LIMIT = 10
+TELEGRAM_PREVIEW_CHARS = 500
+
+
+def format_contact_message(contact: ContactMessage) -> str:
+    """Telegram-Text für eine neue Kontakt-Nachricht (Vorschau, gekürzt)."""
+    text = contact.message
+    if len(text) > TELEGRAM_PREVIEW_CHARS:
+        text = text[:TELEGRAM_PREVIEW_CHARS] + "…"
+    return f"✉️ Neue Kontakt-Nachricht von {contact.name or '(ohne Name)'} <{contact.email}>\n\n{text}"
 
 def contact(request):
     if request.method == 'POST':
@@ -253,11 +263,14 @@ def contact(request):
                 time.sleep(delay)
 
             # --- Speichern ---
-            ContactMessage.objects.create(
+            contact_message = ContactMessage.objects.create(
                 name=name,
                 email=email,
                 message=message
             )
+            # Fehler beim Versand werden in send_telegram_message geloggt und
+            # dürfen das Speichern der Nachricht nicht verhindern.
+            send_telegram_message(format_contact_message(contact_message), trigger="contact_message")
 
             messages.success(request, f'Thank you very much! Your message has been saved. {todays_messages}')
             return redirect('homepage:contact')
