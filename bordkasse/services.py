@@ -175,6 +175,97 @@ def serialize_state(toern, user):
     }
 
 
+# ---------------------------------------------------------------- Endabrechnung
+
+def _cents(d):
+    return int((d * 100).to_integral_value())
+
+
+def _eur(cents):
+    return Decimal(cents) / 100
+
+
+def build_settlement(toern):
+    """Endabrechnung, cent-genau.
+
+    Der faire Anteil wird in Cent aufgeteilt; bleibt ein Rest, zahlen die ersten
+    Crew-Mitglieder je 1 Cent mehr. Die Summe aller Salden ist genau das Restgeld in
+    der Bordkasse — es wird zuerst ausgezahlt, danach gleichen die Personen untereinander aus.
+    """
+    crew, buchungen, _ = load_toern_data(toern)
+    aktiv = sorted((b for b in buchungen if not b.deleted), key=lambda b: b.created_at)
+    einzahlungen = [b for b in aktiv if b.kind == Buchung.EINZAHLUNG]
+    ausgaben = [b for b in aktiv if b.kind == Buchung.AUSGABE]
+
+    total_c = sum(_cents(b.amount) for b in ausgaben)
+    kasse_ein_c = sum(_cents(b.amount) for b in einzahlungen)
+    kasse_aus = [b for b in ausgaben if b.person_id is None]
+    kasse_aus_c = sum(_cents(b.amount) for b in kasse_aus)
+    kassenstand_c = kasse_ein_c - kasse_aus_c
+
+    shares = {}
+    rest = 0
+    if crew:
+        base, rest = divmod(total_c, len(crew))
+        shares = {c.id: base + (1 if i < rest else 0) for i, c in enumerate(crew)}
+
+    personen = []
+    for c in crew:
+        ein = [b for b in einzahlungen if b.person_id == c.id]
+        aus = [b for b in ausgaben if b.person_id == c.id]
+        ein_c = sum(_cents(b.amount) for b in ein)
+        karte_c = sum(_cents(b.amount) for b in aus if b.method == Buchung.KARTE)
+        bar_c = sum(_cents(b.amount) for b in aus if b.method != Buchung.KARTE)
+        eingebracht_c = ein_c + karte_c + bar_c
+        personen.append({
+            'id': c.id,
+            'name': c.name,
+            'einzahlungen': ein,
+            'auslagen': aus,
+            'eingezahlt': _eur(ein_c),
+            'karte': _eur(karte_c),
+            'bar_privat': _eur(bar_c),
+            'eingebracht': _eur(eingebracht_c),
+            'anteil': _eur(shares[c.id]),
+            'saldo_c': eingebracht_c - shares[c.id],
+            'saldo': _eur(eingebracht_c - shares[c.id]),
+        })
+
+    # Ausgleich: Kasse zahlt ihr Restgeld zuerst aus, dann zahlen Schuldner an Gläubiger
+    # (jeweils größter Betrag zuerst → wenige Überweisungen).
+    payers = ([[KASSE_LABEL, kassenstand_c, True]] if kassenstand_c > 0 else []) + sorted(
+        ([p['name'], -p['saldo_c'], False] for p in personen if p['saldo_c'] < 0), key=lambda x: -x[1])
+    receivers = ([[KASSE_LABEL, -kassenstand_c]] if kassenstand_c < 0 else []) + sorted(
+        ([p['name'], p['saldo_c']] for p in personen if p['saldo_c'] > 0), key=lambda x: -x[1])
+    transfers = []
+    i = j = 0
+    while i < len(payers) and j < len(receivers):
+        amount = min(payers[i][1], receivers[j][1])
+        if amount > 0:
+            transfers.append({'von': payers[i][0], 'an': receivers[j][0], 'betrag': _eur(amount),
+                              'aus_kasse': payers[i][2]})
+        payers[i][1] -= amount
+        receivers[j][1] -= amount
+        if payers[i][1] == 0:
+            i += 1
+        if receivers[j][1] == 0:
+            j += 1
+
+    return {
+        'personen': personen,
+        'transfers': transfers,
+        'gesamt_ausgaben': _eur(total_c),
+        'anzahl_ausgaben': len(ausgaben),
+        'kasse_eingezahlt': _eur(kasse_ein_c),
+        'kasse_ausgaben': kasse_aus,
+        'kasse_ausgegeben': _eur(kasse_aus_c),
+        'kassenstand': _eur(kassenstand_c),
+        'anteil': _eur(total_c // len(crew)) if crew else ZERO,
+        'rundungs_cent': rest,
+        'crew_count': len(crew),
+    }
+
+
 # ---------------------------------------------------------------- Excel-Export
 
 def _local(dt):

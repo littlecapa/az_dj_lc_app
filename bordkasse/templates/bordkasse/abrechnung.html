@@ -1,0 +1,126 @@
+{% extends "bordkasse/base.html" %}
+{% load bordkasse_tags %}
+
+{% block title %}Endabrechnung {{ toern.name }}{% endblock %}
+
+{% block content %}
+<a class="sitelink noprint" href="{% url 'bordkasse:detail' toern.slug %}">← Zurück zur Bordkasse</a>
+<div class="hero">
+  <h1>🧾 Endabrechnung</h1>
+  <p>{{ toern.name }} · Stand {{ stand|date:"d.m.Y, H:i" }} Uhr</p>
+</div>
+
+<div class="cashtile">
+  <div class="label">Gesamtausgaben des Törns</div>
+  <div class="value num">{{ a.gesamt_ausgaben|euro }}</div>
+  <div class="methodbreakdown">
+    <div class="mbcol">
+      <div class="mbhead">👥 Aufteilung</div>
+      <div class="mbrow"><span>Crew</span><b>{{ a.crew_count }}</b></div>
+      <div class="mbrow"><span>Anteil pro Person</span><b>{{ a.anteil|euro }}</b></div>
+    </div>
+    <div class="mbcol">
+      <div class="mbhead">💶 Bordkasse</div>
+      <div class="mbrow"><span>Eingezahlt</span><b>{{ a.kasse_eingezahlt|euro }}</b></div>
+      <div class="mbrow"><span>Daraus bezahlt</span><b>{{ a.kasse_ausgegeben|euro }}</b></div>
+      <div class="mbrow"><span>Restgeld</span><b>{{ a.kassenstand|euro }}</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="banner">
+  <p class="explain"><b>So wird gerechnet:</b> Alle {{ a.anzahl_ausgaben }} Ausgaben ({{ a.gesamt_ausgaben|euro }}) werden
+  gleichmäßig auf {{ a.crew_count }} Personen verteilt{% if a.rundungs_cent %} – wegen der Rundung zahlen die ersten
+  {{ a.rundungs_cent }} Person{{ a.rundungs_cent|pluralize:"en" }} je 1 Cent mehr{% endif %}.
+  Jede Person hat etwas <b>eingebracht</b>: Einzahlungen in die Bordkasse plus alles, was sie selbst per Karte
+  oder privatem Bargeld ausgelegt hat. <b>Saldo = eingebracht − Anteil.</b> Positiv heißt: bekommt Geld zurück,
+  negativ heißt: muss noch zahlen.</p>
+  <p class="explain" style="margin:0">Die Summe aller Salden entspricht genau dem Restgeld in der Bordkasse
+  ({{ a.kassenstand|euro }}). Deshalb wird zuerst das Bargeld aus der Kasse ausgezahlt, danach gleichen die
+  Personen den Rest untereinander aus.</p>
+</div>
+
+{% if a.kassenstand < 0 %}
+  <div class="banner warn">Die Bordkasse steht im Minus – es wurde mehr aus der Kasse bezahlt als eingezahlt. Bitte die Buchungen prüfen.</div>
+{% endif %}
+
+<div class="sectionhead"><h2>Ausgleichszahlungen</h2><span class="hint">{{ a.transfers|length }} Zahlung{{ a.transfers|length|pluralize:"en" }}</span></div>
+{% if a.transfers %}
+  <div class="transfers">
+    {% for t in a.transfers %}
+      <div class="transfer">
+        <div class="route">
+          {% if t.aus_kasse %}💶 {% endif %}<b>{{ t.von }}</b><span class="arrow">→</span><b>{{ t.an }}</b>
+          {% if t.aus_kasse %}<span class="hint">Bargeld aus der Bordkasse auszahlen</span>{% endif %}
+        </div>
+        <div class="amt">{{ t.betrag|euro }}</div>
+      </div>
+    {% endfor %}
+  </div>
+{% elif a.crew_count %}
+  <div class="empty">Alles ausgeglichen – niemand muss etwas zahlen.</div>
+{% else %}
+  <div class="empty">Noch keine Crew angelegt.</div>
+{% endif %}
+
+<div class="sectionhead"><h2>Saldo pro Person</h2><span class="hint">mit Rechenweg</span></div>
+{% for p in a.personen %}
+  <div class="settlecard">
+    <div class="head">
+      <span class="name">{{ p.name }}</span>
+      <span class="saldo {% if p.saldo >= 0 %}pos{% else %}neg{% endif %}">{{ p.saldo|euro:"signed" }}</span>
+    </div>
+    <table class="calc">
+      <tr><td>In die Bordkasse eingezahlt</td><td class="num">{{ p.eingezahlt|euro }}</td></tr>
+      <tr><td>Selbst ausgelegt per Karte</td><td class="num">{{ p.karte|euro }}</td></tr>
+      <tr><td>Selbst ausgelegt bar (privat)</td><td class="num">{{ p.bar_privat|euro }}</td></tr>
+      <tr class="total"><td>Eingebracht</td><td class="num">{{ p.eingebracht|euro }}</td></tr>
+      <tr><td>− Anteil an den Gesamtausgaben</td><td class="num">{{ p.anteil|euro }}</td></tr>
+      <tr class="total"><td>Saldo</td><td class="num">{{ p.saldo|euro:"signed" }}</td></tr>
+    </table>
+    {% if p.einzahlungen or p.auslagen %}
+      <details class="bookings">
+        <summary>Buchungen von {{ p.name }} anzeigen</summary>
+        <ul>
+          {% for b in p.einzahlungen %}
+            <li>{{ b.created_at|date:"d.m." }} · Einzahlung · <span class="num">{{ b.amount|euro }}</span>{% if b.note %} · {{ b.note }}{% endif %}</li>
+          {% endfor %}
+          {% for b in p.auslagen %}
+            <li>{{ b.created_at|date:"d.m." }} · {% if b.method == 'karte' %}Karte{% else %}Bar (privat){% endif %} · <span class="num">{{ b.amount|euro }}</span>{% if b.note %} · {{ b.note }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
+  </div>
+{% empty %}
+  <div class="empty">Noch keine Crew angelegt.</div>
+{% endfor %}
+
+{% if a.kasse_ausgaben %}
+  <div class="sectionhead"><h2>Aus der Bordkasse bezahlt</h2><span class="hint">{{ a.kasse_ausgegeben|euro }}</span></div>
+  <div class="settlecard">
+    <details class="bookings" style="margin-top:0">
+      <summary>{{ a.kasse_ausgaben|length }} Ausgabe{{ a.kasse_ausgaben|length|pluralize:"n" }} anzeigen</summary>
+      <ul>
+        {% for b in a.kasse_ausgaben %}
+          <li>{{ b.created_at|date:"d.m." }} · <span class="num">{{ b.amount|euro }}</span>{% if b.note %} · {{ b.note }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  </div>
+{% endif %}
+
+<div class="actions noprint" style="margin-top:22px">
+  <button class="btn ghost" type="button" onclick="window.print()">🖨 Drucken / als PDF sichern</button>
+  <a class="btn ghost" href="{% url 'bordkasse:export' toern.slug %}">⤓ Excel</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Beim Drucken alle Buchungsdetails aufklappen, damit der Rechenweg vollständig auf dem Papier steht.
+  window.addEventListener('beforeprint', function(){
+    document.querySelectorAll('details.bookings').forEach(function(d){ d.open = true; });
+  });
+</script>
+{% endblock %}

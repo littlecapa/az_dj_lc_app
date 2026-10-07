@@ -20,7 +20,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Buchung, BuchungRevision, CrewMember, ShoppingItem, Toern, toern_slugify
-from .services import STANDARD_LIST, actor, build_export, can_write, serialize_state
+from .services import STANDARD_LIST, actor, build_export, build_settlement, can_write, serialize_state
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,17 @@ def toern_detail(request, slug):
         'can_write': can_write(request.user),
         'initial_state': serialize_state(toern, request.user),
         'standard_list': STANDARD_LIST,
+    })
+
+
+@require_GET
+def abrechnung(request, slug):
+    """/bordkasse/<slug>/abrechnung/ — Endabrechnung mit nachvollziehbarem Rechenweg (öffentlich)."""
+    toern = get_object_or_404(Toern, slug=slug)
+    return render(request, 'bordkasse/abrechnung.html', {
+        'toern': toern,
+        'a': build_settlement(toern),
+        'stand': timezone.now(),
     })
 
 

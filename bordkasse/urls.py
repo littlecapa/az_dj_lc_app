@@ -7,6 +7,7 @@ app_name = 'bordkasse'
 urlpatterns = [
     path('',                                   views.toern_list,       name='index'),         # /bordkasse/
     path('<slug:slug>/',                       views.toern_detail,     name='detail'),        # /bordkasse/kroatien-2026/
+    path('<slug:slug>/abrechnung/',            views.abrechnung,       name='abrechnung'),
     path('<slug:slug>/export.xlsx',            views.export_xlsx,      name='export'),
     path('<slug:slug>/api/state/',             views.api_state,        name='api_state'),
     path('<slug:slug>/api/crew/',              views.api_crew_add,     name='api_crew_add'),

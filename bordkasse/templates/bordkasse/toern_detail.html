@@ -9,6 +9,7 @@
   <div class="boatrow">
     <span class="anchor">⚓</span>
     <span class="toptitle" title="{{ toern.name }}">{{ toern.name }}</span>
+    <a class="btn ghost small" href="{% url 'bordkasse:abrechnung' toern.slug %}" title="Endabrechnung mit Ausgleichszahlungen" style="flex:none">🧾 Abrechnung</a>
     <a class="btn ghost small" href="{% url 'bordkasse:export' toern.slug %}" title="Als Excel-Datei sichern" style="flex:none">⤓ Excel</a>
   </div>
   <div class="tabs">

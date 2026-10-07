@@ -190,3 +190,44 @@ class PublicWriteWindowTests(BordkasseTestCase):
     def test_protection_returns_after_deadline(self):
         self.assertEqual(self.post('crew/', {'name': 'Carla'}).status_code, 403)
         self.assertContains(self.client.get('/bordkasse/kroatien-2026/'), 'Nur Ansicht')
+
+
+class AbrechnungTests(BordkasseTestCase):
+    def book(self, kind, person, amount, method=''):
+        Buchung.objects.create(toern=self.toern, kind=kind, person=person, amount=Decimal(amount), method=method)
+
+    def test_transfers_pay_out_kasse_first(self):
+        from .services import KASSE_LABEL, build_settlement
+        carla = CrewMember.objects.create(toern=self.toern, name='Carla')
+        self.book('einzahlung', self.anna, '100')
+        self.book('einzahlung', self.ben, '50')
+        self.book('ausgabe', None, '60', 'bar')                 # aus der Kasse → Rest 90
+        self.book('ausgabe', carla, '90', 'karte')
+        # gesamt 150 → Anteil 50; Anna +50, Ben 0, Carla +40; Summe = Restgeld 90
+        a = build_settlement(self.toern)
+        saldi = {p['name']: p['saldo'] for p in a['personen']}
+        self.assertEqual(saldi, {'Anna': Decimal('50'), 'Ben': Decimal('0'), 'Carla': Decimal('40')})
+        self.assertEqual(sum(saldi.values()), a['kassenstand'])
+        self.assertEqual([(t['von'], t['an'], t['betrag']) for t in a['transfers']],
+                         [(KASSE_LABEL, 'Anna', Decimal('50')), (KASSE_LABEL, 'Carla', Decimal('40'))])
+
+    def test_person_to_person_and_cent_rounding(self):
+        from .services import build_settlement
+        carla = CrewMember.objects.create(toern=self.toern, name='Carla')
+        self.book('ausgabe', self.anna, '100', 'karte')
+        Buchung.objects.create(toern=self.toern, kind='ausgabe', person=self.ben, amount=Decimal('999'),
+                               method='karte', deleted=True)  # gelöscht → zählt nicht
+        a = build_settlement(self.toern)
+        self.assertEqual([p['anteil'] for p in a['personen']],
+                         [Decimal('33.34'), Decimal('33.33'), Decimal('33.33')])
+        self.assertEqual(a['rundungs_cent'], 1)
+        self.assertEqual(sorted((t['von'], t['an'], t['betrag']) for t in a['transfers']),
+                         [('Ben', 'Anna', Decimal('33.33')), ('Carla', 'Anna', Decimal('33.33'))])
+        self.assertEqual(sum(p['saldo'] for p in a['personen']), Decimal('0'))
+
+    def test_page_is_public(self):
+        self.book('einzahlung', self.anna, '20')
+        r = self.client.get('/bordkasse/kroatien-2026/abrechnung/')
+        self.assertContains(r, 'Endabrechnung')
+        self.assertContains(r, '+20,00 €')   # Anna: 20 eingezahlt, noch keine Ausgaben → Anteil 0
+        self.assertContains(self.client.get('/bordkasse/kroatien-2026/'), '/bordkasse/kroatien-2026/abrechnung/')
