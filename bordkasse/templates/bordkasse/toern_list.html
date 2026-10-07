@@ -1,0 +1,42 @@
+{% extends "bordkasse/base.html" %}
+
+{% block title %}Törns{% endblock %}
+
+{% block content %}
+<a class="sitelink" href="{% url 'homepage:index' %}">← littlecapa.com</a>
+<div class="hero">
+  <h1>⚓ Bordkasse</h1>
+  <p>Gemeinsame Kasse, Crew-Saldo und Einkaufsliste – pro Törn.</p>
+</div>
+
+{% for message in messages %}
+  <div class="banner{% if message.level_tag == 'error' %} warn{% else %} info{% endif %}">{{ message }}</div>
+{% endfor %}
+
+{% if can_write %}
+  <form method="post" class="newtrip">
+    {% csrf_token %}
+    <input name="name" placeholder="Name des neuen Törns, z. B. Kroatien 2026" maxlength="60" required>
+    <button class="btn primary" type="submit">+ Törn</button>
+  </form>
+{% else %}
+  <div class="banner">Zum Anlegen eines neuen Törns bitte <a href="{% url 'homepage:login' %}?next={{ request.path|urlencode }}">anmelden</a>.</div>
+{% endif %}
+
+<div class="sectionhead"><h2>Alle Törns</h2><span class="hint">{{ toerns|length }} Törn{{ toerns|length|pluralize }}</span></div>
+{% if toerns %}
+  <div class="triplist">
+    {% for t in toerns %}
+      <a class="tripcard" href="{% url 'bordkasse:detail' t.slug %}">
+        <div class="tbody">
+          <div class="tname">{{ t.name }}</div>
+          <div class="tmeta">{{ t.crew_count }} Crew · {{ t.tx_count }} Buchung{{ t.tx_count|pluralize:"en" }} · {{ t.open_count }} offen auf der Einkaufsliste · zuletzt {{ t.last_activity|date:"d.m.Y" }}</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty">Noch kein Törn angelegt.</div>
+{% endif %}
+{% endblock %}

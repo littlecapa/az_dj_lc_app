@@ -153,6 +153,7 @@ INSTALLED_APPS = [
     'health',
     'travel',
     'telegram_app',
+    'bordkasse',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -292,6 +293,10 @@ STATICFILES_DIRS = [
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 LOGIN_URL = '/accounts/login/'
+
+# Bordkasse: Bis zu diesem Zeitpunkt darf jeder ohne Login Törns anlegen und Crew/Buchungen ändern;
+# danach greift automatisch wieder der Login-Schutz. None = Schutz immer aktiv.
+BORDKASSE_PUBLIC_WRITE_UNTIL = '2026-10-10T12:00:00+02:00'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
@@ -307,6 +312,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Sagt Django: "Wenn der Header X-Forwarded-Proto auf https steht, behandle den Request als sicher"
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Da Sie jetzt HTTPS nutzen, muss das zwingend True sein:
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+# Secure-Cookies nur über HTTPS — lokal (runserver über http://localhost) würde der Browser
+# Session- und CSRF-Cookie sonst verwerfen (→ "CSRF cookie not set"). production.py setzt True.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG

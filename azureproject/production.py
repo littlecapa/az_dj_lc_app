@@ -12,6 +12,8 @@ ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = ['https://' + os.environ['WEBSITE_HOSTNAME']] if 'WEBSITE_HOSTNAME' in os.environ else []
 DEBUG = False
 SECURE_SSL_REDIRECT = True          # HTTP → HTTPS Redirect
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 # WhiteNoise configuration
 MIDDLEWARE = [

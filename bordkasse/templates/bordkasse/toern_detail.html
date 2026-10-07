@@ -1,0 +1,137 @@
+{% extends "bordkasse/base.html" %}
+{% load static %}
+
+{% block title %}{{ toern.name }}{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <a class="sitelink" href="{% url 'bordkasse:index' %}">← Alle Törns</a>
+  <div class="boatrow">
+    <span class="anchor">⚓</span>
+    <span class="toptitle" title="{{ toern.name }}">{{ toern.name }}</span>
+    <a class="btn ghost small" href="{% url 'bordkasse:export' toern.slug %}" title="Als Excel-Datei sichern" style="flex:none">⤓ Excel</a>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="kasse">Bordkasse</button>
+    <button class="tab" data-tab="liste">Einkaufsliste <span class="pill" id="shopcount">0</span></button>
+    <button class="tab" data-tab="historie">Historie</button>
+  </div>
+</div>
+
+<div id="statusbanner"></div>
+
+<!-- BORDKASSE -->
+<section class="panel active" id="panel-kasse">
+  {% if not can_write %}
+    <div class="banner">Nur Ansicht. Zum Erfassen und Bearbeiten von Buchungen bitte <a href="{% url 'homepage:login' %}?next={{ request.path|urlencode }}">anmelden</a>.</div>
+  {% endif %}
+  <div class="cashtile">
+    <div class="label">Kassenstand (Bargeld an Bord)</div>
+    <div class="value num" id="kassenstand">– €</div>
+    <div class="methodbreakdown">
+      <div class="mbcol">
+        <div class="mbhead">💶 Bar</div>
+        <div class="mbrow"><span>Eingezahlt</span><b id="sumEinBar">–</b></div>
+        <div class="mbrow"><span>Ausgegeben</span><b id="sumAusBar">–</b></div>
+      </div>
+      <div class="mbcol">
+        <div class="mbhead">💳 Karte</div>
+        <div class="mbrow"><span>Eingezahlt</span><b id="sumEinKarte">–</b></div>
+        <div class="mbrow"><span>Ausgegeben</span><b id="sumAusKarte">–</b></div>
+      </div>
+    </div>
+    <div class="sub"><span>Crew: <b id="crewCount">–</b></span><span>Fairer Anteil: <b id="fairShare">–</b></span></div>
+  </div>
+
+  <div class="sectionhead"><h2>Crew &amp; Saldo</h2><span class="hint">fair geteilt</span></div>
+  <div class="crewgrid" id="crewgrid"></div>
+  <div class="addcrew" data-write>
+    <input id="newcrewname" placeholder="Name hinzufügen …" maxlength="40">
+    <button class="btn ghost" id="addcrewbtn">+ Crew</button>
+  </div>
+
+  <div class="wavey"></div>
+
+  <div data-write>
+    <div class="sectionhead"><h2>Neuer Eintrag</h2></div>
+    <div class="card">
+      <div class="segctl" id="kindctl">
+        <button class="on" data-kind="ausgabe">Ausgabe</button>
+        <button data-kind="einzahlung">Einzahlung</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label id="personlabel" for="personsel">Bezahlt von</label>
+          <select id="personsel"></select>
+        </div>
+        <div>
+          <label for="amount">Betrag (€)</label>
+          <input id="amount" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+      <div class="row" id="methodrow" hidden>
+        <div>
+          <label>Zahlart</label>
+          <div class="segctl" id="methodctl">
+            <button class="on" data-method="karte">Karte</button>
+            <button data-method="bar">Bar (privat)</button>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:2 1 auto">
+          <label for="note">Notiz (optional)</label>
+          <input id="note" placeholder="z. B. Diesel in Palma" maxlength="80">
+        </div>
+      </div>
+      <button class="btn primary" id="addtxbtn" style="width:100%">Eintragen</button>
+    </div>
+  </div>
+
+  <div class="sectionhead"><h2>Buchungen</h2><span class="hint" id="txhint"></span></div>
+  <div id="ledgerwrap"></div>
+</section>
+
+<!-- EINKAUFSLISTE -->
+<section class="panel" id="panel-liste">
+  <div class="shopform">
+    <input id="shopinput" placeholder="Artikel hinzufügen …" maxlength="80">
+    <button class="btn primary" id="shopaddbtn">+</button>
+  </div>
+  <button class="btn ghost" id="stdlistbtn" style="width:100%;margin-bottom:14px">📋 Standardliste für Segeltörns durchsuchen</button>
+  <div id="stdlistwrap" hidden>
+    <input id="stdsearch" class="stdsearch" type="search" placeholder="Standardliste durchsuchen, z. B. Kaffee …">
+    <div class="stdlist">
+      {% for cat, items in standard_list %}
+        <div class="stdcat">
+          <div class="stdcathead">{{ cat }}</div>
+          {% for item in items %}
+            <div class="stditem"><span>{{ item }}</span><button class="btn ghost small" data-add-std="{{ item }}">+ Übernehmen</button></div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="sectionhead" style="margin-top:0"><h2>Noch zu besorgen</h2></div>
+  <div class="shoplist" id="shopopen"></div>
+  <div class="sectionhead"><h2>Erledigt</h2></div>
+  <div class="shoplist" id="shopdone"></div>
+</section>
+
+<!-- HISTORIE -->
+<section class="panel" id="panel-historie">
+  <div class="sectionhead" style="margin-top:0"><h2>Änderungsprotokoll</h2><span class="hint">alle Buchungen inkl. Bearbeitungen &amp; Löschungen</span></div>
+  <div id="historywrap"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ initial_state|json_script:"bk-state" }}
+<script>
+  window.BORDKASSE_CONFIG = {
+    apiBase: '{% url "bordkasse:detail" toern.slug %}api/',
+    csrfToken: '{{ csrf_token }}',
+  };
+</script>
+<script src="{% static 'bordkasse/bordkasse.js' %}"></script>
+{% endblock %}

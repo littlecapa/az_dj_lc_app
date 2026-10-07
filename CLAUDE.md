@@ -24,3 +24,8 @@
   Google News RSS) für Aktien mit Look-Through-Wert (siehe `/fintech/overall-stocks/`) über der Schwelle,
   speichert sie dedupliziert in `NewsArticle`. Feed-Seite: `/fintech/news-feed/` (liest nur die DB, ruft
   nichts live ab).
+- Bordkasse: `/bordkasse/` (Törn-Liste) und `/bordkasse/<slug>/` (Kasse, Einkaufsliste, Historie). Lesen öffentlich,
+  Törn anlegen + Crew/Buchungen ändern nur eingeloggt, Einkaufsliste für alle. Zeitlich begrenzte Freigabe
+  ohne Login über `BORDKASSE_PUBLIC_WRITE_UNTIL` in settings.py (läuft automatisch ab). Daten per JSON-API unter
+  `/bordkasse/<slug>/api/…`, Excel-Export `/bordkasse/<slug>/export.xlsx`. Buchungen referenzieren Crew per FK
+  (Umbenennen wirkt überall), Löschen ist Soft-Delete, Bearbeitungen landen als `BuchungRevision`.
