@@ -35,13 +35,20 @@ class AccessTests(BordkasseTestCase):
         self.assertEqual(self.client.get('/bordkasse/kroatien-2026/api/state/').status_code, 200)
         self.assertEqual(self.client.get('/bordkasse/kroatien-2026/export.xlsx').status_code, 200)
 
-    def test_anonymous_cannot_change_kasse(self):
-        self.assertEqual(self.post('crew/', {'name': 'Carla'}).status_code, 403)
-        self.assertEqual(self.post(f'crew/{self.anna.id}/', {'name': 'X'}).status_code, 403)
-        self.assertEqual(self.post('tx/', {'kind': 'einzahlung', 'person_id': self.anna.id,
-                                           'amount': 10}).status_code, 403)
-        self.assertFalse(Buchung.objects.exists())
-        self.assertEqual(CrewMember.objects.count(), 2)
+    def test_anonymous_can_change_kasse_when_open(self):
+        # Schalter False (Default): Crew und Buchungen ohne Login änderbar
+        self.assertEqual(self.post('crew/', {'name': 'Carla'}).status_code, 200)
+        self.assertEqual(self.post(f'crew/{self.anna.id}/', {'name': 'Anna-Lena'}).status_code, 200)
+        s = self.post('tx/', {'kind': 'einzahlung', 'person_id': self.anna.id, 'amount': 10}).json()
+        tx_id = s['tx'][0]['id']
+        self.assertEqual(s['tx'][0]['created_by'], '')
+        s = self.post(f'tx/{tx_id}/', {'kind': 'einzahlung', 'person_id': self.ben.id, 'amount': 12}).json()
+        self.assertEqual(s['tx'][0]['revisions'][0]['changed_by'], '')
+        s = self.post(f'tx/{tx_id}/delete/').json()
+        self.assertTrue(s['tx'][0]['deleted'])
+        r = self.client.get('/bordkasse/kroatien-2026/')
+        self.assertContains(r, 'id="addtxbtn"')
+        self.assertNotContains(r, 'Nur Ansicht')
 
     def test_anonymous_cannot_create_toern(self):
         r = self.client.post('/bordkasse/', {'name': 'Elba'})
@@ -234,13 +241,19 @@ class KonfigTests(BordkasseTestCase):
             self.assertEqual(r.status_code, 302, page)
             self.assertIn('/accounts/login/', r['Location'])
         self.assertEqual(self.client.get('/bordkasse/kroatien-2026/api/state/').status_code, 403)
-        self.assertEqual(self.post('shop/', {'text': 'Kaffee'}).status_code, 403)
+        for path, data in [('shop/', {'text': 'Kaffee'}), ('crew/', {'name': 'Carla'}),
+                           ('tx/', {'kind': 'einzahlung', 'person_id': self.anna.id, 'amount': 5})]:
+            self.assertEqual(self.post(path, data).status_code, 403, path)
         self.assertFalse(ShoppingItem.objects.exists())
+        self.assertFalse(Buchung.objects.exists())
 
+        # eingeloggt (kein Admin nötig): alles wieder erlaubt
         self.client.force_login(self.user)
         for page in self.PAGES:
             self.assertEqual(self.client.get(page).status_code, 200, page)
         self.assertEqual(self.post('shop/', {'text': 'Kaffee'}).status_code, 200)
+        s = self.post('tx/', {'kind': 'einzahlung', 'person_id': self.anna.id, 'amount': 5}).json()
+        self.assertEqual(s['tx'][0]['created_by'], 'skipper')
 
 
 class StandardlisteTests(BordkasseTestCase):

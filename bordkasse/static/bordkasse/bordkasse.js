@@ -59,11 +59,6 @@
     $('statusbanner').innerHTML = html ? '<div class="banner'+(warn?' warn':'')+'">'+html+'</div>' : '';
   }
 
-  // ---------- read-only mode for the Bordkasse (Einkaufsliste is open to everyone) ----------
-  function applyWriteMode(){
-    document.querySelectorAll('[data-write]').forEach(function(el){ el.hidden = !state.can_write; });
-  }
-
   // ---------- segmented controls ----------
   $('kindctl').addEventListener('click', function(ev){
     var b = ev.target.closest('button[data-kind]');
@@ -112,12 +107,11 @@
     $('sumAusKarte').textContent = money(t.sum_aus_karte);
     $('crewCount').textContent = state.crew.length;
     $('fairShare').textContent = money(t.fair_share);
-    applyWriteMode();
 
     // Während eines Inline-Edits nicht neu aufbauen, sonst gehen Eingaben verloren.
     if (!editingCrewId){
       $('crewgrid').innerHTML = state.crew.length ? state.crew.map(crewCardHtml).join('') :
-        '<div class="empty" style="grid-column:1/-1">Noch keine Crew'+(state.can_write?' – unten Namen hinzufügen.':'.')+'</div>';
+        '<div class="empty" style="grid-column:1/-1">Noch keine Crew – unten Namen hinzufügen.</div>';
     }
     renderPersonOptions();
 
@@ -126,7 +120,7 @@
     if (!editingTxId){
       $('ledgerwrap').innerHTML = visibleTx.length ?
         '<div class="ledger">'+visibleTx.map(txRow).join('')+'</div>' :
-        '<div class="empty">Noch keine Einträge.'+(state.can_write?' Trag oben die erste Ausgabe oder Einzahlung ein.':'')+'</div>';
+        '<div class="empty">Noch keine Einträge. Trag oben die erste Ausgabe oder Einzahlung ein.</div>';
     }
 
     renderHistory();
@@ -147,7 +141,7 @@
     if (c.id === editingCrewId) return crewCardEditHtml(c);
     var cls = c.saldo >= 0 ? 'pos' : 'neg';
     return '<div class="crewcard" data-id="'+c.id+'">'+
-      (state.can_write ? '<button class="crewedit" data-edit-crew="'+c.id+'" title="Umbenennen">✎</button>' : '')+
+      '<button class="crewedit" data-edit-crew="'+c.id+'" title="Umbenennen">✎</button>'+
       '<div class="name">'+esc(c.name)+'</div>'+
       '<div class="saldo '+cls+'">'+(c.saldo>=0?'+':'')+money(c.saldo)+'</div>'+
       '<div class="detail">eingebracht '+money(c.eingebracht)+'</div></div>';
@@ -177,11 +171,10 @@
       '<div class="who"><div class="p">'+esc(t.person)+'</div>'+
       '<div class="n">'+(d?d+' · ':'')+payTag(t)+(t.note?esc(t.note):(isEin?'Einzahlung':'Ausgabe'))+edited+'</div></div>'+
       '<div class="amt '+(isEin?'ein':'aus')+'">'+(isEin?'+':'–')+money(t.amount)+'</div>'+
-      (state.can_write ?
-        '<div class="entryactions">'+
-          '<button class="iconbtn" data-edit-tx="'+t.id+'" title="Bearbeiten">✎</button>'+
-          '<button class="del" data-del-tx="'+t.id+'" title="Löschen">✕</button>'+
-        '</div>' : '')+
+      '<div class="entryactions">'+
+        '<button class="iconbtn" data-edit-tx="'+t.id+'" title="Bearbeiten">✎</button>'+
+        '<button class="del" data-del-tx="'+t.id+'" title="Löschen">✕</button>'+
+      '</div>'+
       '</div>';
   }
   function txEditRowHtml(t){

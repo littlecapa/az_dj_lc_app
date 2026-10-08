@@ -13,9 +13,9 @@ KASSE_LABEL = 'Bordkasse (Bargeld)'
 LOCAL_TZ = ZoneInfo('Europe/Berlin')
 ZERO = Decimal('0.00')
 
-def can_write(user):
-    """Törn anlegen und Crew/Buchungen ändern: nur eingeloggt."""
-    return bool(user and user.is_authenticated)
+def actor(user):
+    """User für created_by/changed_by/deleted_by — None bei Änderungen ohne Login."""
+    return user if user and user.is_authenticated else None
 
 
 def person_label(obj):
@@ -113,12 +113,11 @@ def _snapshot(obj):
     }
 
 
-def serialize_state(toern, user):
+def serialize_state(toern):
     crew, buchungen, shop = load_toern_data(toern)
     totals = compute_totals(crew, buchungen)
     return {
         'trip': {'name': toern.name, 'slug': toern.slug},
-        'can_write': can_write(user),
         'totals': {k: _money(v) for k, v in totals.items() if k != 'saldo'},
         'crew': [{
             'id': c.id,

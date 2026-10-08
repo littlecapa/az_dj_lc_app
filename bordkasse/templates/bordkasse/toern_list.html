@@ -13,7 +13,7 @@
   <div class="banner{% if message.level_tag == 'error' %} warn{% else %} info{% endif %}">{{ message }}</div>
 {% endfor %}
 
-{% if can_write %}
+{% if user.is_authenticated %}
   <form method="post" class="newtrip">
     {% csrf_token %}
     <input name="name" placeholder="Name des neuen Törns, z. B. Kroatien 2026" maxlength="60" required>

@@ -1,7 +1,8 @@
 """Bordkasse & Einkaufsliste pro Törn.
 
-Lesen ist öffentlich. Törn anlegen und alle Änderungen an Crew/Buchungen
-erfordern Login; die Einkaufsliste darf jeder bearbeiten.
+Zugang über Bordkasse_Konfig.authentifizierung_erforderlich:
+  False → alles unter /bordkasse/ frei nutzbar, nur „Neuen Törn anlegen“ braucht Login.
+  True  → alle Seiten und die API nur nach Login.
 """
 import json
 import logging
@@ -21,7 +22,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .models import (Buchung, BuchungRevision, BordkasseKonfig, CrewMember, ShoppingItem, StandardKategorie,
                      Toern, toern_slugify)
-from .services import build_export, build_settlement, can_write, serialize_state
+from .services import actor, build_export, build_settlement, serialize_state
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,9 @@ def zugang(view_func):
 
 @zugang
 def toern_list(request):
-    """/bordkasse/ — alle Törns, Anlegen nur eingeloggt."""
+    """/bordkasse/ — alle Törns; neuen Törn anlegen immer nur eingeloggt."""
     if request.method == 'POST':
-        if not can_write(request.user):
+        if not request.user.is_authenticated:
             return redirect_to_login(request.get_full_path())
         name = ' '.join(request.POST.get('name', '').split())[:60]
         slug = toern_slugify(name)
@@ -68,7 +69,6 @@ def toern_list(request):
     )
     return render(request, 'bordkasse/toern_list.html', {
         'toerns': toerns,
-        'can_write': can_write(request.user),
     })
 
 
@@ -79,8 +79,7 @@ def toern_detail(request, slug):
     toern = get_object_or_404(Toern, slug=slug)
     return render(request, 'bordkasse/toern_detail.html', {
         'toern': toern,
-        'can_write': can_write(request.user),
-        'initial_state': serialize_state(toern, request.user),
+        'initial_state': serialize_state(toern),
         # Standardliste aus der DB (Admin → Standardliste); leere Kategorien ausblenden.
         'standard_list': [k for k in StandardKategorie.objects.prefetch_related('artikel') if k.artikel.all()],
     })
@@ -119,32 +118,28 @@ class ApiError(Exception):
         self.status = status
 
 
-def api(login=False):
-    """POST-API-View: lädt den Törn, parst JSON, prüft Login, liefert den neuen Gesamtzustand."""
-    def deco(fn):
-        @wraps(fn)
-        @require_POST
-        def wrapper(request, slug, *args, **kwargs):
-            if _login_pflicht(request):
-                return JsonResponse({'error': 'Bitte anmelden.'}, status=403)
-            toern = get_object_or_404(Toern, slug=slug)
-            if login and not can_write(request.user):
-                return JsonResponse({'error': 'Bitte anmelden, um die Bordkasse zu ändern.'}, status=403)
-            try:
-                data = json.loads(request.body or b'{}')
-                if not isinstance(data, dict):
-                    raise ValueError
-            except ValueError:
-                return JsonResponse({'error': 'Ungültige Anfrage.'}, status=400)
-            try:
-                with transaction.atomic():
-                    fn(request, toern, data, *args, **kwargs)
-                    toern.touch()
-            except ApiError as e:
-                return JsonResponse({'error': str(e)}, status=e.status)
-            return JsonResponse(serialize_state(toern, request.user))
-        return wrapper
-    return deco
+def api(fn):
+    """POST-API-View: prüft den Zugang, lädt den Törn, parst JSON, liefert den neuen Gesamtzustand."""
+    @wraps(fn)
+    @require_POST
+    def wrapper(request, slug, *args, **kwargs):
+        if _login_pflicht(request):
+            return JsonResponse({'error': 'Bitte anmelden.'}, status=403)
+        toern = get_object_or_404(Toern, slug=slug)
+        try:
+            data = json.loads(request.body or b'{}')
+            if not isinstance(data, dict):
+                raise ValueError
+        except ValueError:
+            return JsonResponse({'error': 'Ungültige Anfrage.'}, status=400)
+        try:
+            with transaction.atomic():
+                fn(request, toern, data, *args, **kwargs)
+                toern.touch()
+        except ApiError as e:
+            return JsonResponse({'error': str(e)}, status=e.status)
+        return JsonResponse(serialize_state(toern))
+    return wrapper
 
 
 @require_GET
@@ -152,7 +147,7 @@ def api_state(request, slug):
     if _login_pflicht(request):
         return JsonResponse({'error': 'Bitte anmelden.'}, status=403)
     toern = get_object_or_404(Toern, slug=slug)
-    return JsonResponse(serialize_state(toern, request.user))
+    return JsonResponse(serialize_state(toern))
 
 
 def _clean(data, key, max_len):
@@ -194,7 +189,7 @@ def _apply_buchung_fields(toern, buchung, data):
         buchung.method = Buchung.BAR if data.get('method') == Buchung.BAR else Buchung.KARTE
 
 
-@api(login=True)
+@api
 def api_crew_add(request, toern, data):
     name = _clean(data, 'name', 40)
     if not name:
@@ -204,7 +199,7 @@ def api_crew_add(request, toern, data):
     CrewMember.objects.create(toern=toern, name=name)
 
 
-@api(login=True)
+@api
 def api_crew_rename(request, toern, data, pk):
     member = get_object_or_404(CrewMember, toern=toern, pk=pk)
     name = _clean(data, 'name', 40)
@@ -221,20 +216,20 @@ def api_crew_rename(request, toern, data, pk):
         raise ApiError(f'„{name}“ ist schon in der Crew.')
 
 
-@api(login=True)
+@api
 def api_tx_add(request, toern, data):
-    buchung = Buchung(toern=toern, created_by=request.user)
+    buchung = Buchung(toern=toern, created_by=actor(request.user))
     _apply_buchung_fields(toern, buchung, data)
     buchung.save()
 
 
-@api(login=True)
+@api
 def api_tx_edit(request, toern, data, pk):
     buchung = get_object_or_404(Buchung.objects.select_for_update(), toern=toern, pk=pk)
     if buchung.deleted:
         raise ApiError('Gelöschte Buchungen können nicht bearbeitet werden.')
     before = BuchungRevision(
-        buchung=buchung, changed_by=request.user, kind=buchung.kind, person_id=buchung.person_id,
+        buchung=buchung, changed_by=actor(request.user), kind=buchung.kind, person_id=buchung.person_id,
         amount=buchung.amount, method=buchung.method, note=buchung.note,
     )
     _apply_buchung_fields(toern, buchung, data)
@@ -246,17 +241,17 @@ def api_tx_edit(request, toern, data, pk):
         buchung.save()
 
 
-@api(login=True)
+@api
 def api_tx_delete(request, toern, data, pk):
     buchung = get_object_or_404(Buchung, toern=toern, pk=pk)
     if not buchung.deleted:
         buchung.deleted = True
         buchung.deleted_at = timezone.now()
-        buchung.deleted_by = request.user
+        buchung.deleted_by = actor(request.user)
         buchung.save(update_fields=['deleted', 'deleted_at', 'deleted_by'])
 
 
-@api()
+@api
 def api_shop_add(request, toern, data):
     text = _clean(data, 'text', 80)
     if not text:
@@ -266,7 +261,7 @@ def api_shop_add(request, toern, data):
     ShoppingItem.objects.create(toern=toern, text=text)
 
 
-@api()
+@api
 def api_shop_update(request, toern, data, pk):
     item = get_object_or_404(ShoppingItem, toern=toern, pk=pk)
     fields = []
@@ -283,6 +278,6 @@ def api_shop_update(request, toern, data, pk):
         item.save(update_fields=fields)
 
 
-@api()
+@api
 def api_shop_delete(request, toern, data, pk):
     ShoppingItem.objects.filter(toern=toern, pk=pk).delete()

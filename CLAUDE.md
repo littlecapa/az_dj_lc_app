@@ -24,11 +24,12 @@
   Google News RSS) für Aktien mit Look-Through-Wert (siehe `/fintech/overall-stocks/`) über der Schwelle,
   speichert sie dedupliziert in `NewsArticle`. Feed-Seite: `/fintech/news-feed/` (liest nur die DB, ruft
   nichts live ab).
-- Bordkasse: `/bordkasse/` (Törn-Liste) und `/bordkasse/<slug>/` (Kasse, Einkaufsliste, Historie). Lesen öffentlich,
-  Törn anlegen + Crew/Buchungen ändern nur eingeloggt, Einkaufsliste für alle. Daten per JSON-API unter
+- Bordkasse: `/bordkasse/` (Törn-Liste) und `/bordkasse/<slug>/` (Kasse, Einkaufsliste, Historie). Neuer Törn
+  nur eingeloggt; alles andere frei, solange `Bordkasse_Konfig.Authentifizierung_erforderlich` False ist (Default).
+  Daten per JSON-API unter
   `/bordkasse/<slug>/api/…`, Excel-Export `/bordkasse/<slug>/export.xlsx`. Buchungen referenzieren Crew per FK
   (Umbenennen wirkt überall), Löschen ist Soft-Delete, Bearbeitungen landen als `BuchungRevision`.
   Standard-Einkaufsliste in den Tabellen `StandardKategorie`/`StandardArtikel` (Pflege im Admin, Startbestand per Migration 0003).
-  `Bordkasse_Konfig.Authentifizierung_erforderlich` (Admin, Default False): True → alle Bordkassen-Seiten nur nach Login.
+  `Bordkasse_Konfig.Authentifizierung_erforderlich` (Admin) = True → alle Bordkassen-Seiten und API nur nach Login.
 - Fintech-Zugriff: alle Seiten/APIs unter `/fintech/` nur mit Admin-Login (`is_staff`) oder `X-Api-Key`;
   einzige Ausnahme ist der Demo-Bereich `/demo/fintech/`. `fintech/tests.py` prüft das für jede URL automatisch.

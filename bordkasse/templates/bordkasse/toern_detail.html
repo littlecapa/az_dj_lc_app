@@ -23,9 +23,6 @@
 
 <!-- BORDKASSE -->
 <section class="panel active" id="panel-kasse">
-  {% if not can_write %}
-    <div class="banner">Nur Ansicht. Zum Erfassen und Bearbeiten von Buchungen bitte <a href="{% url 'homepage:login' %}?next={{ request.path|urlencode }}">anmelden</a>.</div>
-  {% endif %}
   <div class="cashtile">
     <div class="label">Kassenstand (Bargeld an Bord)</div>
     <div class="value num" id="kassenstand">– €</div>
@@ -46,14 +43,14 @@
 
   <div class="sectionhead"><h2>Crew &amp; Saldo</h2><span class="hint">fair geteilt</span></div>
   <div class="crewgrid" id="crewgrid"></div>
-  <div class="addcrew" data-write>
+  <div class="addcrew">
     <input id="newcrewname" placeholder="Name hinzufügen …" maxlength="40">
     <button class="btn ghost" id="addcrewbtn">+ Crew</button>
   </div>
 
   <div class="wavey"></div>
 
-  <div data-write>
+  <div>
     <div class="sectionhead"><h2>Neuer Eintrag</h2></div>
     <div class="card">
       <div class="segctl" id="kindctl">
