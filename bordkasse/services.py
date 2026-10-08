@@ -13,24 +13,6 @@ KASSE_LABEL = 'Bordkasse (Bargeld)'
 LOCAL_TZ = ZoneInfo('Europe/Berlin')
 ZERO = Decimal('0.00')
 
-# Standard-Proviantliste für Segeltörns — reine Auswahlquelle; ein Klick legt
-# einen ganz normalen Eintrag in der Einkaufsliste des Törns an.
-STANDARD_LIST = [
-    ('Frühstück', ['Brot/Brötchen', 'Butter', 'Margarine', 'Marmelade', 'Honig', 'Müsli', 'H-Milch',
-                   'Eier', 'Kaffee', 'Tee', 'Orangensaft', 'Speck', 'Wurst', 'Käse']),
-    ('Mittagessen', ['Nudeln', 'Tomatensauce', 'Pesto', 'Thunfisch (Dose)', 'Reis', 'Knäckebrot']),
-    ('Abendessen', ['Hack', 'Hähnchenbrust', 'Dorade', 'Paprika', 'Zucchini', 'Tomaten', 'Pilze',
-                    'Gurke', 'Salat', 'Kartoffeln', 'Zwiebeln', 'Knoblauch', 'Olivenöl', 'Öl',
-                    'Essig', 'Salz & Pfeffer', 'Gewürzmischung']),
-    ('Obst', ['Melonen', 'Äpfel', 'Bananen', 'Pfirsiche', 'Weintrauben']),
-    ('Getränke', ['Wasser still', 'Wasser medium', 'Bier', 'Bier alkoholfrei', 'Weißwein', 'Rotwein',
-                  'Prosecco', 'Aperol', 'Cola', 'Cola Zero', 'Limo', 'Limo Zero', 'Säfte']),
-    ('Snacks', ['Chips', 'Salzgebäck', 'Nüsse', 'Kekse', 'Schokolade', 'Müsliriegel']),
-    ('Sonstiges', ['Toilettenpapier', 'Küchenrolle', 'Spülmittel', 'Schwämme', 'Müllbeutel',
-                   'Kaffeefilter']),
-]
-
-
 def can_write(user):
     """Törn anlegen und Crew/Buchungen ändern: nur eingeloggt."""
     return bool(user and user.is_authenticated)

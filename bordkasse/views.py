@@ -19,8 +19,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import Buchung, BuchungRevision, BordkasseKonfig, CrewMember, ShoppingItem, Toern, toern_slugify
-from .services import STANDARD_LIST, build_export, build_settlement, can_write, serialize_state
+from .models import (Buchung, BuchungRevision, BordkasseKonfig, CrewMember, ShoppingItem, StandardKategorie,
+                     Toern, toern_slugify)
+from .services import build_export, build_settlement, can_write, serialize_state
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,8 @@ def toern_detail(request, slug):
         'toern': toern,
         'can_write': can_write(request.user),
         'initial_state': serialize_state(toern, request.user),
-        'standard_list': STANDARD_LIST,
+        # Standardliste aus der DB (Admin → Standardliste); leere Kategorien ausblenden.
+        'standard_list': [k for k in StandardKategorie.objects.prefetch_related('artikel') if k.artikel.all()],
     })
 
 

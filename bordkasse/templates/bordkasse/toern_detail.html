@@ -103,11 +103,11 @@
   <div id="stdlistwrap" hidden>
     <input id="stdsearch" class="stdsearch" type="search" placeholder="Standardliste durchsuchen, z. B. Kaffee …">
     <div class="stdlist">
-      {% for cat, items in standard_list %}
+      {% for cat in standard_list %}
         <div class="stdcat">
-          <div class="stdcathead">{{ cat }}</div>
-          {% for item in items %}
-            <div class="stditem"><span>{{ item }}</span><button class="btn ghost small" data-add-std="{{ item }}">+ Übernehmen</button></div>
+          <div class="stdcathead">{{ cat.name }}</div>
+          {% for item in cat.artikel.all %}
+            <div class="stditem"><span>{{ item.name }}</span><button class="btn ghost small" data-add-std="{{ item.name }}">+ Übernehmen</button></div>
           {% endfor %}
         </div>
       {% endfor %}

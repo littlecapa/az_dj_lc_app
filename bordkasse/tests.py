@@ -241,3 +241,25 @@ class KonfigTests(BordkasseTestCase):
         for page in self.PAGES:
             self.assertEqual(self.client.get(page).status_code, 200, page)
         self.assertEqual(self.post('shop/', {'text': 'Kaffee'}).status_code, 200)
+
+
+class StandardlisteTests(BordkasseTestCase):
+    def test_seeded_from_migration_and_shown(self):
+        from .models import StandardArtikel, StandardKategorie
+        self.assertEqual(list(StandardKategorie.objects.values_list('name', flat=True)),
+                         ['Frühstück', 'Mittagessen', 'Abendessen', 'Obst', 'Getränke', 'Snacks', 'Sonstiges'])
+        self.assertEqual(StandardArtikel.objects.count(), 67)
+        getraenke = StandardKategorie.objects.get(name='Getränke')
+        self.assertEqual(getraenke.artikel.first().name, 'Wasser still')
+        r = self.client.get('/bordkasse/kroatien-2026/')
+        self.assertContains(r, 'data-add-std="Bier alkoholfrei"')
+
+    def test_admin_changes_show_up_and_empty_categories_hidden(self):
+        from .models import StandardArtikel, StandardKategorie
+        leer = StandardKategorie.objects.create(name='Werkzeug', position=5)
+        r = self.client.get('/bordkasse/kroatien-2026/')
+        self.assertNotContains(r, '>Werkzeug<')
+        StandardArtikel.objects.create(kategorie=leer, name='Kabelbinder')
+        r = self.client.get('/bordkasse/kroatien-2026/')
+        self.assertContains(r, '>Werkzeug<')
+        self.assertContains(r, 'data-add-std="Kabelbinder"')

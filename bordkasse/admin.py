@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from .models import Buchung, BuchungRevision, BordkasseKonfig, CrewMember, ShoppingItem, Toern
+from .models import (Buchung, BuchungRevision, BordkasseKonfig, CrewMember, ShoppingItem, StandardArtikel,
+                     StandardKategorie, Toern)
 
 
 @admin.register(BordkasseKonfig)
@@ -12,6 +13,24 @@ class BordkasseKonfigAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+class StandardArtikelInline(admin.TabularInline):
+    model = StandardArtikel
+    extra = 3
+    fields = ('name', 'position')
+
+
+@admin.register(StandardKategorie)
+class StandardKategorieAdmin(admin.ModelAdmin):
+    list_display  = ('name', 'position', 'artikel_anzahl')
+    list_editable = ('position',)
+    search_fields = ('name', 'artikel__name')
+    inlines = [StandardArtikelInline]
+
+    @admin.display(description='Artikel')
+    def artikel_anzahl(self, obj):
+        return obj.artikel.count()
 
 
 class CrewInline(admin.TabularInline):

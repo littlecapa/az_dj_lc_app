@@ -152,3 +152,35 @@ class BordkasseKonfig(models.Model):
     @classmethod
     def load(cls):
         return cls.objects.order_by('pk').first() or cls.objects.create()
+
+
+class StandardKategorie(models.Model):
+    """Kategorie der Standard-Einkaufsliste für Segeltörns (z. B. Getränke)."""
+    name     = models.CharField(max_length=40, unique=True)
+    position = models.PositiveIntegerField(default=0, help_text='Reihenfolge, kleinere Zahl zuerst.')
+
+    class Meta:
+        ordering = ['position', 'name']
+        verbose_name = 'Standardlisten-Kategorie'
+        verbose_name_plural = 'Standardliste'
+
+    def __str__(self):
+        return self.name
+
+
+class StandardArtikel(models.Model):
+    """Artikel der Standardliste — reine Auswahlquelle; „Übernehmen“ legt einen ShoppingItem an."""
+    kategorie = models.ForeignKey(StandardKategorie, on_delete=models.CASCADE, related_name='artikel')
+    name      = models.CharField(max_length=80)
+    position  = models.PositiveIntegerField(default=0, help_text='Reihenfolge, kleinere Zahl zuerst.')
+
+    class Meta:
+        ordering = ['position', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['kategorie', 'name'], name='bordkasse_standardartikel_unique'),
+        ]
+        verbose_name = 'Standardlisten-Artikel'
+        verbose_name_plural = 'Standardlisten-Artikel'
+
+    def __str__(self):
+        return self.name
