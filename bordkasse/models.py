@@ -132,3 +132,23 @@ class ShoppingItem(models.Model):
 
     def __str__(self):
         return self.text
+
+
+class BordkasseKonfig(models.Model):
+    """Globale Einstellungen der Bordkasse — genau ein Datensatz, gepflegt im Django-Admin."""
+    authentifizierung_erforderlich = models.BooleanField(
+        'Authentifizierung erforderlich', default=False, db_column='Authentifizierung_erforderlich',
+        help_text='Aktiv: Alle Seiten unter /bordkasse/ (auch Ansehen und Einkaufsliste) nur nach Login.',
+    )
+
+    class Meta:
+        db_table = 'Bordkasse_Konfig'
+        verbose_name = 'Bordkasse-Konfiguration'
+        verbose_name_plural = 'Bordkasse-Konfiguration'
+
+    def __str__(self):
+        return 'Bordkasse-Konfiguration'
+
+    @classmethod
+    def load(cls):
+        return cls.objects.order_by('pk').first() or cls.objects.create()

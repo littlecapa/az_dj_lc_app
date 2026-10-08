@@ -3,7 +3,7 @@ import json
 from decimal import Decimal
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from openpyxl import load_workbook
 
 from .models import Buchung, CrewMember, ShoppingItem, Toern, toern_slugify
@@ -27,7 +27,6 @@ class SlugTests(TestCase):
         self.assertEqual(toern_slugify('  !!  '), '')
 
 
-@override_settings(BORDKASSE_PUBLIC_WRITE_UNTIL=None)
 class AccessTests(BordkasseTestCase):
     def test_anonymous_can_read(self):
         self.assertEqual(self.client.get('/bordkasse/').status_code, 200)
@@ -170,28 +169,6 @@ class KasseTests(BordkasseTestCase):
         self.assertEqual(Decimal('0'), Decimal('0'))
 
 
-class PublicWriteWindowTests(BordkasseTestCase):
-    @override_settings(BORDKASSE_PUBLIC_WRITE_UNTIL='2999-01-01T06:00:00+01:00')
-    def test_anonymous_can_change_everything_while_open(self):
-        r = self.client.post('/bordkasse/', {'name': 'Elba'})
-        self.assertRedirects(r, '/bordkasse/elba/')
-        self.assertIsNone(Toern.objects.get(slug='elba').created_by)
-        self.assertEqual(self.post('crew/', {'name': 'Carla'}).status_code, 200)
-        s = self.post('tx/', {'kind': 'einzahlung', 'person_id': self.anna.id, 'amount': 10}).json()
-        self.assertTrue(s['can_write'])
-        tx_id = s['tx'][0]['id']
-        s = self.post(f'tx/{tx_id}/', {'kind': 'einzahlung', 'person_id': self.ben.id, 'amount': 12}).json()
-        self.assertEqual(s['tx'][0]['revisions'][0]['changed_by'], '')
-        self.assertEqual(self.post(f'tx/{tx_id}/delete/').status_code, 200)
-        self.assertContains(self.client.get('/bordkasse/kroatien-2026/'), 'id="addtxbtn"')
-        self.assertNotContains(self.client.get('/bordkasse/kroatien-2026/'), 'Nur Ansicht')
-
-    @override_settings(BORDKASSE_PUBLIC_WRITE_UNTIL='2000-01-01T06:00:00+01:00')
-    def test_protection_returns_after_deadline(self):
-        self.assertEqual(self.post('crew/', {'name': 'Carla'}).status_code, 403)
-        self.assertContains(self.client.get('/bordkasse/kroatien-2026/'), 'Nur Ansicht')
-
-
 class AbrechnungTests(BordkasseTestCase):
     def book(self, kind, person, amount, method=''):
         Buchung.objects.create(toern=self.toern, kind=kind, person=person, amount=Decimal(amount), method=method)
@@ -231,3 +208,36 @@ class AbrechnungTests(BordkasseTestCase):
         self.assertContains(r, 'Endabrechnung')
         self.assertContains(r, '+20,00 €')   # Anna: 20 eingezahlt, noch keine Ausgaben → Anteil 0
         self.assertContains(self.client.get('/bordkasse/kroatien-2026/'), '/bordkasse/kroatien-2026/abrechnung/')
+
+
+class KonfigTests(BordkasseTestCase):
+    def set_pflicht(self, value):
+        from .models import BordkasseKonfig
+        konfig = BordkasseKonfig.load()
+        konfig.authentifizierung_erforderlich = value
+        konfig.save()
+
+    PAGES = ['/bordkasse/', '/bordkasse/kroatien-2026/', '/bordkasse/kroatien-2026/abrechnung/',
+             '/bordkasse/kroatien-2026/export.xlsx']
+
+    def test_default_is_open(self):
+        from .models import BordkasseKonfig
+        self.assertFalse(BordkasseKonfig.load().authentifizierung_erforderlich)
+        self.assertEqual(BordkasseKonfig.objects.count(), 1)
+        for page in self.PAGES:
+            self.assertEqual(self.client.get(page).status_code, 200, page)
+
+    def test_pflicht_requires_login_everywhere(self):
+        self.set_pflicht(True)
+        for page in self.PAGES:
+            r = self.client.get(page)
+            self.assertEqual(r.status_code, 302, page)
+            self.assertIn('/accounts/login/', r['Location'])
+        self.assertEqual(self.client.get('/bordkasse/kroatien-2026/api/state/').status_code, 403)
+        self.assertEqual(self.post('shop/', {'text': 'Kaffee'}).status_code, 403)
+        self.assertFalse(ShoppingItem.objects.exists())
+
+        self.client.force_login(self.user)
+        for page in self.PAGES:
+            self.assertEqual(self.client.get(page).status_code, 200, page)
+        self.assertEqual(self.post('shop/', {'text': 'Kaffee'}).status_code, 200)

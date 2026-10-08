@@ -19,14 +19,30 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import Buchung, BuchungRevision, CrewMember, ShoppingItem, Toern, toern_slugify
-from .services import STANDARD_LIST, actor, build_export, build_settlement, can_write, serialize_state
+from .models import Buchung, BuchungRevision, BordkasseKonfig, CrewMember, ShoppingItem, Toern, toern_slugify
+from .services import STANDARD_LIST, build_export, build_settlement, can_write, serialize_state
 
 logger = logging.getLogger(__name__)
 
 
+def _login_pflicht(request):
+    """True, wenn laut Bordkasse_Konfig Login nötig ist und der Besucher nicht angemeldet ist."""
+    return BordkasseKonfig.load().authentifizierung_erforderlich and not request.user.is_authenticated
+
+
+def zugang(view_func):
+    """Alle Bordkassen-Seiten: bei aktiver Authentifizierungspflicht erst Login."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if _login_pflicht(request):
+            return redirect_to_login(request.get_full_path())
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 # ------------------------------------------------------------------ Seiten
 
+@zugang
 def toern_list(request):
     """/bordkasse/ — alle Törns, Anlegen nur eingeloggt."""
     if request.method == 'POST':
@@ -41,7 +57,7 @@ def toern_list(request):
         if existing:
             messages.info(request, f'Den Törn „{existing.name}“ gibt es schon.')
             return redirect('bordkasse:detail', slug=existing.slug)
-        toern = Toern.objects.create(name=name, slug=slug, created_by=actor(request.user))
+        toern = Toern.objects.create(name=name, slug=slug, created_by=request.user)
         return redirect('bordkasse:detail', slug=toern.slug)
 
     toerns = Toern.objects.annotate(
@@ -55,6 +71,7 @@ def toern_list(request):
     })
 
 
+@zugang
 @ensure_csrf_cookie
 def toern_detail(request, slug):
     """/bordkasse/<slug>/ — eigentliche Bordkasse; Daten kommen per JSON-API."""
@@ -67,6 +84,7 @@ def toern_detail(request, slug):
     })
 
 
+@zugang
 @require_GET
 def abrechnung(request, slug):
     """/bordkasse/<slug>/abrechnung/ — Endabrechnung mit nachvollziehbarem Rechenweg (öffentlich)."""
@@ -78,6 +96,7 @@ def abrechnung(request, slug):
     })
 
 
+@zugang
 @require_GET
 def export_xlsx(request, slug):
     toern = get_object_or_404(Toern, slug=slug)
@@ -104,6 +123,8 @@ def api(login=False):
         @wraps(fn)
         @require_POST
         def wrapper(request, slug, *args, **kwargs):
+            if _login_pflicht(request):
+                return JsonResponse({'error': 'Bitte anmelden.'}, status=403)
             toern = get_object_or_404(Toern, slug=slug)
             if login and not can_write(request.user):
                 return JsonResponse({'error': 'Bitte anmelden, um die Bordkasse zu ändern.'}, status=403)
@@ -126,6 +147,8 @@ def api(login=False):
 
 @require_GET
 def api_state(request, slug):
+    if _login_pflicht(request):
+        return JsonResponse({'error': 'Bitte anmelden.'}, status=403)
     toern = get_object_or_404(Toern, slug=slug)
     return JsonResponse(serialize_state(toern, request.user))
 
@@ -198,7 +221,7 @@ def api_crew_rename(request, toern, data, pk):
 
 @api(login=True)
 def api_tx_add(request, toern, data):
-    buchung = Buchung(toern=toern, created_by=actor(request.user))
+    buchung = Buchung(toern=toern, created_by=request.user)
     _apply_buchung_fields(toern, buchung, data)
     buchung.save()
 
@@ -209,7 +232,7 @@ def api_tx_edit(request, toern, data, pk):
     if buchung.deleted:
         raise ApiError('Gelöschte Buchungen können nicht bearbeitet werden.')
     before = BuchungRevision(
-        buchung=buchung, changed_by=actor(request.user), kind=buchung.kind, person_id=buchung.person_id,
+        buchung=buchung, changed_by=request.user, kind=buchung.kind, person_id=buchung.person_id,
         amount=buchung.amount, method=buchung.method, note=buchung.note,
     )
     _apply_buchung_fields(toern, buchung, data)
@@ -227,7 +250,7 @@ def api_tx_delete(request, toern, data, pk):
     if not buchung.deleted:
         buchung.deleted = True
         buchung.deleted_at = timezone.now()
-        buchung.deleted_by = actor(request.user)
+        buchung.deleted_by = request.user
         buchung.save(update_fields=['deleted', 'deleted_at', 'deleted_by'])
 
 

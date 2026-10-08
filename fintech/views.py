@@ -1,5 +1,4 @@
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
@@ -55,17 +54,19 @@ def _demo_filter(holdings, demo: bool):
     return holdings.filter(demo=True) if demo else holdings
 
 
-def login_required_unless_demo(view_func):
+def staff_required_unless_demo(view_func):
     """
-    Wie @login_required, außer die View wurde über die /demo/fintech/-URLs
-    aufgerufen (erkennbar am 'demo=True'-URL-Kwarg) — dort ist kein Login
-    nötig, siehe fintech/urls.py.
+    Wie @staff_member_required (nur Admin-Login), außer die View wurde über die
+    /demo/fintech/-URLs aufgerufen (erkennbar am 'demo=True'-URL-Kwarg) — dort ist
+    kein Login nötig, siehe fintech/urls_demo.py.
     """
+    protected = staff_member_required(view_func)
+
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if kwargs.get('demo'):
             return view_func(request, *args, **kwargs)
-        return login_required(view_func)(request, *args, **kwargs)
+        return protected(request, *args, **kwargs)
     return wrapper
 
 def _enrich_symbols(rows: list) -> None:
@@ -206,7 +207,7 @@ def _enrich_week52(rows: list) -> None:
             row['week52_high'] = row['week52_low'] = row['pct_from_high'] = row['pct_from_low'] = None
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def portfolio_overall(request, demo=False):
     """Alle Holdings, sortiert nach Gesamtperformance. Inkl. CSV-Export."""
     import csv
@@ -323,7 +324,7 @@ def portfolio_overall(request, demo=False):
     })
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def portfolio_overall_stocks(request, demo=False):
     """
     Aktien-Look-Through-Übersicht: eine Zeile pro Aktie (direkt gehalten
@@ -612,7 +613,7 @@ def test_api_run(request):
     return JsonResponse({'results': results})
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def fintech_index(request, demo=False):
     if demo:
         return render(request, 'fintech/index_demo.html')
@@ -721,13 +722,13 @@ def _model_to_csv_bytes(model) -> bytes:
     return buf.getvalue().encode("utf-8-sig")
 
 
-@login_required
+@staff_member_required
 def backup_page(request):
     return render(request, "fintech/backup.html")
 
 
 @never_cache
-@login_required
+@staff_member_required
 def backup_download(request):
     mode = "kurse" if request.GET.get("mode") == "kurse" else "alle"
     models_to_export = BACKUP_MODELS_KURSE if mode == "kurse" else BACKUP_MODELS_ALL
@@ -1123,7 +1124,7 @@ def _entry_perf(entry):
         return None
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def watchlist_performance(request, demo=False):
     """Übersicht: alle Watchlisten mit annualisierter Performance."""
     watchlists = Watchlist.objects.prefetch_related(
@@ -1211,7 +1212,7 @@ _openfigi = OpenFigiService()
 TOP_N = 10
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def portfolio_winners(request, demo=False):
     """4-Spalten-Übersicht: Tages/Gesamt-Top5 und -Flop5."""
     today = timezone.now().date()
@@ -1307,7 +1308,7 @@ def _fetch_missing_symbols(holdings):
             logger.warning(f"Kein Symbol gefunden für {asset.isin} ({asset.name})")
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def portfolio_performance(request, demo=False):
     """Übersicht: alle neuen Kategorien mit Gesamt- und Tagesperformance."""
     today = timezone.now().date()
@@ -1396,7 +1397,7 @@ def portfolio_performance(request, demo=False):
     })
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def portfolio_category_detail(request, category_slug, demo=False):
     """Drill-down: alle Holdings einer Kategorie (per Slug)."""
     category_id = _SLUG_TO_ID.get(category_slug)
@@ -1502,7 +1503,7 @@ def portfolio_category_detail(request, category_slug, demo=False):
     })
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def watchlist_detail(request, watchlist_name, demo=False):
     """Drill-down: Einzelpositionen einer Watchlist mit Performance."""
     wl = get_object_or_404(Watchlist, name=watchlist_name)
@@ -1547,7 +1548,7 @@ def watchlist_detail(request, watchlist_name, demo=False):
     })
 
 
-@login_required
+@staff_member_required
 def watchlist_delete(request, watchlist_name):
     """Löscht eine komplette Watchlist inkl. aller Einträge (Cascade). Unwiderruflich."""
     if request.method != "POST":
@@ -1561,7 +1562,7 @@ def watchlist_delete(request, watchlist_name):
     return redirect("fintech:watchlist-performance")
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def watchlists_all(request, demo=False):
     """
     Alle Einträge aus ALLEN Watchlisten in einer Tabelle — wie watchlist_detail,
@@ -1608,7 +1609,7 @@ def watchlists_all(request, demo=False):
     })
 
 
-@login_required
+@staff_member_required
 def watchlist_reset_prices(request, watchlist_name):
     """
     Setzt für ALLE Einträge einer Watchlist den Einstiegspreis (price_at_add)
@@ -1641,7 +1642,7 @@ def watchlist_reset_prices(request, watchlist_name):
     return redirect("fintech:watchlist-detail", watchlist_name=watchlist_name)
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def news(request, demo=False):
     if request.method == "POST" and not demo:
         pk = request.POST.get("mark_read")
@@ -1668,7 +1669,7 @@ def news(request, demo=False):
     })
 
 
-@login_required_unless_demo
+@staff_required_unless_demo
 def news_feed(request, demo=False):
     """
     RSS-Reader-artiger News-Feed für gehaltene Aktien (Yahoo Finance + Google
@@ -1701,7 +1702,7 @@ def news_feed(request, demo=False):
     })
 
 
-@login_required
+@staff_member_required
 def alarme(request):
     if request.method == "POST":
         if "create_alarm" in request.POST:

@@ -1,10 +1,8 @@
 """Berechnungen, Serialisierung und Excel-Export für die Bordkasse."""
 import io
-from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from django.conf import settings
 from django.utils import timezone
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -33,20 +31,9 @@ STANDARD_LIST = [
 ]
 
 
-def public_write_open():
-    """True, solange die zeitlich begrenzte Freigabe ohne Login gilt."""
-    until = getattr(settings, 'BORDKASSE_PUBLIC_WRITE_UNTIL', None)
-    return bool(until) and timezone.now() < datetime.fromisoformat(until)
-
-
 def can_write(user):
-    """Törn anlegen und Crew/Buchungen ändern: eingeloggt oder während der Freigabe."""
-    return bool(user and user.is_authenticated) or public_write_open()
-
-
-def actor(user):
-    """User für created_by/changed_by/deleted_by — None bei anonymen Änderungen."""
-    return user if user and user.is_authenticated else None
+    """Törn anlegen und Crew/Buchungen ändern: nur eingeloggt."""
+    return bool(user and user.is_authenticated)
 
 
 def person_label(obj):

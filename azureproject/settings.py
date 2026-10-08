@@ -293,10 +293,6 @@ STATICFILES_DIRS = [
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 LOGIN_URL = '/accounts/login/'
-
-# Bordkasse: Bis zu diesem Zeitpunkt darf jeder ohne Login Törns anlegen und Crew/Buchungen ändern;
-# danach greift automatisch wieder der Login-Schutz. None = Schutz immer aktiv.
-BORDKASSE_PUBLIC_WRITE_UNTIL = '2026-10-10T12:00:00+02:00'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 

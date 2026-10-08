@@ -1,6 +1,17 @@
 from django.contrib import admin
 
-from .models import Buchung, BuchungRevision, CrewMember, ShoppingItem, Toern
+from .models import Buchung, BuchungRevision, BordkasseKonfig, CrewMember, ShoppingItem, Toern
+
+
+@admin.register(BordkasseKonfig)
+class BordkasseKonfigAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'authentifizierung_erforderlich')
+
+    def has_add_permission(self, request):
+        return not BordkasseKonfig.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class CrewInline(admin.TabularInline):

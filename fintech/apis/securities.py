@@ -7,7 +7,7 @@ Returns:
     404  {"error": "Not Found", "detail": "Price could not be retrieved for ISIN ..."}
     500  {"error": "Internal Server Error", "detail": "..."}
 
-Authentication: X-API-Key header (handled by ApiKeyMiddleware).
+Authentication: X-Api-Key header (FINTECH_API_KEY) oder Admin-Login (is_staff).
 """
 
 import logging
@@ -17,6 +17,7 @@ from typing import Optional
 from ..models_helper.asset_class import AssetClass
 from ..models import Asset
 
+from django.conf import settings
 from django.http import JsonResponse
 from django.views import View
 
@@ -31,12 +32,21 @@ SUPPORTED_TYPES = list(AssetClass.values)
 _provider_manager = ProviderManager()
 
 
+def _is_authorized(request) -> bool:
+    api_key = getattr(settings, "FINTECH_API_KEY", None)
+    if api_key and request.headers.get("X-Api-Key", "") == api_key:
+        return True
+    return request.user.is_active and request.user.is_staff
+
+
 class SecurityPriceView(View):
     """Return the current EUR price for a given ISIN."""
 
     http_method_names = ["get"]
 
     def get(self, request, isin: str):
+        if not _is_authorized(request):
+            return JsonResponse({"error": "Unauthorized"}, status=401)
         isin = isin.upper().strip()
 
         # --- validate ISIN ---
