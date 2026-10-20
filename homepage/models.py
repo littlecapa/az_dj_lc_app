@@ -44,6 +44,7 @@ class BlogPost(models.Model):
     image_name = models.CharField(max_length=32)
 
     external_url = models.URLField(blank=True, null=True, help_text="If set, 'Read more' leads here (External). If empty, it loads the template based on the slug.")
+    instagram_url = models.URLField(blank=True, null=True, default=None, help_text="If set, a 'See more Photos on Instagram' link is shown below the post.")
     
     # Logic: This must match the filename in templates/homepage/blog/ (without .html)
     slug = models.SlugField(max_length=50, blank=True, null=True, help_text="Auto-generated from headline if empty. Used to find the blog template.")

@@ -1,0 +1,7 @@
+{% if post.instagram_url %}
+<p class="blog-instagram" style="font-family: sans-serif; margin-top: 20px;">
+    See more Photos on Instagram:
+    <a href="{{ post.instagram_url }}" target="_blank" rel="noopener noreferrer"
+       style="color: #444; font-weight: bold;">{{ post.instagram_url }}</a>
+</p>
+{% endif %}
