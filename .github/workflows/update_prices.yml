@@ -57,7 +57,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6.2.0
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
       - name: Install ODBC Driver for SQL Server
         run: |
