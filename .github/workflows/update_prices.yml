@@ -65,8 +65,11 @@ jobs:
           # eigenes "apt-get update && apt-get install" davor nötig, das war
           # ein zweiter unnötiger Kontakt zu einem manchmal langsamen/hängenden
           # Ubuntu-Mirror.
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list \
+          # apt-key gibt es ab Ubuntu 26.04 nicht mehr → Key als Keyring ablegen;
+          # prod.list passend zur Runner-Version (referenziert signed-by=microsoft-prod.gpg).
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+            | sudo gpg --dearmor --yes -o /usr/share/keyrings/microsoft-prod.gpg
+          curl -fsSL https://packages.microsoft.com/config/ubuntu/$(. /etc/os-release && echo $VERSION_ID)/prod.list \
             | sudo tee /etc/apt/sources.list.d/mssql-release.list
           sudo apt-get update -q \
             -o Acquire::Retries=3 \
