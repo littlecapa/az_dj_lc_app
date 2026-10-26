@@ -1,0 +1,12 @@
+[
+  {"watchlist": "Neo Cloud Anbieter", "isin": "US21873S1087", "name": "CoreWeave", "asset_class": "STOCK", "yahoo_symbol": "CRWV", "source": "", "notes": "Größter reiner GPU-Cloud-Anbieter, Nvidia-Beteiligung"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "NL0009805522", "name": "Nebius Group", "asset_class": "STOCK", "yahoo_symbol": "NBIS", "source": "", "notes": "AI-Cloud mit eigenen GPU-Clustern (ehem. Yandex N.V.), Nvidia-Beteiligung"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "AU0000185993", "name": "IREN", "asset_class": "STOCK", "yahoo_symbol": "IREN", "source": "", "notes": "Ex-Bitcoin-Miner (Iris Energy), AI-Cloud mit Rechenzentren in Kanada/USA"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "US44812J1043", "name": "Hut 8", "asset_class": "STOCK", "yahoo_symbol": "HUT", "source": "", "notes": "Energie-/Rechenzentrumsinfrastruktur, Umbau Richtung AI/HPC"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "US0381692070", "name": "Applied Digital", "asset_class": "STOCK", "yahoo_symbol": "APLD", "source": "", "notes": "HPC-Rechenzentren, langfristige Leasingverträge mit CoreWeave"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "US17253J1060", "name": "Cipher Digital", "asset_class": "STOCK", "yahoo_symbol": "CIFR", "source": "", "notes": "Ehem. Cipher Mining, seit Feb. 2026 umfirmiert, HPC-Hosting"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "US88080T1043", "name": "TeraWulf", "asset_class": "STOCK", "yahoo_symbol": "WULF", "source": "", "notes": "Ex-Miner mit HPC-Colocation"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "US21874A1060", "name": "Core Scientific", "asset_class": "STOCK", "yahoo_symbol": "CORZ", "source": "", "notes": "Mining & Hosting, großer Rechenzentrumspartner von CoreWeave"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "US36317J2096", "name": "Galaxy Digital", "asset_class": "STOCK", "yahoo_symbol": "GLXY", "source": "", "notes": "Krypto-Finanzhaus mit Data-Center-Segment (Helios, AI/HPC)"},
+  {"watchlist": "Neo Cloud Anbieter", "isin": "KYG961151035", "name": "WhiteFiber", "asset_class": "STOCK", "yahoo_symbol": "WYFI", "source": "", "notes": "AI-Cloud/HPC-Abspaltung von Bit Digital, IPO 2025"}
+]
