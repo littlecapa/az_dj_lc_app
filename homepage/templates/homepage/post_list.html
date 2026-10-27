@@ -25,7 +25,7 @@
             {{ post.summary }}
         </p>
         
-        <div style="margin-top: auto;">
+        <div style="margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px;">
             {% if post.external_url %}
                 <!-- Case 1: External URL -->
                 <a href="{{ post.external_url }}" 
@@ -39,12 +39,11 @@
                 <!-- Assuming your urls.py has name='blog_detail' -->
                 <a href="{% url 'homepage:blog_detail' post.slug %}" 
                    style="font-family: sans-serif; text-decoration: none; color: #444; font-weight: bold;">
-                    Read more
+                    Read more &rarr;
                 </a>
             {% endif %}
+            {% include "homepage/blog/_instagram_link.html" with inline=True %}
         </div>
-
-        {% include "homepage/blog/_instagram_link.html" %}
     </div>
 </article>
 {% endfor %}

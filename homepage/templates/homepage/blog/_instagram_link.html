@@ -1,7 +1,13 @@
+{% comment %}
+"More Photos → [Instagram]"-Link. Mit inline=True nur der Link (z.B. neben
+"Read more" in der Blog-Liste), sonst als eigener Absatz (Detailseiten).
+{% endcomment %}
 {% if post.instagram_url %}
-<p class="blog-instagram" style="font-family: sans-serif; margin-top: 20px;">
-    See more Photos on Instagram:
+{% if not inline %}<p class="blog-instagram" style="margin-top: 20px;">{% endif %}
     <a href="{{ post.instagram_url }}" target="_blank" rel="noopener noreferrer"
-       style="color: #444; font-weight: bold;">{{ post.instagram_url }}</a>
-</p>
+       aria-label="More photos on Instagram"
+       style="font-family: sans-serif; text-decoration: none; color: #444; font-weight: bold;">
+        More Photos &rarr; <i class="fa-brands fa-instagram" style="color: #E4405F; font-size: 1.15em;" aria-hidden="true"></i>
+    </a>
+{% if not inline %}</p>{% endif %}
 {% endif %}
