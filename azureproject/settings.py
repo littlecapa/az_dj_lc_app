@@ -73,7 +73,9 @@ LOGGING = {
         },
         'azure': {
             'handlers': ['console'],
-            'level': DEFAULT_LOG_LEVEL,
+            # Nicht DEFAULT_LOG_LEVEL: auf INFO loggt das SDK jede App-Insights-
+            # Telemetrie-Übertragung mit Headern (~20 Zeilen alle paar Sekunden).
+            'level': 'WARNING',
             'propagate': False,
         },
     },
