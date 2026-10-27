@@ -31,5 +31,9 @@
   (Umbenennen wirkt überall), Löschen ist Soft-Delete, Bearbeitungen landen als `BuchungRevision`.
   Standard-Einkaufsliste in den Tabellen `StandardKategorie`/`StandardArtikel` (Pflege im Admin, Startbestand per Migration 0003).
   `Bordkasse_Konfig.Authentifizierung_erforderlich` (Admin) = True → alle Bordkassen-Seiten und API nur nach Login.
+- MCP-Server (nur lesend): `POST /fintech/mcp` (`fintech/apis/mcp_server.py`), zustandsloses Streamable HTTP,
+  Tools rufen intern die bestehenden lesenden API-Views auf. Auth nur per `Authorization: Bearer <MCP_READONLY_API_KEY>`
+  — `FINTECH_API_KEY` und Admin-Session gelten dort bewusst nicht, der MCP-Key öffnet umgekehrt keine anderen Endpunkte.
+  Neue Tools nur lesend (`get_…`, `readOnlyHint`), sonst schlägt `McpServerTests` fehl.
 - Fintech-Zugriff: alle Seiten/APIs unter `/fintech/` nur mit Admin-Login (`is_staff`) oder `X-Api-Key`;
   einzige Ausnahme ist der Demo-Bereich `/demo/fintech/`. `fintech/tests.py` prüft das für jede URL automatisch.

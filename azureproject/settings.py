@@ -129,6 +129,11 @@ MCP_IMPORT_API_KEY = os.getenv('MCP_IMPORT_API_KEY')
 # (fintech.apis.services.mcp_scalable) — NICHT DJANGO_SUPERUSER_USERNAME.
 MCP_TARGET_USERNAME = os.getenv('MCP_TARGET_USERNAME')
 
+# Bearer-Token für den eigenen, rein lesenden MCP-Server unter /fintech/mcp
+# (fintech.apis.mcp_server). Bewusst getrennt von FINTECH_API_KEY, der auch
+# schreibende Endpunkte öffnet. Leer/nicht gesetzt → Endpunkt lehnt alles ab.
+MCP_READONLY_API_KEY = os.getenv('MCP_READONLY_API_KEY')
+
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']
 

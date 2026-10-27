@@ -2,6 +2,7 @@
 
 from django.urls import path, include
 from . import views
+from .apis.mcp_server import McpView
 
 app_name = "fintech" # Namespace für URL-Namen in diesem App-Teil
 
@@ -18,6 +19,7 @@ urlpatterns = [
     path('backup/download/', views.backup_download, name="backup-download"),
     path('trigger/refresh-week52/', views.trigger_refresh_week52, name="trigger-refresh-week52"),
     path('api/', include('fintech.apis.urls')),
+    path('mcp', McpView.as_view(), name="mcp"),
     path("export", views.portfolio_export, name="portfolio-export"),
     path("export_watchlist", views.watchlist_export, name="watchlist-export"),
     path("import", views.portfolio_import, name="portfolio-import"),
