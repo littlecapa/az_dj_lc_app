@@ -17,7 +17,7 @@ from django.utils import timezone
 from core.mcp_server import ReadOnlyMcpView
 
 from .importer import IMPORT_FORMAT
-from .models import Artist, Location, UpcomingEvent
+from .models import Artist, Location, Task, UpcomingEvent
 
 SERVER_INFO = {"name": "lc-app-events", "title": "LC Events (read-only)", "version": "1.0.0"}
 INSTRUCTIONS = (
@@ -26,7 +26,9 @@ INSTRUCTIONS = (
     "and upcoming events, search the web for new concerts of these artists and/or at these "
     "locations, and return the findings as JSON in the format of get_import_format — only events "
     "that are not already listed. New artists or locations may be suggested in the same JSON. "
-    "This server cannot write; the owner imports the JSON manually."
+    "This server cannot write; the owner imports the JSON manually. Predefined tasks with their "
+    "prompts are available via get_tasks / get_task — when asked to run a task, fetch its prompt "
+    "with get_task and follow it."
 )
 
 _DATE = {"type": "string", "format": "date", "description": "ISO date YYYY-MM-DD"}
@@ -82,6 +84,19 @@ def _upcoming_events(args):
     return 200, {"from_date": from_date.isoformat(), "count": len(result), "events": result}
 
 
+def _tasks(args):
+    tasks = [{"name": t.name, "prompt": t.prompt} for t in Task.objects.all()]
+    return 200, {"count": len(tasks), "tasks": tasks}
+
+
+def _task(args):
+    task = Task.objects.filter(name__iexact=args["name"].strip()).first()
+    if task is None:
+        names = list(Task.objects.values_list("name", flat=True))
+        return 404, {"error": f"Unknown task: {args['name']}", "available": names}
+    return 200, {"name": task.name, "prompt": task.prompt}
+
+
 TOOLS = {
     "get_locations": {
         "title": "Locations",
@@ -116,6 +131,23 @@ TOOLS = {
                        "must be returned so the owner can import them.",
         "inputSchema": {"type": "object", "properties": {}},
         "run": lambda a: (200, IMPORT_FORMAT),
+    },
+    "get_tasks": {
+        "title": "Tasks",
+        "description": "All predefined tasks (unique name and the Claude prompt to execute).",
+        "inputSchema": {"type": "object", "properties": {}},
+        "run": _tasks,
+    },
+    "get_task": {
+        "title": "Task",
+        "description": "The Claude prompt of one predefined task, looked up by its name (case-insensitive). "
+                       "Execute the returned prompt.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "Task name, e.g. 'Alle Künstler auslesen'"}},
+            "required": ["name"],
+        },
+        "run": _task,
     },
 }
 

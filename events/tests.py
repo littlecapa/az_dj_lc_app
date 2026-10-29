@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
 from .importer import import_events_json
-from .models import Artist, Location, UpcomingEvent
+from .models import Artist, Location, Task, UpcomingEvent
 
 
 class StartbestandTests(TestCase):
@@ -18,6 +18,9 @@ class StartbestandTests(TestCase):
                          {'Hayley Williams', 'The Killers', 'Pink'})
         self.assertEqual(set(Artist.objects.filter(rating=7).values_list('name', flat=True)),
                          {'Harry Styles', 'James Blunt', 'Santiano'})
+        self.assertEqual(Task.objects.count(), 5)
+        for task in Task.objects.all():
+            self.assertIn('LC Events', task.prompt, task.name)
 
 
 class ImporterTests(TestCase):
@@ -107,7 +110,8 @@ class EventsMcpTests(TestCase):
         self.assertEqual(result['serverInfo']['name'], 'lc-app-events')
         tools = self.rpc('tools/list').json()['result']['tools']
         self.assertEqual({t['name'] for t in tools},
-                         {'get_locations', 'get_artists', 'get_upcoming_events', 'get_import_format'})
+                         {'get_locations', 'get_artists', 'get_upcoming_events', 'get_import_format',
+                          'get_tasks', 'get_task'})
         for tool in tools:
             self.assertTrue(tool['annotations']['readOnlyHint'], tool['name'])
             self.assertTrue(re.match(r'^get_', tool['name']), tool['name'])
@@ -128,3 +132,13 @@ class EventsMcpTests(TestCase):
         events = self.call('get_upcoming_events', {'from_date': '2000-01-01', 'location': 'lorelei'})['structuredContent']
         self.assertEqual(events['count'], 1)
         self.assertTrue(self.call('get_upcoming_events', {'from_date': 'morgen'})['isError'])
+
+    def test_tasks(self):
+        tasks = self.call('get_tasks')['structuredContent']['tasks']
+        self.assertEqual(tasks[0]['name'], 'Alle Künstler auslesen')
+        task = self.call('get_task', {'name': 'vorschläge für weitere upcoming events machen'})
+        self.assertFalse(task['isError'])
+        self.assertIn('get_import_format', task['structuredContent']['prompt'])
+        task = self.call('get_task', {'name': 'Gibt es nicht'})
+        self.assertTrue(task['isError'])
+        self.assertEqual(len(task['structuredContent']['available']), 5)

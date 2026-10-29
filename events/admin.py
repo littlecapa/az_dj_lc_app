@@ -2,12 +2,13 @@ import json
 
 from django import forms
 from django.contrib import admin, messages
+from django.db import models
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
 from .importer import IMPORT_FORMAT, import_events_json
-from .models import Artist, Location, UpcomingEvent
+from .models import Artist, Location, Task, UpcomingEvent
 
 
 @admin.register(Location)
@@ -24,6 +25,13 @@ class ArtistAdmin(admin.ModelAdmin):
     list_editable = ('rating',)
     list_filter = ('rating',)
     search_fields = ('name', 'info')
+
+
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name', 'prompt')
+    formfield_overrides = {models.TextField: {'widget': forms.Textarea(attrs={'rows': 30, 'cols': 120})}}
 
 
 class JsonImportForm(forms.Form):
