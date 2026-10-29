@@ -161,6 +161,7 @@ INSTALLED_APPS = [
     'travel',
     'telegram_app',
     'bordkasse',
+    'events',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

@@ -31,9 +31,14 @@
   (Umbenennen wirkt überall), Löschen ist Soft-Delete, Bearbeitungen landen als `BuchungRevision`.
   Standard-Einkaufsliste in den Tabellen `StandardKategorie`/`StandardArtikel` (Pflege im Admin, Startbestand per Migration 0003).
   `Bordkasse_Konfig.Authentifizierung_erforderlich` (Admin) = True → alle Bordkassen-Seiten und API nur nach Login.
-- MCP-Server (nur lesend): `POST /fintech/mcp` (`fintech/apis/mcp_server.py`), zustandsloses Streamable HTTP,
+- MCP-Server (nur lesend): `POST /fintech/mcp` (`fintech/apis/mcp_server.py`) und `POST /events/mcp`
+  (`events/mcp_server.py`), gemeinsamer Kern `core/mcp_server.py` (`ReadOnlyMcpView`), zustandsloses Streamable HTTP,
   Tools rufen intern die bestehenden lesenden API-Views auf. Auth nur per `Authorization: Bearer <MCP_READONLY_API_KEY>`
   — `FINTECH_API_KEY` und Admin-Session gelten dort bewusst nicht, der MCP-Key öffnet umgekehrt keine anderen Endpunkte.
-  Neue Tools nur lesend (`get_…`, `readOnlyHint`), sonst schlägt `McpServerTests` fehl.
+  Neue Tools nur lesend (`get_…`, `readOnlyHint`), sonst schlägt `McpServerTests` bzw. `EventsMcpTests` fehl.
+- Events: `Location`, `Artist`, `UpcomingEvent` (Startbestand per Migration 0002, Pflege im Admin). Neue Konzerte
+  sucht Claude über `/events/mcp` und liefert JSON (Format: Tool `get_import_format`, `events/importer.py`);
+  Import manuell im Admin (Upcoming Events → „JSON importieren“) oder `python manage.py import_events <datei> [--dry-run]`.
+  Bestehende Locations/Artists werden nur ergänzt (Rating bleibt), Events nicht doppelt angelegt, bei Fehlern wird nichts gespeichert.
 - Fintech-Zugriff: alle Seiten/APIs unter `/fintech/` nur mit Admin-Login (`is_staff`) oder `X-Api-Key`;
   einzige Ausnahme ist der Demo-Bereich `/demo/fintech/`. `fintech/tests.py` prüft das für jede URL automatisch.

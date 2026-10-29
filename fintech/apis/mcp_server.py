@@ -3,36 +3,23 @@ MCP-Server (Model Context Protocol) — rein lesender Zugriff auf Portfolio-Date
 
 POST /fintech/mcp
 
-Transport: "Streamable HTTP", zustandslos — jede JSON-RPC-Anfrage wird direkt mit
-application/json beantwortet, kein SSE-Stream, keine Sessions (GET/DELETE → 405).
-Unterstützt: initialize, ping, tools/list, tools/call; Notifications → 202.
-
-Authentifizierung: "Authorization: Bearer <MCP_READONLY_API_KEY>". Der Key gilt nur
-hier, FINTECH_API_KEY und Admin-Session werden bewusst NICHT akzeptiert.
+Transport, JSON-RPC und Authentifizierung (Bearer MCP_READONLY_API_KEY): core.mcp_server.
 
 Die Tools rufen intern die bestehenden lesenden API-Views auf (fintech/apis/…), damit
 die Logik nicht doppelt existiert. Es gibt ausschließlich lesende Tools.
 """
 
-import hmac
 import json
-import logging
 
-from django.conf import settings
-from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpRequest, QueryDict
+
+from core.mcp_server import ReadOnlyMcpView
 
 from .cowork import PortfolioView, WatchlistView, AssetPriceHistoryView
 from .fund_holdings_api import FundTopHoldingsView
 from .securities import SecurityPriceView, SUPPORTED_TYPES
 from .week52_api import Week52View, NewsListView
 
-logger = logging.getLogger(__name__)
-
-# Neueste zuerst; bei unbekannter Client-Version antworten wir mit der neuesten.
-SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26")
 SERVER_INFO = {"name": "lc-app-portfolio", "title": "LC Portfolio (read-only)", "version": "1.0.0"}
 INSTRUCTIONS = (
     "Read-only access to the owner's personal investment portfolio, watchlists and related "
@@ -40,9 +27,6 @@ INSTRUCTIONS = (
     "Prices are refreshed a few times per trading day, so they are not real-time "
     "unless you use get_live_price."
 )
-
-# JSON-RPC-Fehlercodes
-PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS = -32700, -32600, -32601, -32602
 
 _ISIN = {"type": "string", "description": "ISIN, e.g. US21873S1087", "pattern": "^[A-Za-z]{2}[A-Za-z0-9]{10}$"}
 
@@ -137,117 +121,7 @@ TOOLS = {
 }
 
 
-def _tool_list():
-    return [
-        {
-            "name": name,
-            "title": t["title"],
-            "description": t["description"],
-            "inputSchema": t["inputSchema"],
-            "annotations": {"readOnlyHint": True, "openWorldHint": False},
-        }
-        for name, t in TOOLS.items()
-    ]
-
-
-class _RpcError(Exception):
-    def __init__(self, code, message):
-        super().__init__(message)
-        self.code, self.message = code, message
-
-
-def _call_tool(params):
-    name = params.get("name")
-    args = params.get("arguments") or {}
-    tool = TOOLS.get(name)
-    if tool is None:
-        raise _RpcError(INVALID_PARAMS, f"Unknown tool: {name}")
-    if not isinstance(args, dict):
-        raise _RpcError(INVALID_PARAMS, "'arguments' must be an object")
-    missing = [p for p in tool["inputSchema"].get("required", []) if not args.get(p)]
-    if missing:
-        raise _RpcError(INVALID_PARAMS, f"Missing required argument(s): {', '.join(missing)}")
-
-    logger.info(f"MCP tools/call {name} {args}")
-    try:
-        status, data = tool["run"](args)
-    except Exception as exc:
-        logger.exception(f"MCP tool {name} failed")
-        status, data = 500, {"error": "Internal Server Error", "detail": str(exc)}
-    return {
-        "content": [{"type": "text", "text": json.dumps(data, ensure_ascii=False)}],
-        "structuredContent": data,
-        "isError": status >= 400,
-    }
-
-
-def _initialize(params):
-    requested = params.get("protocolVersion")
-    return {
-        "protocolVersion": requested if requested in SUPPORTED_PROTOCOL_VERSIONS else SUPPORTED_PROTOCOL_VERSIONS[0],
-        "capabilities": {"tools": {"listChanged": False}},
-        "serverInfo": SERVER_INFO,
-        "instructions": INSTRUCTIONS,
-    }
-
-
-METHODS = {
-    "initialize": _initialize,
-    "ping": lambda p: {},
-    "tools/list": lambda p: {"tools": _tool_list()},
-    "tools/call": _call_tool,
-}
-
-
-def _handle_message(msg):
-    """Eine JSON-RPC-Nachricht verarbeiten. None = keine Antwort (Notification/Response)."""
-    if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0":
-        return _error(None, INVALID_REQUEST, "Invalid JSON-RPC 2.0 message")
-    if "method" not in msg or "id" not in msg:
-        return None  # Notification (z.B. notifications/initialized) oder Client-Response
-    msg_id, method = msg["id"], msg["method"]
-    params = msg.get("params") or {}
-    handler = METHODS.get(method)
-    if handler is None:
-        return _error(msg_id, METHOD_NOT_FOUND, f"Method not found: {method}")
-    if not isinstance(params, dict):
-        return _error(msg_id, INVALID_PARAMS, "'params' must be an object")
-    try:
-        return {"jsonrpc": "2.0", "id": msg_id, "result": handler(params)}
-    except _RpcError as exc:
-        return _error(msg_id, exc.code, exc.message)
-
-
-def _error(msg_id, code, message):
-    return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
-
-
-def _is_authorized(request) -> bool:
-    expected = getattr(settings, "MCP_READONLY_API_KEY", None)
-    auth = request.headers.get("Authorization", "")
-    if not expected or not auth.startswith("Bearer "):
-        return False
-    return hmac.compare_digest(auth[len("Bearer "):].strip().encode(), expected.encode())
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class McpView(View):
-    http_method_names = ["post"]
-
-    def post(self, request):
-        if not _is_authorized(request):
-            response = JsonResponse({"error": "Unauthorized"}, status=401)
-            response["WWW-Authenticate"] = 'Bearer realm="lc-app-mcp"'
-            return response
-
-        try:
-            payload = json.loads(request.body)
-        except (ValueError, UnicodeDecodeError):
-            return JsonResponse(_error(None, PARSE_ERROR, "Parse error"), status=400)
-
-        if isinstance(payload, list):  # JSON-RPC-Batch (Protokollversion 2025-03-26)
-            replies = [r for r in (_handle_message(m) for m in payload) if r is not None]
-            return JsonResponse(replies, safe=False) if replies else HttpResponse(status=202)
-
-        reply = _handle_message(payload)
-        return JsonResponse(reply) if reply is not None else HttpResponse(status=202)
+class McpView(ReadOnlyMcpView):
+    TOOLS = TOOLS
+    SERVER_INFO = SERVER_INFO
+    INSTRUCTIONS = INSTRUCTIONS

@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Start</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label='events' %}">Events</a> &rsaquo;
+  <a href="{% url 'admin:events_upcomingevent_changelist' %}">Upcoming Events</a> &rsaquo;
+  JSON importieren
+</div>
+{% endblock %}
+{% block content %}
+<p>Locations und Artists werden über den Namen gefunden und nur ergänzt (Rating und vorhandene Texte bleiben).
+   Events (Location + Artist + Datum) werden nicht doppelt angelegt. Bei einem Fehler wird nichts gespeichert.</p>
+
+{% if report %}
+  <fieldset class="module aligned">
+    <h2>{% if report.dry_run %}Dry-Run — nichts gespeichert{% else %}Import abgebrochen — nichts gespeichert{% endif %}</h2>
+    {% if report.errors %}
+      <ul class="errorlist">{% for e in report.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% endif %}
+    <table>
+      <tr><th></th><th>Locations</th><th>Artists</th><th>Events</th></tr>
+      <tr><th>neu</th>
+        <td>{{ report.created.locations|join:", " }}</td><td>{{ report.created.artists|join:", " }}</td><td>{{ report.created.events|join:"; " }}</td></tr>
+      <tr><th>ergänzt</th>
+        <td>{{ report.updated.locations|join:", " }}</td><td>{{ report.updated.artists|join:", " }}</td><td>{{ report.updated.events|join:"; " }}</td></tr>
+      <tr><th>unverändert</th>
+        <td>{{ report.unchanged.locations|join:", " }}</td><td>{{ report.unchanged.artists|join:", " }}</td><td>{{ report.unchanged.events|join:"; " }}</td></tr>
+    </table>
+  </fieldset>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <fieldset class="module aligned">
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      <div class="form-row">{{ field.errors }}{{ field.label_tag }} {{ field }}</div>
+    {% endfor %}
+  </fieldset>
+  <div class="submit-row"><input type="submit" class="default" value="Importieren"></div>
+</form>
+
+<details><summary>Beispiel-Format</summary><pre>{{ example }}</pre></details>
+{% endblock %}
