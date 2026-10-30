@@ -152,3 +152,16 @@ class CurrencyProxySarTests(TestCase):
         proxy = CurrencyProxy()
         proxy._data, proxy._fetched_at = {'rates': {'USD': '1.1'}}, datetime.now(timezone.utc)
         self.assertEqual(proxy.get_rate('SAR'), Decimal('4.125'))
+
+
+class WatchlistLinkTests(TestCase):
+    def test_link_button_only_when_set(self):
+        from fintech.models import Watchlist
+        admin = User.objects.create_superuser('admin', password='pw')
+        self.client.force_login(admin)
+        wl = Watchlist.objects.create(name='AAA Zertifikate', user=admin)
+        url = '/fintech/watchlist-performance/AAA Zertifikate/'
+        self.assertNotContains(self.client.get(url), 'Rechner öffnen')
+        wl.link = 'https://docs.google.com/spreadsheets/d/abc'
+        wl.save()
+        self.assertContains(self.client.get(url), 'href="https://docs.google.com/spreadsheets/d/abc"')

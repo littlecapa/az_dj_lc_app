@@ -539,6 +539,11 @@ class Watchlist(models.Model):
         related_name='watchlists',
         help_text="Besitzer der Watchlist"
     )
+    link = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text="Optionaler Link zu Zusatzinfos, z. B. Rechner als Google Sheet (Button auf der Watchlist-Seite)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

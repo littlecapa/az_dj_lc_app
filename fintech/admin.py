@@ -283,9 +283,10 @@ class WatchlistEntryAdmin(admin.ModelAdmin):
 
 @admin.register(Watchlist)
 class WatchlistAdmin(admin.ModelAdmin):  # WatchEntryAdmin → WatchlistAdmin (Fix)
-    list_display = ['name', 'user', 'asset_count', 'created_at']
+    list_display = ['name', 'user', 'asset_count', 'link', 'created_at']
     list_filter = ['created_at']
     search_fields = ['name', 'user__username']
+    fields = ['name', 'user', 'link']
     
     def asset_count(self, obj):
         """Anzahl Assets in Watchlist"""

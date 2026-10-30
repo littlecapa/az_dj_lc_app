@@ -32,6 +32,10 @@
     </nav>
 
     <h2 class="mb-1">{{ watchlist.name }}</h2>
+    {% if watchlist.link %}
+        <a href="{{ watchlist.link }}" target="_blank" rel="noopener noreferrer"
+           class="btn btn-sm btn-outline-primary mb-2">📊 Rechner öffnen</a>
+    {% endif %}
     <p class="text-muted small mb-4">
         Annahme: {{ hypothetical|floatformat:0 }} € pro Position beim Einstieg
     </p>
