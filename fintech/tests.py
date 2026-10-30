@@ -143,3 +143,12 @@ class McpServerTests(TestCase):
                              HTTP_AUTHORIZATION='Bearer mcp-key')
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.json()['error']['code'], -32700)
+
+
+class CurrencyProxySarTests(TestCase):
+    def test_sar_uses_usd_peg(self):
+        from datetime import datetime, timezone
+        from fintech.apis.services.exchange_rate_proxy import CurrencyProxy
+        proxy = CurrencyProxy()
+        proxy._data, proxy._fetched_at = {'rates': {'USD': '1.1'}}, datetime.now(timezone.utc)
+        self.assertEqual(proxy.get_rate('SAR'), Decimal('4.125'))

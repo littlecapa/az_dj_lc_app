@@ -54,6 +54,10 @@ class CurrencyProxy:
         elif currency == "ZAc":
             # ZAc = Rand-Cents; API returns ZAR (Rand) → multiply by 100
             rate = string2dec(self._data["rates"]["ZAR"]) * Decimal("100")
+        elif currency == "SAR":
+            # Saudi-Riyal: seit 1986 fest an den USD gekoppelt (1 USD = 3,75 SAR),
+            # frankfurter.dev führt ihn nicht → über den USD-Kurs, ohne Alpha Vantage
+            rate = string2dec(self._data["rates"]["USD"]) * Decimal("3.75")
         elif currency in self._data["rates"]:
             rate = string2dec(self._data["rates"][currency])
         else:

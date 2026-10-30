@@ -21,6 +21,7 @@ class CurrencyClass(models.TextChoices):  # FIX: TextChoices statt IntegerChoice
     ZAR = 'ZAR', 'ZAR'
     ZAc = 'ZAc', 'ZAc'
     TWD = 'TWD', 'TWD'  # nicht in frankfurter.dev — CurrencyProxy nutzt Alpha Vantage als Fallback
+    SAR = 'SAR', 'SAR'  # nicht in frankfurter.dev — fest an USD gekoppelt, CurrencyProxy rechnet über USD
 
     @classmethod
     def get_currency_pattern(cls):
