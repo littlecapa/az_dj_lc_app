@@ -22,6 +22,7 @@ from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand, CommandError
 
 from fintech.models import Asset, NewsArticle
+from tasks.runner import TrackedCommandMixin
 from fintech.services import get_news_target_rows
 from fintech.apis.services.yahoo_finance import YahooFinanceRequest
 from fintech.apis.services.google_news import GoogleNewsRequest
@@ -32,8 +33,9 @@ DEFAULT_MIN_VALUE = Decimal("3000")
 NEWS_PER_COMPANY_PER_PROVIDER = 5
 
 
-class Command(BaseCommand):
+class Command(TrackedCommandMixin, BaseCommand):
     help = "Holt News (Yahoo Finance + Google News) für Aktien mit Look-Through-Wert über einer Schwelle."
+    task_command = "update_news"
 
     def add_arguments(self, parser):
         parser.add_argument(

@@ -71,6 +71,7 @@ from django.utils import timezone
 from core.jira_client import JiraClient, JiraApiError
 
 from fintech.models import Asset, Holdings, FondHolding
+from tasks.runner import TrackedCommandMixin
 from fintech.models_helper.asset_class import AssetClass
 from fintech.models_helper.etf_extend_source import EtfExtendSource
 from fintech.apis.services.justetf import JustEtfRequest
@@ -146,8 +147,10 @@ def _cleanup_stale_nested_fund_entry(holding_isin: str) -> bool:
     return removed_mappings > 0
 
 
-class Command(BaseCommand):
+class Command(TrackedCommandMixin, BaseCommand):
     help = "Aktualisiert das FondHolding-Mapping für alle gehaltenen ETFs/Fonds via JustETF (Top 10)."
+    task_command = "update_etf_holdings"
+    untracked_options = ("dry_run", "isin")
 
     def add_arguments(self, parser):
         parser.add_argument(

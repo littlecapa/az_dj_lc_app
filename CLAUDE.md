@@ -44,5 +44,9 @@
   `parent` + `position`, `interval_hours` für den Health-Check, `parameters` als JSON; `TaskRun` = Log je Lauf). Pflege im Admin.
   MCP `get_tasks`/`get_task` (`tasks/mcp_tools.py`, eingehängt in `/events/mcp`) — Cowork Scheduled Tasks holen ihren
   Prompt darüber, Prompt-Änderungen also im Admin, nicht in Cowork. Inaktive Tasks liefert der MCP-Server nicht aus.
+  Server-Tasks (`executor=server`, `command` = Management-Command): Commands mit `TrackedCommandMixin`
+  (`tasks/runner.py`; aktuell update_prices, update_news, update_etf_holdings) schreiben bei jedem regulären Lauf einen
+  `TaskRun` — Dry-Run/Teilläufe (`untracked_options`) nicht; hängende Läufe > 30 Min gelten als Timeout.
+  Übersicht `/tasks/` (nur Staff): rot = letzter Lauf fehlgeschlagen oder überfällig (Intervall + 25 %, nur `run_days`).
 - Fintech-Zugriff: alle Seiten/APIs unter `/fintech/` nur mit Admin-Login (`is_staff`) oder `X-Api-Key`;
   einzige Ausnahme ist der Demo-Bereich `/demo/fintech/`. `fintech/tests.py` prüft das für jede URL automatisch.

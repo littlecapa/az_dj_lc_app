@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from django.db.models import Q
 from fintech.models import Asset, Price
+from tasks.runner import TrackedCommandMixin
 from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
 from fintech.services import flag_price_fetch_failure, clear_price_fetch_failure, report_price_fetch_failures
@@ -53,8 +54,11 @@ MAX_CHANGE_PERC: dict[str, Decimal] = {
 }
 
 
-class Command(BaseCommand):
+class Command(TrackedCommandMixin, BaseCommand):
     help = "Aktualisiert Kurse für alle Assets die fehlen oder älter als 1h sind."
+    task_command = "update_prices"
+    # Teilläufe (eine ISIN / Asset-Klasse) zählen nicht als regulärer Lauf
+    untracked_options = ("dry_run", "isin", "asset_classes")
 
     def add_arguments(self, parser):
         parser.add_argument(

@@ -20,8 +20,9 @@ class StartbestandTests(TestCase):
                          {'Hayley Williams', 'The Killers', 'Pink'})
         self.assertEqual(set(Artist.objects.filter(rating=7).values_list('name', flat=True)),
                          {'Harry Styles', 'James Blunt', 'Santiano'})
-        self.assertEqual(Task.objects.count(), 5)
-        for task in Task.objects.all():
+        cowork = Task.objects.filter(executor=Task.Executor.COWORK)
+        self.assertEqual(cowork.count(), 5)
+        for task in cowork:
             self.assertIn('LC Events', task.prompt, task.name)
 
 
@@ -143,4 +144,4 @@ class EventsMcpTests(TestCase):
         self.assertIn('get_import_format', task['structuredContent']['prompt'])
         task = self.call('get_task', {'name': 'Gibt es nicht'})
         self.assertTrue(task['isError'])
-        self.assertEqual(len(task['structuredContent']['available']), 5)
+        self.assertEqual(len(task['structuredContent']['available']), 8)

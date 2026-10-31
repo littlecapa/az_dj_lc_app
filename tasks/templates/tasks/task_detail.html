@@ -1,0 +1,34 @@
+{% extends "homepage/base_home.html" %}
+{% load tz %}
+
+{% block title %}{{ row.task.name }} – Tasks{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <a href="{% url 'tasks:list' %}" class="small">← Alle Tasks</a>
+  <h2 class="mt-2">{{ row.task.name }} {% include "tasks/_status.html" with status=row.status label=row.label %}</h2>
+  <p class="text-muted">{{ row.task.get_executor_display }}{% if row.task.command %} · <code>{{ row.task.command }}</code>{% endif %}{% if row.task.interval_hours %} · alle {{ row.task.interval_hours }} h ({{ row.days }}){% endif %}</p>
+  {% if row.task.prompt %}<details class="mb-3"><summary>Prompt / Beschreibung</summary><pre class="small" style="white-space: pre-wrap">{{ row.task.prompt }}</pre></details>{% endif %}
+  {% timezone "Europe/Berlin" %}
+  <h5>Letzte {{ runs|length }} Läufe</h5>
+  <div class="table-responsive">
+  <table class="table table-sm">
+    <thead><tr><th>Start</th><th>Dauer</th><th>Status</th><th>Meldung</th></tr></thead>
+    <tbody>
+    {% for run in runs %}
+      <tr class="{% if run.status == 'error' or run.status == 'timeout' %}table-danger{% endif %}">
+        <td>{{ run.started_at|date:"d.m.Y H:i" }}</td>
+        <td>{% if run.finished_at %}{{ run.started_at|timesince:run.finished_at }}{% else %}–{% endif %}</td>
+        <td>{{ run.get_status_display }}</td>
+        <td class="small">{{ run.message }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="text-muted">Noch keine Läufe protokolliert.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endtimezone %}
+  <a href="{% url 'admin:tasks_task_change' row.task.pk %}" class="btn btn-sm btn-outline-secondary">Im Admin bearbeiten</a>
+</div>
+{% endblock %}

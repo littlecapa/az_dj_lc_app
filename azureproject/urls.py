@@ -14,6 +14,7 @@ urlpatterns = [
     path('travel/', include('travel.urls')),
     path('bordkasse/', include('bordkasse.urls')),
     path('events/', include('events.urls')),
+    path('tasks/', include('tasks.urls')),
     path('telegram/', include('telegram_app.urls')),
     path('', include('core.urls')),
     path('admin/', admin.site.urls),

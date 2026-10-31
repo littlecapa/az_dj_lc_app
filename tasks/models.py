@@ -14,11 +14,16 @@ class Task(models.Model):
     name = models.CharField(max_length=200, unique=True)
     prompt = models.TextField('Claude-Prompt / Beschreibung', blank=True)
     executor = models.CharField(max_length=10, choices=Executor.choices, default=Executor.COWORK)
+    command = models.CharField('Management-Command', max_length=100, blank=True,
+                               help_text='Nur bei Server-Tasks: Läufe dieses Commands werden hier protokolliert')
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT, related_name='subtasks',
                                help_text='Leer = Haupt-Task')
     position = models.PositiveIntegerField(default=0, help_text='Reihenfolge (innerhalb des Parents)')
     interval_hours = models.PositiveIntegerField('Intervall (Stunden)', null=True, blank=True,
                                                  help_text='Erwarteter Abstand zwischen Läufen, leer = kein Health-Check')
+    run_days = models.CharField('Lauftage', max_length=7, default='0123456',
+                                help_text='Wochentage, an denen der Task läuft (0 = Mo … 6 = So), z. B. 012345 = Mo–Sa. '
+                                          'Andere Tage zählen beim Health-Check nicht mit.')
     parameters = models.JSONField('Parameter', default=dict, blank=True,
                                   help_text='Ausführungsparameter als JSON, z. B. {"parallel": 4}')
     active = models.BooleanField('Aktiv', default=True)
