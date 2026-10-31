@@ -9,7 +9,7 @@ Authentifizierung: "Authorization: Bearer <MCP_READONLY_API_KEY>". Der Key gilt 
 für die MCP-Endpunkte, FINTECH_API_KEY und Admin-Session werden bewusst NICHT akzeptiert.
 
 Ein konkreter Server ist eine Unterklasse von ReadOnlyMcpView mit eigenen TOOLS,
-SERVER_INFO und INSTRUCTIONS (siehe fintech.apis.mcp_server, events.mcp_server).
+SERVER_INFO und INSTRUCTIONS (siehe fintech.apis.mcp_server, leisure.mcp_server).
 """
 
 import hmac

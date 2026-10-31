@@ -4,6 +4,8 @@ from django.urls import include, path, re_path
 from django.views.static import serve
 from django.http import HttpResponse
 
+from leisure.mcp_server import LeisureMcpView
+
 urlpatterns = [
     path('', include('homepage.urls')),
     path('chess/', include('chess.urls')),
@@ -13,7 +15,8 @@ urlpatterns = [
     path('health/', include('health.urls')),
     path('travel/', include('travel.urls')),
     path('bordkasse/', include('bordkasse.urls')),
-    path('events/', include('events.urls')),
+    path('leisure/', include('leisure.urls')),
+    path('events/mcp', LeisureMcpView.as_view()),  # alte MCP-URL, Übergang bis Cowork auf /leisure/mcp umgestellt ist
     path('tasks/', include('tasks.urls')),
     path('telegram/', include('telegram_app.urls')),
     path('', include('core.urls')),

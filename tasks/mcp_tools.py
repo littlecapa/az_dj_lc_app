@@ -1,5 +1,5 @@
 """MCP-Tools für die zentrale Task-Registry — werden in die bestehenden MCP-Server eingehängt
-(z. B. events.mcp_server), damit Cowork die Prompts über die schon konfigurierte URL bekommt."""
+(z. B. leisure.mcp_server), damit Cowork die Prompts über die schon konfigurierte URL bekommt."""
 
 from .models import Task
 

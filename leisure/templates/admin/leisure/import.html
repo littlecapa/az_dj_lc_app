@@ -2,14 +2,14 @@
 {% block breadcrumbs %}
 <div class="breadcrumbs">
   <a href="{% url 'admin:index' %}">Start</a> &rsaquo;
-  <a href="{% url 'admin:app_list' app_label='events' %}">Events</a> &rsaquo;
-  <a href="{% url 'admin:events_upcomingevent_changelist' %}">Upcoming Events</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label='leisure' %}">Leisure</a> &rsaquo;
+  <a href="{% url 'admin:leisure_upcomingevent_changelist' %}">Upcoming Events</a> &rsaquo;
   JSON importieren
 </div>
 {% endblock %}
 {% block content %}
-<p>Locations und Artists werden über den Namen gefunden und nur ergänzt (Rating und vorhandene Texte bleiben).
-   Events (Location + Artist + Datum) werden nicht doppelt angelegt. Bei einem Fehler wird nichts gespeichert.</p>
+<p>Venues und Artists werden über den Namen gefunden und nur ergänzt (Rating und vorhandene Texte bleiben).
+   Events (Venue + Artist + Datum) werden nicht doppelt angelegt. Bei einem Fehler wird nichts gespeichert.</p>
 
 {% if report %}
   <fieldset class="module aligned">
@@ -18,13 +18,13 @@
       <ul class="errorlist">{% for e in report.errors %}<li>{{ e }}</li>{% endfor %}</ul>
     {% endif %}
     <table>
-      <tr><th></th><th>Locations</th><th>Artists</th><th>Events</th></tr>
+      <tr><th></th><th>Venues</th><th>Artists</th><th>Events</th></tr>
       <tr><th>neu</th>
-        <td>{{ report.created.locations|join:", " }}</td><td>{{ report.created.artists|join:", " }}</td><td>{{ report.created.events|join:"; " }}</td></tr>
+        <td>{{ report.created.venues|join:", " }}</td><td>{{ report.created.artists|join:", " }}</td><td>{{ report.created.events|join:"; " }}</td></tr>
       <tr><th>ergänzt</th>
-        <td>{{ report.updated.locations|join:", " }}</td><td>{{ report.updated.artists|join:", " }}</td><td>{{ report.updated.events|join:"; " }}</td></tr>
+        <td>{{ report.updated.venues|join:", " }}</td><td>{{ report.updated.artists|join:", " }}</td><td>{{ report.updated.events|join:"; " }}</td></tr>
       <tr><th>unverändert</th>
-        <td>{{ report.unchanged.locations|join:", " }}</td><td>{{ report.unchanged.artists|join:", " }}</td><td>{{ report.unchanged.events|join:"; " }}</td></tr>
+        <td>{{ report.unchanged.venues|join:", " }}</td><td>{{ report.unchanged.artists|join:", " }}</td><td>{{ report.unchanged.events|join:"; " }}</td></tr>
     </table>
   </fieldset>
 {% endif %}

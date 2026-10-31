@@ -161,7 +161,8 @@ INSTALLED_APPS = [
     'travel',
     'telegram_app',
     'bordkasse',
-    'events',
+    'events',  # leer, nur Migrationshistorie (Modelle sind nach leisure umgezogen)
+    'leisure',
     'tasks',
     'django.contrib.admin',
     'django.contrib.auth',

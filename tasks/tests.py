@@ -27,11 +27,11 @@ class MigrationTests(TestCase):
 
 @override_settings(MCP_READONLY_API_KEY='mcp-key')
 class TaskToolsTests(TestCase):
-    """get_tasks / get_task, eingehängt in /events/mcp."""
+    """get_tasks / get_task, eingehängt in /leisure/mcp."""
 
     def call(self, name, arguments=None):
         body = {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': name, 'arguments': arguments or {}}}
-        r = self.client.post('/events/mcp', data=json.dumps(body), content_type='application/json',
+        r = self.client.post('/leisure/mcp', data=json.dumps(body), content_type='application/json',
                              HTTP_AUTHORIZATION='Bearer mcp-key')
         return r.json()['result']
 
@@ -40,17 +40,17 @@ class TaskToolsTests(TestCase):
         Task.objects.create(name='Quotes holen', parent=main, position=2, executor=Task.Executor.SERVER)
         Task.objects.create(name='E-Mails lesen', parent=main, position=1)
         Task.objects.create(name='Report alt', parent=main, position=3, active=False)
-        Task.objects.filter(name='Alle Locations auslesen').update(active=False)
+        Task.objects.filter(name='Alle Venues auslesen').update(active=False)
 
         tasks = self.call('get_tasks')['structuredContent']
         self.assertEqual(tasks['count'], 10)
-        self.assertNotIn('Alle Locations auslesen', [t['name'] for t in tasks['tasks']])
+        self.assertNotIn('Alle Venues auslesen', [t['name'] for t in tasks['tasks']])
 
         task = self.call('get_task', {'name': 'morning briefing'})['structuredContent']
         self.assertEqual(task['parameters'], {'max': 5})
         self.assertEqual([(t['name'], t['executor']) for t in task['subtasks']],
                          [('E-Mails lesen', 'cowork'), ('Quotes holen', 'server')])
-        self.assertTrue(self.call('get_task', {'name': 'Alle Locations auslesen'})['isError'])
+        self.assertTrue(self.call('get_task', {'name': 'Alle Venues auslesen'})['isError'])
 
 
 class DummyCommand(TrackedCommandMixin, BaseCommand):

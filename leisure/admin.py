@@ -7,11 +7,11 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
 from .importer import IMPORT_FORMAT, import_events_json
-from .models import Artist, Location, UpcomingEvent
+from .models import Artist, UpcomingEvent, Venue
 
 
-@admin.register(Location)
-class LocationAdmin(admin.ModelAdmin):
+@admin.register(Venue)
+class VenueAdmin(admin.ModelAdmin):
     list_display = ('name', 'country', 'rating')
     list_editable = ('rating',)
     list_filter = ('country', 'rating')
@@ -46,15 +46,15 @@ class JsonImportForm(forms.Form):
 
 @admin.register(UpcomingEvent)
 class UpcomingEventAdmin(admin.ModelAdmin):
-    list_display = ('date', 'artist', 'location', 'ticket_url')
-    list_filter = ('location', 'artist')
-    search_fields = ('artist__name', 'location__name', 'info')
+    list_display = ('date', 'artist', 'venue', 'ticket_url')
+    list_filter = ('venue', 'artist')
+    search_fields = ('artist__name', 'venue__name', 'info')
     date_hierarchy = 'date'
-    autocomplete_fields = ('location', 'artist')
-    change_list_template = 'admin/events/upcomingevent/change_list.html'
+    autocomplete_fields = ('venue', 'artist')
+    change_list_template = 'admin/leisure/upcomingevent/change_list.html'
 
     def get_urls(self):
-        return [path('import/', self.admin_site.admin_view(self.import_view), name='events_import')] + super().get_urls()
+        return [path('import/', self.admin_site.admin_view(self.import_view), name='leisure_import')] + super().get_urls()
 
     def import_view(self, request):
         if not self.has_add_permission(request):
@@ -68,7 +68,7 @@ class UpcomingEventAdmin(admin.ModelAdmin):
                 created = sum(len(v) for v in report['created'].values())
                 updated = sum(len(v) for v in report['updated'].values())
                 self.message_user(request, f'Import fertig: {created} neu, {updated} ergänzt.', messages.SUCCESS)
-                return redirect(reverse('admin:events_upcomingevent_changelist'))
+                return redirect(reverse('admin:leisure_upcomingevent_changelist'))
         context = {
             **self.admin_site.each_context(request),
             'title': 'Events aus JSON importieren',
@@ -77,4 +77,4 @@ class UpcomingEventAdmin(admin.ModelAdmin):
             'report': report,
             'example': json.dumps(IMPORT_FORMAT['example'], ensure_ascii=False, indent=2),
         }
-        return TemplateResponse(request, 'admin/events/import.html', context)
+        return TemplateResponse(request, 'admin/leisure/import.html', context)

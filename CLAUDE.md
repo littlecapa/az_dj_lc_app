@@ -31,18 +31,20 @@
   (Umbenennen wirkt überall), Löschen ist Soft-Delete, Bearbeitungen landen als `BuchungRevision`.
   Standard-Einkaufsliste in den Tabellen `StandardKategorie`/`StandardArtikel` (Pflege im Admin, Startbestand per Migration 0003).
   `Bordkasse_Konfig.Authentifizierung_erforderlich` (Admin) = True → alle Bordkassen-Seiten und API nur nach Login.
-- MCP-Server (nur lesend): `POST /fintech/mcp` (`fintech/apis/mcp_server.py`) und `POST /events/mcp`
-  (`events/mcp_server.py`), gemeinsamer Kern `core/mcp_server.py` (`ReadOnlyMcpView`), zustandsloses Streamable HTTP,
+- MCP-Server (nur lesend): `POST /fintech/mcp` (`fintech/apis/mcp_server.py`) und `POST /leisure/mcp`
+  (`leisure/mcp_server.py`; alte URL `/events/mcp` ist ein Übergangs-Alias), gemeinsamer Kern `core/mcp_server.py` (`ReadOnlyMcpView`), zustandsloses Streamable HTTP,
   Tools rufen intern die bestehenden lesenden API-Views auf. Auth nur per `Authorization: Bearer <MCP_READONLY_API_KEY>`
   — `FINTECH_API_KEY` und Admin-Session gelten dort bewusst nicht, der MCP-Key öffnet umgekehrt keine anderen Endpunkte.
   Neue Tools nur lesend (`get_…`, `readOnlyHint`), sonst schlägt `McpServerTests` bzw. `EventsMcpTests` fehl.
-- Events: `Location`, `Artist`, `UpcomingEvent` (Startbestand per Migration 0002, Pflege im Admin). Neue Konzerte
-  sucht Claude über `/events/mcp` und liefert JSON (Format: Tool `get_import_format`, `events/importer.py`);
+- Leisure (früher Events): `Venue` (früher Location), `Artist`, `UpcomingEvent`, Pflege im Admin unter „Leisure“. Die App
+  `events` ist nur noch eine leere Hülle für die Migrationshistorie (Daten per `leisure.0002` übernommen) — keine neuen
+  Modelle dort. Neue Konzerte sucht Claude über `/leisure/mcp` und liefert JSON (Format: Tool `get_import_format`,
+  `leisure/importer.py`, Schlüssel `venues`/`artists`/`events`; alte Schlüssel `locations`/`location` werden noch angenommen);
   Import manuell im Admin (Upcoming Events → „JSON importieren“) oder `python manage.py import_events <datei> [--dry-run]`.
-  Bestehende Locations/Artists werden nur ergänzt (Rating bleibt), Events nicht doppelt angelegt, bei Fehlern wird nichts gespeichert.
+  Bestehende Venues/Artists werden nur ergänzt (Rating bleibt), Events nicht doppelt angelegt, bei Fehlern wird nichts gespeichert.
 - Tasks: zentrale Registry in der App `tasks` (`Task`: Name, Prompt, `executor` server/cowork/cloud, Sub-Tasks über
   `parent` + `position`, `interval_hours` für den Health-Check, `parameters` als JSON; `TaskRun` = Log je Lauf). Pflege im Admin.
-  MCP `get_tasks`/`get_task` (`tasks/mcp_tools.py`, eingehängt in `/events/mcp`) — Cowork Scheduled Tasks holen ihren
+  MCP `get_tasks`/`get_task` (`tasks/mcp_tools.py`, eingehängt in `/leisure/mcp`) — Cowork Scheduled Tasks holen ihren
   Prompt darüber, Prompt-Änderungen also im Admin, nicht in Cowork. Inaktive Tasks liefert der MCP-Server nicht aus.
   Server-Tasks (`executor=server`, `command` = Management-Command): Commands mit `TrackedCommandMixin`
   (`tasks/runner.py`; aktuell update_prices, update_news, update_etf_holdings) schreiben bei jedem regulären Lauf einen

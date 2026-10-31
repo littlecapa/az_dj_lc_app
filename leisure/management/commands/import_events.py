@@ -2,11 +2,11 @@ import json
 
 from django.core.management.base import BaseCommand, CommandError
 
-from events.importer import import_events_json
+from leisure.importer import import_events_json
 
 
 class Command(BaseCommand):
-    help = 'Importiert Locations, Artists und Upcoming Events aus einer JSON-Datei (Format: events.importer).'
+    help = 'Importiert Venues, Artists und Upcoming Events aus einer JSON-Datei (Format: leisure.importer).'
 
     def add_arguments(self, parser):
         parser.add_argument('file', help='Pfad zur JSON-Datei')

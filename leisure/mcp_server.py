@@ -1,12 +1,12 @@
 """
-MCP-Server (Model Context Protocol) — rein lesender Zugriff auf Locations, Artists und
+MCP-Server (Model Context Protocol) — rein lesender Zugriff auf Venues, Artists und
 Upcoming Events für Claude, damit Claude nach neuen Konzerten suchen kann.
 
-POST /events/mcp
+POST /leisure/mcp (übergangsweise auch noch POST /events/mcp)
 
 Transport, JSON-RPC und Authentifizierung (Bearer MCP_READONLY_API_KEY): core.mcp_server.
 Neue Konzerte schreibt Claude NICHT selbst, sondern liefert JSON im Format von
-get_import_format, das manuell importiert wird (Admin → Upcoming Events → JSON importieren
+get_import_format, das manuell importiert wird (Admin → Leisure → Upcoming Events → JSON importieren
 oder `python manage.py import_events <datei.json>`).
 """
 
@@ -18,15 +18,15 @@ from core.mcp_server import ReadOnlyMcpView
 from tasks.mcp_tools import TASK_TOOLS
 
 from .importer import IMPORT_FORMAT
-from .models import Artist, Location, UpcomingEvent
+from .models import Artist, UpcomingEvent, Venue
 
-SERVER_INFO = {"name": "lc-app-events", "title": "LC Events (read-only)", "version": "1.0.0"}
+SERVER_INFO = {"name": "lc-app-leisure", "title": "LC Leisure (read-only)", "version": "2.0.0"}
 INSTRUCTIONS = (
-    "Read-only access to the owner's favourite concert locations, artists and already known "
-    "upcoming events. Ratings are 1-10 (10 = very good). Typical workflow: read locations, artists "
+    "Read-only access to the owner's favourite concert venues, artists and already known "
+    "upcoming events. Ratings are 1-10 (10 = very good). Typical workflow: read venues, artists "
     "and upcoming events, search the web for new concerts of these artists and/or at these "
-    "locations, and return the findings as JSON in the format of get_import_format — only events "
-    "that are not already listed. New artists or locations may be suggested in the same JSON. "
+    "venues, and return the findings as JSON in the format of get_import_format — only events "
+    "that are not already listed. New artists or venues may be suggested in the same JSON. "
     "This server cannot write; the owner imports the JSON manually. Predefined tasks with their "
     "prompts are available via get_tasks / get_task — when asked to run a task, fetch its prompt "
     "with get_task and follow it."
@@ -35,9 +35,9 @@ INSTRUCTIONS = (
 _DATE = {"type": "string", "format": "date", "description": "ISO date YYYY-MM-DD"}
 
 
-def _location(loc):
-    return {"name": loc.name, "country": loc.country, "info": loc.info,
-            "picture_url": loc.picture_url or None, "rating": loc.rating}
+def _venue(venue):
+    return {"name": venue.name, "country": venue.country, "info": venue.info,
+            "picture_url": venue.picture_url or None, "rating": venue.rating}
 
 
 def _artist(artist):
@@ -46,7 +46,7 @@ def _artist(artist):
 
 
 def _event(event):
-    return {"location": event.location.name, "country": event.location.country,
+    return {"venue": event.venue.name, "country": event.venue.country,
             "artist": event.artist.name, "date": event.date.isoformat(), "info": event.info,
             "ticket_url": event.ticket_url or None}
 
@@ -58,9 +58,9 @@ def _parse_date(value, field):
         raise ValueError(f"'{field}' must be YYYY-MM-DD")
 
 
-def _locations(args):
-    locations = [_location(loc) for loc in Location.objects.all()]
-    return 200, {"count": len(locations), "locations": locations}
+def _venues(args):
+    venues = [_venue(v) for v in Venue.objects.all()]
+    return 200, {"count": len(venues), "venues": venues}
 
 
 def _artists(args):
@@ -74,23 +74,23 @@ def _upcoming_events(args):
         to_date = _parse_date(args["to_date"], "to_date") if args.get("to_date") else None
     except ValueError as exc:
         return 400, {"error": str(exc)}
-    events = UpcomingEvent.objects.select_related("location", "artist").filter(date__gte=from_date)
+    events = UpcomingEvent.objects.select_related("venue", "artist").filter(date__gte=from_date)
     if to_date:
         events = events.filter(date__lte=to_date)
     if args.get("artist"):
         events = events.filter(artist__name__iexact=args["artist"].strip())
-    if args.get("location"):
-        events = events.filter(location__name__iexact=args["location"].strip())
+    if args.get("venue"):
+        events = events.filter(venue__name__iexact=args["venue"].strip())
     result = [_event(e) for e in events]
     return 200, {"from_date": from_date.isoformat(), "count": len(result), "events": result}
 
 
 TOOLS = {
-    "get_locations": {
-        "title": "Locations",
-        "description": "All favourite concert locations with country, info, picture link and rating (1-10).",
+    "get_venues": {
+        "title": "Venues",
+        "description": "All favourite concert venues with country, info, picture link and rating (1-10).",
         "inputSchema": {"type": "object", "properties": {}},
-        "run": _locations,
+        "run": _venues,
     },
     "get_artists": {
         "title": "Artists",
@@ -100,7 +100,7 @@ TOOLS = {
     },
     "get_upcoming_events": {
         "title": "Upcoming events",
-        "description": "Already known upcoming concerts (location, artist, date, info, ticket link), "
+        "description": "Already known upcoming concerts (venue, artist, date, info, ticket link), "
                        "sorted by date. By default from today on.",
         "inputSchema": {
             "type": "object",
@@ -108,14 +108,14 @@ TOOLS = {
                 "from_date": {**_DATE, "description": "Earliest date (YYYY-MM-DD), default today"},
                 "to_date": {**_DATE, "description": "Latest date (YYYY-MM-DD), optional"},
                 "artist": {"type": "string", "description": "Artist name (case-insensitive), optional"},
-                "location": {"type": "string", "description": "Location name (case-insensitive), optional"},
+                "venue": {"type": "string", "description": "Venue name (case-insensitive), optional"},
             },
         },
         "run": _upcoming_events,
     },
     "get_import_format": {
         "title": "Import format",
-        "description": "JSON format (with example) in which newly found concerts, artists and locations "
+        "description": "JSON format (with example) in which newly found concerts, artists and venues "
                        "must be returned so the owner can import them.",
         "inputSchema": {"type": "object", "properties": {}},
         "run": lambda a: (200, IMPORT_FORMAT),
@@ -124,7 +124,7 @@ TOOLS = {
 }
 
 
-class EventsMcpView(ReadOnlyMcpView):
+class LeisureMcpView(ReadOnlyMcpView):
     TOOLS = TOOLS
     SERVER_INFO = SERVER_INFO
     INSTRUCTIONS = INSTRUCTIONS

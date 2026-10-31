@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class LeisureConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "leisure"
+    verbose_name = "Leisure"
