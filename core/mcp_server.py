@@ -1,14 +1,15 @@
 """
-Gemeinsamer Kern für die eigenen, rein lesenden MCP-Server (Model Context Protocol).
+Gemeinsamer Kern für die eigenen MCP-Server (Model Context Protocol) — rein lesende und eng begrenzte schreibende.
 
 Transport: "Streamable HTTP", zustandslos — jede JSON-RPC-Anfrage wird direkt mit
 application/json beantwortet, kein SSE-Stream, keine Sessions (GET/DELETE → 405).
 Unterstützt: initialize, ping, tools/list, tools/call; Notifications → 202.
 
-Authentifizierung: "Authorization: Bearer <MCP_READONLY_API_KEY>". Der Key gilt nur
-für die MCP-Endpunkte, FINTECH_API_KEY und Admin-Session werden bewusst NICHT akzeptiert.
+Authentifizierung: "Authorization: Bearer <Key>" — lesende Server (ReadOnlyMcpView) mit
+MCP_READONLY_API_KEY, schreibende (WriteMcpView) ausschließlich mit MCP_WRITE_API_KEY. Die Keys
+gelten nur für die MCP-Endpunkte, FINTECH_API_KEY und Admin-Session werden bewusst NICHT akzeptiert.
 
-Ein konkreter Server ist eine Unterklasse von ReadOnlyMcpView mit eigenen TOOLS,
+Ein konkreter Server ist eine Unterklasse von ReadOnlyMcpView bzw. WriteMcpView mit eigenen TOOLS,
 SERVER_INFO und INSTRUCTIONS (siehe fintech.apis.mcp_server, leisure.mcp_server).
 """
 
@@ -41,8 +42,8 @@ def _error(msg_id, code, message):
     return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
 
 
-def _is_authorized(request) -> bool:
-    expected = getattr(settings, "MCP_READONLY_API_KEY", None)
+def _is_authorized(request, key_setting) -> bool:
+    expected = getattr(settings, key_setting, None)
     auth = request.headers.get("Authorization", "")
     if not expected or not auth.startswith("Bearer "):
         return False
@@ -50,15 +51,17 @@ def _is_authorized(request) -> bool:
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class ReadOnlyMcpView(View):
+class McpView(View):
     """TOOLS: {name: {title, description, inputSchema, run(args) -> (status, data)}}"""
     http_method_names = ["post"]
+    API_KEY_SETTING = None
+    READ_ONLY = True
     TOOLS = {}
     SERVER_INFO = {}
     INSTRUCTIONS = ""
 
     def post(self, request):
-        if not _is_authorized(request):
+        if not _is_authorized(request, self.API_KEY_SETTING):
             response = JsonResponse({"error": "Unauthorized"}, status=401)
             response["WWW-Authenticate"] = 'Bearer realm="lc-app-mcp"'
             return response
@@ -114,7 +117,7 @@ class ReadOnlyMcpView(View):
                 "title": t["title"],
                 "description": t["description"],
                 "inputSchema": t["inputSchema"],
-                "annotations": {"readOnlyHint": True, "openWorldHint": False},
+                "annotations": {"readOnlyHint": self.READ_ONLY, "openWorldHint": False},
             }
             for name, t in self.TOOLS.items()
         ]
@@ -142,3 +145,13 @@ class ReadOnlyMcpView(View):
             "structuredContent": data,
             "isError": status >= 400,
         }
+
+
+class ReadOnlyMcpView(McpView):
+    API_KEY_SETTING = "MCP_READONLY_API_KEY"
+
+
+class WriteMcpView(McpView):
+    """Für eng begrenzte Schreib-Tools (z. B. Vorschläge anlegen) — eigener Key, nie der Lese-Key."""
+    API_KEY_SETTING = "MCP_WRITE_API_KEY"
+    READ_ONLY = False

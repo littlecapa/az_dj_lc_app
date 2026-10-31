@@ -7,7 +7,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
 from .importer import IMPORT_FORMAT, import_events_json
-from .models import Artist, UpcomingEvent, Venue
+from .models import Artist, Category, Suggestion, UpcomingEvent, Venue
 
 
 @admin.register(Venue)
@@ -18,11 +18,24 @@ class VenueAdmin(admin.ModelAdmin):
     search_fields = ('name', 'country', 'info')
 
 
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    search_fields = ('name',)
+
+
+@admin.register(Suggestion)
+class SuggestionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'kind', 'category', 'status', 'rating', 'created_at', 'decided_at')
+    list_filter = ('kind', 'status', 'category')
+    search_fields = ('name', 'info')
+    date_hierarchy = 'created_at'
+
+
 @admin.register(Artist)
 class ArtistAdmin(admin.ModelAdmin):
-    list_display = ('name', 'rating', 'song_url')
+    list_display = ('name', 'category', 'rating', 'song_url')
     list_editable = ('rating',)
-    list_filter = ('rating',)
+    list_filter = ('category', 'rating')
     search_fields = ('name', 'info')
 
 

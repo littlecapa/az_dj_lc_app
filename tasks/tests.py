@@ -15,7 +15,7 @@ from .runner import TrackedCommandMixin
 
 class MigrationTests(TestCase):
     def test_tasks_from_events_copied(self):
-        self.assertEqual(Task.objects.filter(executor=Task.Executor.COWORK).count(), 5)
+        self.assertEqual(Task.objects.exclude(executor=Task.Executor.SERVER).count(), 5)
         self.assertEqual(Task.objects.first().name, 'Alle Künstler auslesen')
 
     def test_server_tasks_seeded(self):

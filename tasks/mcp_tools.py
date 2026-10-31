@@ -1,7 +1,10 @@
 """MCP-Tools für die zentrale Task-Registry — werden in die bestehenden MCP-Server eingehängt
 (z. B. leisure.mcp_server), damit Cowork die Prompts über die schon konfigurierte URL bekommt."""
 
-from .models import Task
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+
+from .models import Task, TaskRun
 
 
 def _summary(task):
@@ -40,5 +43,43 @@ TASK_TOOLS = {
             "required": ["name"],
         },
         "run": _task,
+    },
+}
+
+
+def _log_task_run(args):
+    task = Task.objects.filter(active=True, name__iexact=args["task"].strip()).exclude(executor=Task.Executor.SERVER).first()
+    if task is None:
+        return 404, {"error": f"Unknown or server-side task: {args['task']}"}
+    if args["status"] not in (TaskRun.Status.SUCCESS, TaskRun.Status.ERROR):
+        return 400, {"error": "'status' must be 'success' or 'error'"}
+    now = timezone.now()
+    try:
+        started_at = parse_datetime(args["started_at"]) if args.get("started_at") else None
+    except ValueError:
+        started_at = None
+    if started_at is None or started_at > now:
+        started_at = now
+    run = TaskRun.objects.create(task=task, status=args["status"], started_at=started_at, finished_at=now,
+                                 message=(args.get("message") or "")[:2000])
+    return 200, {"task": task.name, "status": run.status, "logged_at": now.isoformat()}
+
+
+TASK_WRITE_TOOLS = {
+    "log_task_run": {
+        "title": "Log task run",
+        "description": "Report the result of a predefined Claude task (call once at the end of every run, also on "
+                       "failure). Shown on the owner's task health page.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "description": "Task name as returned by get_task"},
+                "status": {"type": "string", "enum": ["success", "error"]},
+                "message": {"type": "string", "description": "Short result, e.g. '3 neue Vorschläge, 2 übersprungen'"},
+                "started_at": {"type": "string", "format": "date-time", "description": "Optional ISO start time"},
+            },
+            "required": ["task", "status"],
+        },
+        "run": _log_task_run,
     },
 }

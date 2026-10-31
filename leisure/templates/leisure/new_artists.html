@@ -1,0 +1,58 @@
+{% extends "homepage/base_home.html" %}
+{% load tz %}
+
+{% block title %}Neue Artists{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <h2>Neue Artists</h2>
+  <p class="text-muted small">Vorschläge von Claude, neueste oben. 👍 mit Rating übernimmt den Artist, 👎 setzt ihn auf die Blacklist (wird nie wieder vorgeschlagen). Ohne Auswahl bleibt der Vorschlag offen.</p>
+  {% if messages %}{% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} py-2">{{ m }}</div>{% endfor %}{% endif %}
+
+  {% if pending %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Name</th><th>Kategorie</th><th>Info</th><th class="text-nowrap">Bewertung</th><th>Rating</th></tr></thead>
+      <tbody>
+      {% for s in pending %}
+        <tr>
+          <td class="fw-semibold">{{ s.name }}{% if s.payload.song_url %}<br><a href="{{ s.payload.song_url }}" target="_blank" rel="noopener noreferrer" class="small fw-normal">▶ Song</a>{% endif %}
+            <div class="text-muted small fw-normal">{{ s.created_at|timezone:"Europe/Berlin"|date:"d.m.Y" }}</div></td>
+          <td>{{ s.category|default:"–" }}</td>
+          <td class="small">{{ s.info }}</td>
+          <td class="text-nowrap">
+            <input type="radio" class="btn-check" name="verdict_{{ s.pk }}" id="up_{{ s.pk }}" value="up" autocomplete="off">
+            <label class="btn btn-outline-success btn-sm" for="up_{{ s.pk }}" title="Übernehmen">👍</label>
+            <input type="radio" class="btn-check" name="verdict_{{ s.pk }}" id="down_{{ s.pk }}" value="down" autocomplete="off">
+            <label class="btn btn-outline-danger btn-sm" for="down_{{ s.pk }}" title="Blacklist">👎</label>
+          </td>
+          <td>
+            <select name="rating_{{ s.pk }}" class="form-select form-select-sm" style="width: 5em" aria-label="Rating für {{ s.name }}">
+              <option value="">–</option>
+              {% for r in ratings %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+            </select>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <button type="submit" class="btn btn-primary">Speichern</button>
+  </form>
+  {% else %}
+    <p>Keine offenen Vorschläge.</p>
+  {% endif %}
+
+  {% if decided %}
+  <h5 class="mt-5">Zuletzt entschieden</h5>
+  <ul class="list-unstyled small">
+    {% for s in decided %}
+      <li>{% if s.status == 'accepted' %}👍 {{ s.name }} ({{ s.rating }}){% else %}👎 {{ s.name }}{% endif %} <span class="text-muted">– {{ s.decided_at|timezone:"Europe/Berlin"|date:"d.m.Y" }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <a href="{% url 'admin:leisure_suggestion_changelist' %}" class="btn btn-sm btn-outline-secondary mt-3">Alle Vorschläge im Admin</a>
+</div>
+{% endblock %}

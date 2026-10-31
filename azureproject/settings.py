@@ -133,6 +133,7 @@ MCP_TARGET_USERNAME = os.getenv('MCP_TARGET_USERNAME')
 # (fintech.apis.mcp_server). Bewusst getrennt von FINTECH_API_KEY, der auch
 # schreibende Endpunkte öffnet. Leer/nicht gesetzt → Endpunkt lehnt alles ab.
 MCP_READONLY_API_KEY = os.getenv('MCP_READONLY_API_KEY')
+MCP_WRITE_API_KEY = os.getenv('MCP_WRITE_API_KEY')  # nur für Schreib-MCP-Endpunkte (z. B. /leisure/mcp/write)
 
 
 ALLOWED_HOSTS = ['192.168.178.139', 'localhost', '127.0.0.1', 'macmini', '*']

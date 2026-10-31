@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from tasks.models import Task
 
 from .importer import import_events_json
-from .models import Artist, UpcomingEvent, Venue
+from .models import Artist, Category, Suggestion, UpcomingEvent, Venue
 
 
 class StartbestandTests(TestCase):
@@ -20,9 +20,12 @@ class StartbestandTests(TestCase):
                          {'Hayley Williams', 'The Killers', 'Pink'})
         self.assertEqual(set(Artist.objects.filter(rating=7).values_list('name', flat=True)),
                          {'Harry Styles', 'James Blunt', 'Santiano'})
-        cowork = Task.objects.filter(executor=Task.Executor.COWORK)
-        self.assertEqual(cowork.count(), 5)
-        for task in cowork:
+        self.assertEqual(Category.objects.count(), 6)
+        self.assertFalse(Artist.objects.filter(category__isnull=True).exists())
+        self.assertEqual(Artist.objects.get(name='John Cleese').category.name, 'Comedy')
+        claude_tasks = Task.objects.exclude(executor=Task.Executor.SERVER)
+        self.assertEqual(claude_tasks.count(), 5)
+        for task in claude_tasks:
             self.assertIn('LC Leisure', task.prompt, task.name)
             self.assertNotIn('ocation', task.prompt, task.name)
 
@@ -127,7 +130,7 @@ class LeisureMcpTests(TestCase):
         tools = self.rpc('tools/list').json()['result']['tools']
         self.assertEqual({t['name'] for t in tools},
                          {'get_venues', 'get_artists', 'get_upcoming_events', 'get_import_format',
-                          'get_tasks', 'get_task'})
+                          'get_categories', 'get_suggestions', 'get_tasks', 'get_task'})
         for tool in tools:
             self.assertTrue(tool['annotations']['readOnlyHint'], tool['name'])
             self.assertTrue(re.match(r'^get_', tool['name']), tool['name'])
@@ -158,3 +161,89 @@ class LeisureMcpTests(TestCase):
         task = self.call('get_task', {'name': 'Gibt es nicht'})
         self.assertTrue(task['isError'])
         self.assertEqual(len(task['structuredContent']['available']), 8)
+
+
+@override_settings(MCP_READONLY_API_KEY='mcp-key', MCP_WRITE_API_KEY='write-key')
+class SuggestionTests(TestCase):
+    """Schreib-MCP /leisure/mcp/write (add_suggestions, log_task_run) und Formular /leisure/new_artists."""
+
+    def rpc(self, method, params=None, token='write-key', url='/leisure/mcp/write'):
+        body = {'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params or {}}
+        return self.client.post(url, data=json.dumps(body), content_type='application/json',
+                                HTTP_AUTHORIZATION=f'Bearer {token}')
+
+    def call(self, name, arguments, **kwargs):
+        return self.rpc('tools/call', {'name': name, 'arguments': arguments}, **kwargs).json()['result']
+
+    def add(self, *items):
+        return self.call('add_suggestions', {'kind': 'artist', 'suggestions': list(items)})['structuredContent']
+
+    def test_write_endpoint_auth_and_tools(self):
+        self.assertEqual(self.rpc('ping', token='mcp-key').status_code, 401)  # Lese-Key darf nicht schreiben
+        self.assertEqual(self.rpc('ping').status_code, 200)
+        self.assertEqual(self.rpc('ping', url='/leisure/mcp').status_code, 401)  # Schreib-Key nicht auf Lese-Server
+        tools = self.rpc('tools/list').json()['result']['tools']
+        self.assertEqual({t['name'] for t in tools}, {'add_suggestions', 'log_task_run'})
+        self.assertFalse(any(t['annotations']['readOnlyHint'] for t in tools))
+
+    def test_add_suggestions(self):
+        result = self.add(
+            {'name': 'Tom Odell', 'category': 'singer-songwriter', 'info': 'Wie Ed Sheeran.',
+             'song_url': 'https://www.youtube.com/watch?v=abc'},
+            {'name': 'sting', 'category': 'Pop', 'info': 'x'},
+            {'name': 'Neu', 'category': 'Techno', 'info': 'x'},
+            {'name': 'Kaputt', 'category': 'Pop', 'info': 'x', 'song_url': 'kein link'},
+        )
+        self.assertEqual(result['created'], ['Tom Odell'])
+        reasons = {s['name']: s['reason'] for s in result['skipped']}
+        self.assertIn('schon als Artist', reasons['sting'])
+        self.assertIn('unbekannte Kategorie', reasons['Neu'])
+        self.assertIn('keine gültige URL', reasons['Kaputt'])
+        suggestion = Suggestion.objects.get(name='Tom Odell')
+        self.assertEqual((suggestion.category.name, suggestion.payload), ('Singer-Songwriter', {'song_url': 'https://www.youtube.com/watch?v=abc'}))
+
+        self.assertIn('noch offen', self.add({'name': 'TOM ODELL', 'category': 'Pop', 'info': 'x'})['skipped'][0]['reason'])
+        many = [{'name': f'Band {i}', 'category': 'Rock', 'info': 'x'} for i in range(7)]
+        self.assertEqual(len(self.add(*many)['created']), 5)
+        self.assertTrue(self.call('add_suggestions', {'kind': 'venue', 'suggestions': [{'name': 'X'}]})['isError'])
+
+        read = self.call('get_suggestions', {'status': 'pending'}, token='mcp-key', url='/leisure/mcp')['structuredContent']
+        self.assertEqual(read['count'], 6)
+
+    def test_log_task_run(self):
+        from tasks.health import OK, task_health
+        result = self.call('log_task_run', {'task': 'vorschläge für neue künstler machen', 'status': 'success',
+                                            'message': '2 neue Vorschläge'})
+        self.assertFalse(result['isError'])
+        task = Task.objects.get(name='Vorschläge für neue Künstler machen')
+        self.assertEqual(task.executor, Task.Executor.CLOUD)
+        self.assertEqual(task_health(task)[0], OK)
+        self.assertEqual(task.runs.get().message, '2 neue Vorschläge')
+        self.assertTrue(self.call('log_task_run', {'task': 'Kurse aktualisieren', 'status': 'success'})['isError'])
+        self.assertTrue(self.call('log_task_run', {'task': 'Alle Venues auslesen', 'status': 'kaputt'})['isError'])
+
+    def test_review_form(self):
+        self.assertEqual(self.client.get('/leisure/new_artists').status_code, 302)
+        self.client.force_login(User.objects.create_superuser('admin', password='pw'))
+        self.add({'name': 'Tom Odell', 'category': 'Singer-Songwriter', 'info': 'Wie Ed Sheeran.',
+                  'song_url': 'https://www.youtube.com/watch?v=abc'},
+                 {'name': 'Nickelback', 'category': 'Rock', 'info': 'x'},
+                 {'name': 'Später', 'category': 'Pop', 'info': 'x'})
+        tom, nickel, later = (Suggestion.objects.get(name=n) for n in ('Tom Odell', 'Nickelback', 'Später'))
+        r = self.client.get('/leisure/new_artists')
+        self.assertContains(r, 'Tom Odell')
+        self.assertContains(r, 'Singer-Songwriter')
+
+        r = self.client.post('/leisure/new_artists', {f'verdict_{tom.pk}': 'up'}, follow=True)
+        self.assertContains(r, 'braucht ein Rating')
+        tom.refresh_from_db()
+        self.assertEqual(tom.status, Suggestion.Status.PENDING)
+
+        self.client.post('/leisure/new_artists', {f'verdict_{tom.pk}': 'up', f'rating_{tom.pk}': '7',
+                                                  f'verdict_{nickel.pk}': 'down', f'rating_{later.pk}': '9'})
+        artist = Artist.objects.get(name='Tom Odell')
+        self.assertEqual((artist.rating, artist.category.name, artist.song_url),
+                         (7, 'Singer-Songwriter', 'https://www.youtube.com/watch?v=abc'))
+        self.assertEqual(Suggestion.objects.get(pk=nickel.pk).status, Suggestion.Status.REJECTED)
+        self.assertEqual(Suggestion.objects.get(pk=later.pk).status, Suggestion.Status.PENDING)
+        self.assertIn('Blacklist', self.add({'name': 'Nickelback', 'category': 'Rock', 'info': 'x'})['skipped'][0]['reason'])
