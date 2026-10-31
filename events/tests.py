@@ -5,8 +5,10 @@ import re
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
+from tasks.models import Task
+
 from .importer import import_events_json
-from .models import Artist, Location, Task, UpcomingEvent
+from .models import Artist, Location, UpcomingEvent
 
 
 class StartbestandTests(TestCase):

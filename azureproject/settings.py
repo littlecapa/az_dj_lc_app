@@ -162,6 +162,7 @@ INSTALLED_APPS = [
     'telegram_app',
     'bordkasse',
     'events',
+    'tasks',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

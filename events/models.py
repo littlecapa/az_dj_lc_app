@@ -49,14 +49,3 @@ class UpcomingEvent(models.Model):
     def __str__(self):
         return f'{self.artist} @ {self.location} ({self.date:%d.%m.%Y})'
 
-
-class Task(models.Model):
-    """Claude-Prompt für wiederkehrende Aufgaben (z.B. Cowork Scheduled Tasks), per MCP abrufbar."""
-    name = models.CharField(max_length=200, unique=True)
-    prompt = models.TextField('Claude-Prompt')
-
-    class Meta:
-        ordering = ['id']
-
-    def __str__(self):
-        return self.name

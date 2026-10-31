@@ -40,7 +40,9 @@
   sucht Claude über `/events/mcp` und liefert JSON (Format: Tool `get_import_format`, `events/importer.py`);
   Import manuell im Admin (Upcoming Events → „JSON importieren“) oder `python manage.py import_events <datei> [--dry-run]`.
   Bestehende Locations/Artists werden nur ergänzt (Rating bleibt), Events nicht doppelt angelegt, bei Fehlern wird nichts gespeichert.
-  `Task` (eindeutiger Name + Claude-Prompt, Startbestand per Migration 0004, Pflege im Admin) per MCP `get_tasks`/`get_task` —
-  Cowork Scheduled Tasks holen ihren Prompt darüber, Prompt-Änderungen also im Admin, nicht in Cowork.
+- Tasks: zentrale Registry in der App `tasks` (`Task`: Name, Prompt, `executor` server/cowork/cloud, Sub-Tasks über
+  `parent` + `position`, `interval_hours` für den Health-Check, `parameters` als JSON; `TaskRun` = Log je Lauf). Pflege im Admin.
+  MCP `get_tasks`/`get_task` (`tasks/mcp_tools.py`, eingehängt in `/events/mcp`) — Cowork Scheduled Tasks holen ihren
+  Prompt darüber, Prompt-Änderungen also im Admin, nicht in Cowork. Inaktive Tasks liefert der MCP-Server nicht aus.
 - Fintech-Zugriff: alle Seiten/APIs unter `/fintech/` nur mit Admin-Login (`is_staff`) oder `X-Api-Key`;
   einzige Ausnahme ist der Demo-Bereich `/demo/fintech/`. `fintech/tests.py` prüft das für jede URL automatisch.

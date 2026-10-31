@@ -15,9 +15,10 @@ import datetime
 from django.utils import timezone
 
 from core.mcp_server import ReadOnlyMcpView
+from tasks.mcp_tools import TASK_TOOLS
 
 from .importer import IMPORT_FORMAT
-from .models import Artist, Location, Task, UpcomingEvent
+from .models import Artist, Location, UpcomingEvent
 
 SERVER_INFO = {"name": "lc-app-events", "title": "LC Events (read-only)", "version": "1.0.0"}
 INSTRUCTIONS = (
@@ -84,19 +85,6 @@ def _upcoming_events(args):
     return 200, {"from_date": from_date.isoformat(), "count": len(result), "events": result}
 
 
-def _tasks(args):
-    tasks = [{"name": t.name, "prompt": t.prompt} for t in Task.objects.all()]
-    return 200, {"count": len(tasks), "tasks": tasks}
-
-
-def _task(args):
-    task = Task.objects.filter(name__iexact=args["name"].strip()).first()
-    if task is None:
-        names = list(Task.objects.values_list("name", flat=True))
-        return 404, {"error": f"Unknown task: {args['name']}", "available": names}
-    return 200, {"name": task.name, "prompt": task.prompt}
-
-
 TOOLS = {
     "get_locations": {
         "title": "Locations",
@@ -132,23 +120,7 @@ TOOLS = {
         "inputSchema": {"type": "object", "properties": {}},
         "run": lambda a: (200, IMPORT_FORMAT),
     },
-    "get_tasks": {
-        "title": "Tasks",
-        "description": "All predefined tasks (unique name and the Claude prompt to execute).",
-        "inputSchema": {"type": "object", "properties": {}},
-        "run": _tasks,
-    },
-    "get_task": {
-        "title": "Task",
-        "description": "The Claude prompt of one predefined task, looked up by its name (case-insensitive). "
-                       "Execute the returned prompt.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {"name": {"type": "string", "description": "Task name, e.g. 'Alle Künstler auslesen'"}},
-            "required": ["name"],
-        },
-        "run": _task,
-    },
+    **TASK_TOOLS,
 }
 
 
