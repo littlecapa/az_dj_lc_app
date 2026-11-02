@@ -165,7 +165,7 @@ class LeisureMcpTests(TestCase):
 
 @override_settings(MCP_READONLY_API_KEY='mcp-key', MCP_WRITE_API_KEY='write-key')
 class SuggestionTests(TestCase):
-    """Schreib-MCP /leisure/mcp/write (add_suggestions, log_task_run) und Formular /leisure/new_artists."""
+    """Schreib-MCP /leisure/mcp/write (add_suggestions, log_task_run) und Formulare /leisure/new_artists, new_venues."""
 
     def rpc(self, method, params=None, token='write-key', url='/leisure/mcp/write'):
         body = {'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params or {}}
@@ -175,8 +175,8 @@ class SuggestionTests(TestCase):
     def call(self, name, arguments, **kwargs):
         return self.rpc('tools/call', {'name': name, 'arguments': arguments}, **kwargs).json()['result']
 
-    def add(self, *items):
-        return self.call('add_suggestions', {'kind': 'artist', 'suggestions': list(items)})['structuredContent']
+    def add(self, *items, kind='artist'):
+        return self.call('add_suggestions', {'kind': kind, 'suggestions': list(items)})['structuredContent']
 
     def test_write_endpoint_auth_and_tools(self):
         self.assertEqual(self.rpc('ping', token='mcp-key').status_code, 401)  # Lese-Key darf nicht schreiben
@@ -205,10 +205,29 @@ class SuggestionTests(TestCase):
         self.assertIn('noch offen', self.add({'name': 'TOM ODELL', 'category': 'Pop', 'info': 'x'})['skipped'][0]['reason'])
         many = [{'name': f'Band {i}', 'category': 'Rock', 'info': 'x'} for i in range(7)]
         self.assertEqual(len(self.add(*many)['created']), 5)
-        self.assertTrue(self.call('add_suggestions', {'kind': 'venue', 'suggestions': [{'name': 'X'}]})['isError'])
+        self.assertTrue(self.call('add_suggestions', {'kind': 'event', 'suggestions': [{'name': 'X'}]})['isError'])
 
         read = self.call('get_suggestions', {'status': 'pending'}, token='mcp-key', url='/leisure/mcp')['structuredContent']
         self.assertEqual(read['count'], 6)
+
+    def test_add_venue_suggestions(self):
+        existing = Venue.objects.first()
+        result = self.add(
+            {'name': 'Seebühne Bregenz', 'country': 'Österreich', 'info': 'Bühne im See.',
+             'picture_url': 'https://upload.wikimedia.org/bregenz.jpg'},
+            {'name': existing.name.upper(), 'country': 'Italien', 'info': 'x'},
+            {'name': 'Ohne Land', 'info': 'x'},
+            {'name': 'Tom Odell', 'country': 'England', 'info': 'x'},  # Name als Artist-Vorschlag stört nicht
+            kind='venue')
+        self.assertEqual(result['created'], ['Seebühne Bregenz', 'Tom Odell'])
+        reasons = {s['name']: s['reason'] for s in result['skipped']}
+        self.assertIn('schon als Venue', reasons[existing.name.upper()])
+        self.assertIn('country', reasons['Ohne Land'])
+        arena = Suggestion.objects.get(name='Seebühne Bregenz')
+        self.assertEqual((arena.kind, arena.category, arena.payload),
+                         ('venue', None, {'country': 'Österreich', 'picture_url': 'https://upload.wikimedia.org/bregenz.jpg'}))
+        read = self.call('get_suggestions', {'kind': 'venue'}, token='mcp-key', url='/leisure/mcp')['structuredContent']
+        self.assertEqual({s['country'] for s in read['suggestions']}, {'Österreich', 'England'})
 
     def test_log_task_run(self):
         from tasks.health import OK, task_health
@@ -247,3 +266,29 @@ class SuggestionTests(TestCase):
         self.assertEqual(Suggestion.objects.get(pk=nickel.pk).status, Suggestion.Status.REJECTED)
         self.assertEqual(Suggestion.objects.get(pk=later.pk).status, Suggestion.Status.PENDING)
         self.assertIn('Blacklist', self.add({'name': 'Nickelback', 'category': 'Rock', 'info': 'x'})['skipped'][0]['reason'])
+
+    def test_venue_review_form(self):
+        self.assertEqual(self.client.get('/leisure/new_venues').status_code, 302)
+        self.client.force_login(User.objects.create_superuser('admin', password='pw'))
+        self.add({'name': 'Seebühne Bregenz', 'country': 'Österreich', 'info': 'Bühne im See.',
+                  'picture_url': 'https://upload.wikimedia.org/bregenz.jpg'},
+                 {'name': 'Mehrzweckhalle', 'country': 'Deutschland', 'info': 'x'}, kind='venue')
+        self.add({'name': 'Tom Odell', 'category': 'Pop', 'info': 'x'})
+        arena, halle = (Suggestion.objects.get(kind='venue', name=n) for n in ('Seebühne Bregenz', 'Mehrzweckhalle'))
+        r = self.client.get('/leisure/new_venues')
+        self.assertContains(r, 'Neue Venues')
+        self.assertContains(r, 'Österreich')
+        self.assertContains(r, '🖼 Bild')
+        self.assertNotContains(r, 'Tom Odell')
+
+        self.client.post('/leisure/new_venues', {f'verdict_{arena.pk}': 'up', f'rating_{arena.pk}': '9',
+                                                 f'verdict_{halle.pk}': 'down'})
+        venue = Venue.objects.get(name='Seebühne Bregenz')
+        self.assertEqual((venue.rating, venue.country, venue.picture_url),
+                         (9, 'Österreich', 'https://upload.wikimedia.org/bregenz.jpg'))
+        self.assertEqual(Suggestion.objects.get(pk=halle.pk).status, Suggestion.Status.REJECTED)
+        self.assertIn('Blacklist', self.add({'name': 'mehrzweckhalle', 'country': 'Deutschland', 'info': 'x'},
+                                            kind='venue')['skipped'][0]['reason'])
+        task = Task.objects.get(name='Vorschläge für neue Venues machen')
+        self.assertEqual((task.executor, task.interval_hours), (Task.Executor.CLOUD, 744))
+        self.assertIn('/leisure/new_venues', task.prompt)

@@ -6,11 +6,16 @@ from django.shortcuts import redirect, render
 from .models import Suggestion
 from .suggestions import decide
 
+PAGES = {
+    Suggestion.Kind.ARTIST: {'title': 'Neue Artists', 'label': 'Artist', 'url': 'leisure:new-artists'},
+    Suggestion.Kind.VENUE: {'title': 'Neue Venues', 'label': 'Venue', 'url': 'leisure:new-venues'},
+}
 
-@staff_member_required
-def new_artists(request):
-    """Neue Artist-Vorschläge bewerten: Daumen hoch + Rating → Artist, Daumen runter → Blacklist."""
-    pending = Suggestion.objects.filter(kind=Suggestion.Kind.ARTIST, status=Suggestion.Status.PENDING).select_related('category')
+
+def _review(request, kind):
+    """Vorschläge einer Art bewerten: Daumen hoch + Rating → Artist bzw. Venue, Daumen runter → Blacklist."""
+    page = PAGES[kind]
+    pending = Suggestion.objects.filter(kind=kind, status=Suggestion.Status.PENDING).select_related('category')
     if request.method == 'POST':
         accepted, rejected, errors = [], [], []
         for suggestion in pending:
@@ -25,13 +30,24 @@ def new_artists(request):
                 continue
             (accepted if verdict == 'up' else rejected).append(suggestion.name)
         if accepted:
-            messages.success(request, f'Als Artist übernommen: {", ".join(accepted)}')
+            messages.success(request, f'Als {page["label"]} übernommen: {", ".join(accepted)}')
         if rejected:
             messages.info(request, f'Auf die Blacklist: {", ".join(rejected)}')
         for error in errors:
             messages.error(request, error)
-        return redirect('leisure:new-artists')
+        return redirect(page['url'])
 
-    decided = Suggestion.objects.filter(kind=Suggestion.Kind.ARTIST).exclude(status=Suggestion.Status.PENDING)
-    return render(request, 'leisure/new_artists.html', {
-        'pending': pending, 'decided': decided.order_by('-decided_at')[:10], 'ratings': range(10, 0, -1)})
+    decided = Suggestion.objects.filter(kind=kind).exclude(status=Suggestion.Status.PENDING)
+    return render(request, 'leisure/new_suggestions.html', {
+        'page': page, 'is_venue': kind == Suggestion.Kind.VENUE, 'pending': pending,
+        'decided': decided.order_by('-decided_at')[:10], 'ratings': range(10, 0, -1)})
+
+
+@staff_member_required
+def new_artists(request):
+    return _review(request, Suggestion.Kind.ARTIST)
+
+
+@staff_member_required
+def new_venues(request):
+    return _review(request, Suggestion.Kind.VENUE)

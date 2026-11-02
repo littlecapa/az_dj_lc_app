@@ -1,12 +1,12 @@
 {% extends "homepage/base_home.html" %}
 {% load tz %}
 
-{% block title %}Neue Artists{% endblock %}
+{% block title %}{{ page.title }}{% endblock %}
 
 {% block content %}
 <div class="container my-4">
-  <h2>Neue Artists</h2>
-  <p class="text-muted small">Vorschläge von Claude, neueste oben. 👍 mit Rating übernimmt den Artist, 👎 setzt ihn auf die Blacklist (wird nie wieder vorgeschlagen). Ohne Auswahl bleibt der Vorschlag offen.</p>
+  <h2>{{ page.title }}</h2>
+  <p class="text-muted small">Vorschläge von Claude, neueste oben. 👍 mit Rating übernimmt den {{ page.label }}, 👎 setzt ihn auf die Blacklist (wird nie wieder vorgeschlagen). Ohne Auswahl bleibt der Vorschlag offen.</p>
   {% if messages %}{% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} py-2">{{ m }}</div>{% endfor %}{% endif %}
 
   {% if pending %}
@@ -14,13 +14,13 @@
     {% csrf_token %}
     <div class="table-responsive">
     <table class="table align-middle">
-      <thead><tr><th>Name</th><th>Kategorie</th><th>Info</th><th class="text-nowrap">Bewertung</th><th>Rating</th></tr></thead>
+      <thead><tr><th>Name</th><th>{% if is_venue %}Land{% else %}Kategorie{% endif %}</th><th>Info</th><th class="text-nowrap">Bewertung</th><th>Rating</th></tr></thead>
       <tbody>
       {% for s in pending %}
         <tr>
-          <td class="fw-semibold">{{ s.name }}{% if s.payload.song_url %}<br><a href="{{ s.payload.song_url }}" target="_blank" rel="noopener noreferrer" class="small fw-normal">▶ Song</a>{% endif %}
+          <td class="fw-semibold">{{ s.name }}{% if s.payload.song_url %}<br><a href="{{ s.payload.song_url }}" target="_blank" rel="noopener noreferrer" class="small fw-normal">▶ Song</a>{% endif %}{% if s.payload.picture_url %}<br><a href="{{ s.payload.picture_url }}" target="_blank" rel="noopener noreferrer" class="small fw-normal">🖼 Bild</a>{% endif %}
             <div class="text-muted small fw-normal">{{ s.created_at|timezone:"Europe/Berlin"|date:"d.m.Y" }}</div></td>
-          <td>{{ s.category|default:"–" }}</td>
+          <td>{% if is_venue %}{{ s.payload.country|default:"–" }}{% else %}{{ s.category|default:"–" }}{% endif %}</td>
           <td class="small">{{ s.info }}</td>
           <td class="text-nowrap">
             <input type="radio" class="btn-check" name="verdict_{{ s.pk }}" id="up_{{ s.pk }}" value="up" autocomplete="off">
