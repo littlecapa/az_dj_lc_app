@@ -375,6 +375,8 @@ class SuggestionTests(TestCase):
         self.assertContains(r, 'Seebühne Bregenz')
         self.assertNotContains(r, '@ Arena di Verona')  # verworfen
         self.assertNotContains(r, '2020')  # vergangen
+        self.assertContains(r, ('Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag')[
+            (datetime.date.today() + datetime.timedelta(days=100)).weekday()])
 
         r = self.client.post('/leisure/new_events/voting', {'action': 'save', 'name': '  ', f'vote_{lorelei.pk}': 'up'},
                              follow=True)

@@ -1,5 +1,5 @@
 {% extends "homepage/base_home.html" %}
-{% load tz %}
+{% load i18n tz %}
 
 {% block title %}{{ page.title }}{% endblock %}
 
@@ -28,7 +28,7 @@
       {% for s in pending %}
         <tr>
           {% if is_event %}
-          <td class="text-nowrap fw-semibold">{{ s.event_date|date:"D d.m.Y" }}</td>
+          <td class="text-nowrap fw-semibold">{% language "de" %}{{ s.event_date|date:"D d.m.Y" }}{% endlanguage %}</td>
           <td>{{ s.payload.artist }}</td>
           <td>{{ s.payload.venue }}{% if s.payload.new_venue %}<br><span class="badge text-bg-warning fw-normal">neue Venue</span>{% endif %}</td>
           <td class="small">{{ s.info }}{% if s.payload.ticket_url %}<br><a href="{{ s.payload.ticket_url }}" target="_blank" rel="noopener noreferrer">🎟 Tickets</a>{% endif %}

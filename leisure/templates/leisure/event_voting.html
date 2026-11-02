@@ -1,5 +1,5 @@
 {% extends "homepage/base_home.html" %}
-{% load tz %}
+{% load i18n tz %}
 
 {% block title %}Konzerte – Abstimmung{% endblock %}
 
@@ -27,7 +27,7 @@
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between gap-2">
           <div>
-            <div class="text-muted small">{{ c.event_date|date:"l, d.m.Y" }}</div>
+            <div class="text-muted small">{% language "de" %}{{ c.event_date|date:"l, d.m.Y" }}{% endlanguage %}</div>
             <h5 class="mb-1">{{ c.payload.artist }} <span class="text-muted fw-normal">@ {{ c.payload.venue }}</span></h5>
             {% if c.status == 'accepted' %}<span class="badge text-bg-success fw-normal">eingeplant</span>{% endif %}
             {% if c.info %}<div class="small mt-1">{{ c.info }}</div>{% endif %}
