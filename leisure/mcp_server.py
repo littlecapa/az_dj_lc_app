@@ -19,7 +19,7 @@ from tasks.mcp_tools import TASK_TOOLS, TASK_WRITE_TOOLS
 
 from .importer import IMPORT_FORMAT
 from .models import Artist, Category, Suggestion, UpcomingEvent, Venue
-from .suggestions import KINDS, MAX_PER_CALL, add_suggestions
+from .suggestions import MAX_EVENTS_PER_CALL, MAX_PER_CALL, TOP_ARTIST_RATING, add_suggestions
 
 SERVER_INFO = {"name": "lc-app-leisure", "title": "LC Leisure (read-only)", "version": "2.0.0"}
 INSTRUCTIONS = (
@@ -97,15 +97,15 @@ def _suggestions(args):
         if args.get(field):
             suggestions = suggestions.filter(**{field: args[field]})
     result = [{"kind": s.kind, "name": s.name, "category": s.category.name if s.category else None,
-               "country": s.payload.get("country"), "status": s.status, "rating": s.rating, "info": s.info, "created_at": s.created_at.date().isoformat()}
+               "country": s.payload.get("country"), "payload": s.payload, "status": s.status, "rating": s.rating, "info": s.info, "created_at": s.created_at.date().isoformat()}
               for s in suggestions]
     return 200, {"count": len(result), "suggestions": result}
 
 
 def _add_suggestions(args):
     kind = args.get("kind", "artist")
-    if kind not in KINDS:
-        return 400, {"error": f"kind muss einer von {', '.join(KINDS)} sein (Events noch nicht)."}
+    if kind not in Suggestion.Kind.values:
+        return 400, {"error": f"kind muss einer von {', '.join(Suggestion.Kind.values)} sein."}
     if not isinstance(args.get("suggestions"), list):
         return 400, {"error": "'suggestions' muss eine Liste sein"}
     return 200, add_suggestions(kind, args["suggestions"])
@@ -178,39 +178,52 @@ class LeisureMcpView(ReadOnlyMcpView):
 
 WRITE_SERVER_INFO = {"name": "lc-app-leisure-write", "title": "LC Leisure (suggestions)", "version": "1.0.0"}
 WRITE_INSTRUCTIONS = (
-    "Narrow write access for the owner's leisure lists: store suggestions of new artists or venues for the owner "
-    "to rate (they never go into the lists directly) and report task runs. Read the current data with the "
+    "Narrow write access for the owner's leisure lists: store suggestions of new artists, venues or concerts for "
+    "the owner to rate (they never go into the lists directly) and report task runs. Read the current data with the "
     "read-only server lc-app-leisure first (get_artists, get_venues, get_categories, get_suggestions)."
 )
 
 WRITE_TOOLS = {
     "add_suggestions": {
         "title": "Add suggestions",
-        "description": f"Store up to {MAX_PER_CALL} suggested new artists or venues for the owner to rate. Names "
-                       "that already exist (as artist/venue or as pending/accepted/rejected suggestion of the same "
-                       "kind) are skipped (reason returned). Artists need a category from get_categories, venues a "
-                       "country (German name as in get_venues).",
+        "description": f"Store suggestions for the owner to rate: up to {MAX_PER_CALL} new artists or venues, or up "
+                       f"to {MAX_EVENTS_PER_CALL} concerts (kind event). Entries that already exist (as artist/venue/"
+                       "upcoming event or as pending/accepted/rejected suggestion of the same kind) are skipped "
+                       "(reason returned). Artists need a category from get_categories, venues a country (German "
+                       "name as in get_venues). Concerts need artist (exact name from get_artists), venue, date; "
+                       "a venue not in get_venues is only allowed for artists rated "
+                       f"{TOP_ARTIST_RATING}+ and needs country (and venue_info) — it is then also stored as venue "
+                       "suggestion.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "kind": {"type": "string", "enum": list(KINDS), "description": "Default 'artist'"},
+                "kind": {"type": "string", "enum": Suggestion.Kind.values, "description": "Default 'artist'"},
                 "suggestions": {
                     "type": "array",
-                    "maxItems": MAX_PER_CALL,
+                    "maxItems": MAX_EVENTS_PER_CALL,
                     "items": {
                         "type": "object",
                         "properties": {
-                            "name": {"type": "string"},
+                            "name": {"type": "string", "description": "Artists and venues"},
                             "category": {"type": "string", "description": "Artists only: one of get_categories"},
-                            "country": {"type": "string", "description": "Venues only: German country name"},
+                            "country": {"type": "string", "description": "Venues, and concerts at a venue not in "
+                                                                        "get_venues: German country name"},
                             "info": {"type": "string", "description": "German, 1-2 sentences: why it fits, "
                                                                      "tour info (artist) or city/capacity (venue)"},
                             "song_url": {"type": "string", "description": "Artists only: verified official "
                                                                          "YouTube/Spotify link, optional"},
                             "picture_url": {"type": "string", "description": "Venues only: direct image link "
                                                                             "(e.g. Wikimedia Commons), optional"},
+                            "artist": {"type": "string", "description": "Concerts: exact name from get_artists"},
+                            "venue": {"type": "string", "description": "Concerts: exact name from get_venues, or the "
+                                                                      "official name of a new venue"},
+                            "date": {**_DATE, "description": "Concerts: YYYY-MM-DD"},
+                            "ticket_url": {"type": "string", "description": "Concerts: verified official ticket link, "
+                                                                           "optional"},
+                            "venue_info": {"type": "string", "description": "Concerts at a new venue: German, what "
+                                                                           "makes it special, city, capacity"},
                         },
-                        "required": ["name", "info"],
+                        "required": ["info"],
                     },
                 },
             },

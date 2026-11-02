@@ -37,17 +37,22 @@
   — `FINTECH_API_KEY` und Admin-Session gelten dort bewusst nicht, der MCP-Key öffnet umgekehrt keine anderen Endpunkte.
   Neue Tools auf diesen Servern nur lesend (`get_…`, `readOnlyHint`), sonst schlägt `McpServerTests` bzw. `LeisureMcpTests` fehl.
   Einzige Schreib-Ausnahme: `POST /leisure/mcp/write` (`WriteMcpView`, nur `MCP_WRITE_API_KEY`, der Lese-Key gilt dort nicht
-  und umgekehrt) mit `add_suggestions` (kind artist/venue, nur in `Suggestion`, nie direkt in die Listen) und `log_task_run`.
+  und umgekehrt) mit `add_suggestions` (kind artist/venue/event, nur in `Suggestion`, nie direkt in die Listen) und `log_task_run`.
 - Leisure (früher Events): `Venue` (früher Location), `Artist`, `UpcomingEvent`, Pflege im Admin unter „Leisure“. Die App
   `events` ist nur noch eine leere Hülle für die Migrationshistorie (Daten per `leisure.0002` übernommen) — keine neuen
-  Modelle dort. Neue Konzerte sucht Claude über `/leisure/mcp` und liefert JSON (Format: Tool `get_import_format`,
+  Modelle dort. Neue Konzerte schlägt die Cloud-Routine per `add_suggestions` vor (siehe unten); der JSON-Import
+  bleibt für manuelle Funde (Format: Tool `get_import_format`,
   `leisure/importer.py`, Schlüssel `venues`/`artists`/`events`; alte Schlüssel `locations`/`location` werden noch angenommen);
   Import manuell im Admin (Upcoming Events → „JSON importieren“) oder `python manage.py import_events <datei> [--dry-run]`.
   Bestehende Venues/Artists werden nur ergänzt (Rating bleibt), Events nicht doppelt angelegt, bei Fehlern wird nichts gespeichert.
   Vorschläge: Claude legt per `add_suggestions` `Suggestion`s an (max. 5; Artists mit `Category` aus fester Liste, Pflege
   im Admin; Venues mit Land; Land und Links im `payload`); Logik in `leisure/suggestions.py` (`KINDS`). Bewertet wird unter
-  `/leisure/new_artists` bzw. `/leisure/new_venues` (nur Staff, gemeinsames Template `new_suggestions.html`):
-  👍 + Rating → Artist/Venue, 👎 → `rejected` = Blacklist, sonst bleibt offen. Event-Vorschläge gibt es noch nicht.
+  `/leisure/new_artists`, `/leisure/new_venues` bzw. `/leisure/new_events` (nur Staff, gemeinsames Template
+  `new_suggestions.html`): 👍 + Rating → Artist/Venue, 👎 → `rejected` = Blacklist, sonst bleibt offen.
+  Konzerte (kind event, max. 30 pro Aufruf, Name „Artist @ Venue, YYYY-MM-DD“, Daten im `payload`): nur bekannte
+  Artists; an einer fremden Venue nur Artists mit Rating ≥ 7 (`TOP_ARTIST_RATING`), die Venue wird dann zusätzlich
+  als Venue-Vorschlag angelegt und muss vor dem Konzert übernommen werden. 👍 ohne Rating → `UpcomingEvent`,
+  👎 = verworfen (wird nicht erneut angenommen).
   `get_suggestions` liefert alle Status, damit Abgelehntes und Offenes nicht erneut vorgeschlagen wird.
 - Tasks: zentrale Registry in der App `tasks` (`Task`: Name, Prompt, `executor` server/cowork/cloud, Sub-Tasks über
   `parent` + `position`, `interval_hours` für den Health-Check, `parameters` als JSON; `TaskRun` = Log je Lauf). Pflege im Admin.

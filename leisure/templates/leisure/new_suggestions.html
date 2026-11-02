@@ -6,7 +6,11 @@
 {% block content %}
 <div class="container my-4">
   <h2>{{ page.title }}</h2>
+  {% if is_event %}
+  <p class="text-muted small">Von Claude gefundene Konzerte, nach Datum. 👍 übernimmt das Konzert in die Upcoming Events, 👎 verwirft es. Liegt es an einer neuen Venue, erst die Venue unter <a href="{% url 'leisure:new-venues' %}">Neue Venues</a> übernehmen. Ohne Auswahl bleibt der Vorschlag offen.</p>
+  {% else %}
   <p class="text-muted small">Vorschläge von Claude, neueste oben. 👍 mit Rating übernimmt den {{ page.label }}, 👎 setzt ihn auf die Blacklist (wird nie wieder vorgeschlagen). Ohne Auswahl bleibt der Vorschlag offen.</p>
+  {% endif %}
   {% if messages %}{% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} py-2">{{ m }}</div>{% endfor %}{% endif %}
 
   {% if pending %}
@@ -14,26 +18,39 @@
     {% csrf_token %}
     <div class="table-responsive">
     <table class="table align-middle">
+      {% if is_event %}
+      <thead><tr><th>Datum</th><th>Artist</th><th>Venue</th><th>Info</th><th class="text-nowrap">Bewertung</th></tr></thead>
+      {% else %}
       <thead><tr><th>Name</th><th>{% if is_venue %}Land{% else %}Kategorie{% endif %}</th><th>Info</th><th class="text-nowrap">Bewertung</th><th>Rating</th></tr></thead>
+      {% endif %}
       <tbody>
       {% for s in pending %}
         <tr>
+          {% if is_event %}
+          <td class="text-nowrap fw-semibold">{{ s.event_date|date:"D d.m.Y" }}</td>
+          <td>{{ s.payload.artist }}</td>
+          <td>{{ s.payload.venue }}{% if s.payload.new_venue %}<br><span class="badge text-bg-warning fw-normal">neue Venue</span>{% endif %}</td>
+          <td class="small">{{ s.info }}{% if s.payload.ticket_url %}<br><a href="{{ s.payload.ticket_url }}" target="_blank" rel="noopener noreferrer">🎟 Tickets</a>{% endif %}</td>
+          {% else %}
           <td class="fw-semibold">{{ s.name }}{% if s.payload.song_url %}<br><a href="{{ s.payload.song_url }}" target="_blank" rel="noopener noreferrer" class="small fw-normal">▶ Song</a>{% endif %}{% if s.payload.picture_url %}<br><a href="{{ s.payload.picture_url }}" target="_blank" rel="noopener noreferrer" class="small fw-normal">🖼 Bild</a>{% endif %}
             <div class="text-muted small fw-normal">{{ s.created_at|timezone:"Europe/Berlin"|date:"d.m.Y" }}</div></td>
           <td>{% if is_venue %}{{ s.payload.country|default:"–" }}{% else %}{{ s.category|default:"–" }}{% endif %}</td>
           <td class="small">{{ s.info }}</td>
+          {% endif %}
           <td class="text-nowrap">
             <input type="radio" class="btn-check" name="verdict_{{ s.pk }}" id="up_{{ s.pk }}" value="up" autocomplete="off">
             <label class="btn btn-outline-success btn-sm" for="up_{{ s.pk }}" title="Übernehmen">👍</label>
             <input type="radio" class="btn-check" name="verdict_{{ s.pk }}" id="down_{{ s.pk }}" value="down" autocomplete="off">
-            <label class="btn btn-outline-danger btn-sm" for="down_{{ s.pk }}" title="Blacklist">👎</label>
+            <label class="btn btn-outline-danger btn-sm" for="down_{{ s.pk }}" title="{% if is_event %}Verwerfen{% else %}Blacklist{% endif %}">👎</label>
           </td>
+          {% if not is_event %}
           <td>
             <select name="rating_{{ s.pk }}" class="form-select form-select-sm" style="width: 5em" aria-label="Rating für {{ s.name }}">
               <option value="">–</option>
               {% for r in ratings %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
             </select>
           </td>
+          {% endif %}
         </tr>
       {% endfor %}
       </tbody>
@@ -49,7 +66,7 @@
   <h5 class="mt-5">Zuletzt entschieden</h5>
   <ul class="list-unstyled small">
     {% for s in decided %}
-      <li>{% if s.status == 'accepted' %}👍 {{ s.name }} ({{ s.rating }}){% else %}👎 {{ s.name }}{% endif %} <span class="text-muted">– {{ s.decided_at|timezone:"Europe/Berlin"|date:"d.m.Y" }}</span></li>
+      <li>{% if s.status == 'accepted' %}👍 {{ s.name }}{% if s.rating %} ({{ s.rating }}){% endif %}{% else %}👎 {{ s.name }}{% endif %} <span class="text-muted">– {{ s.decided_at|timezone:"Europe/Berlin"|date:"d.m.Y" }}</span></li>
     {% endfor %}
   </ul>
   {% endif %}

@@ -157,7 +157,7 @@ class LeisureMcpTests(TestCase):
         self.assertEqual(tasks[0]['name'], 'Alle Künstler auslesen')
         task = self.call('get_task', {'name': 'vorschläge für weitere upcoming events machen'})
         self.assertFalse(task['isError'])
-        self.assertIn('get_import_format', task['structuredContent']['prompt'])
+        self.assertIn('kind = event', task['structuredContent']['prompt'])
         task = self.call('get_task', {'name': 'Gibt es nicht'})
         self.assertTrue(task['isError'])
         self.assertEqual(len(task['structuredContent']['available']), 8)
@@ -165,7 +165,8 @@ class LeisureMcpTests(TestCase):
 
 @override_settings(MCP_READONLY_API_KEY='mcp-key', MCP_WRITE_API_KEY='write-key')
 class SuggestionTests(TestCase):
-    """Schreib-MCP /leisure/mcp/write (add_suggestions, log_task_run) und Formulare /leisure/new_artists, new_venues."""
+    """Schreib-MCP /leisure/mcp/write (add_suggestions, log_task_run) und Formulare /leisure/new_artists, new_venues,
+    new_events."""
 
     def rpc(self, method, params=None, token='write-key', url='/leisure/mcp/write'):
         body = {'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params or {}}
@@ -205,7 +206,7 @@ class SuggestionTests(TestCase):
         self.assertIn('noch offen', self.add({'name': 'TOM ODELL', 'category': 'Pop', 'info': 'x'})['skipped'][0]['reason'])
         many = [{'name': f'Band {i}', 'category': 'Rock', 'info': 'x'} for i in range(7)]
         self.assertEqual(len(self.add(*many)['created']), 5)
-        self.assertTrue(self.call('add_suggestions', {'kind': 'event', 'suggestions': [{'name': 'X'}]})['isError'])
+        self.assertTrue(self.call('add_suggestions', {'kind': 'konzert', 'suggestions': [{'name': 'X'}]})['isError'])
 
         read = self.call('get_suggestions', {'status': 'pending'}, token='mcp-key', url='/leisure/mcp')['structuredContent']
         self.assertEqual(read['count'], 6)
@@ -292,3 +293,66 @@ class SuggestionTests(TestCase):
         task = Task.objects.get(name='Vorschläge für neue Venues machen')
         self.assertEqual((task.executor, task.interval_hours), (Task.Executor.CLOUD, 744))
         self.assertIn('/leisure/new_venues', task.prompt)
+
+    def test_add_event_suggestions(self):
+        future = (datetime.date.today() + datetime.timedelta(days=200)).isoformat()
+        UpcomingEvent.objects.create(artist=Artist.objects.get(name='Sting'),
+                                     venue=Venue.objects.get(name='Arena di Verona'),
+                                     date=datetime.date.fromisoformat(future))
+        Suggestion.objects.create(kind='venue', name='Mehrzweckhalle', status='rejected', payload={'country': 'Deutschland'})
+        result = self.add(
+            {'artist': 'sting', 'venue': 'arena di verona', 'date': future, 'info': 'schon bekannt'},
+            {'artist': 'Sting', 'venue': 'Lorelei', 'date': future, 'info': 'Tour 2027',
+             'ticket_url': 'https://www.eventim.de/sting'},
+            {'artist': 'Sting', 'venue': 'Seebühne Bregenz', 'date': future, 'info': 'x', 'country': 'Österreich',
+             'venue_info': 'Bühne im Bodensee'},
+            {'artist': 'Sting', 'venue': 'Ohne Land', 'date': future, 'info': 'x'},
+            {'artist': 'Pink', 'venue': 'Irgendwo', 'date': future, 'info': 'x', 'country': 'Italien'},
+            {'artist': 'Sting', 'venue': 'Mehrzweckhalle', 'date': future, 'info': 'x', 'country': 'Deutschland'},
+            {'artist': 'Unbekannt', 'venue': 'Lorelei', 'date': future, 'info': 'x'},
+            {'artist': 'Sting', 'venue': 'Lorelei', 'date': '2020-01-01', 'info': 'x'},
+            {'artist': 'Sting', 'venue': 'Lorelei', 'date': '14.07.2027', 'info': 'x'},
+            kind='event')
+        self.assertEqual(result['created'], [f'Sting @ Lorelei, {future}', f'Sting @ Seebühne Bregenz, {future}'])
+        reasons = [s['reason'] for s in result['skipped']]
+        for expected in ('schon als Upcoming Event', '"country" fehlt', 'Rating ab 7', 'Blacklist',
+                         'unbekannter Artist', 'Vergangenheit', 'YYYY-MM-DD'):
+            self.assertTrue(any(expected in r for r in reasons), expected)
+        lorelei = Suggestion.objects.get(kind='event', name=f'Sting @ Lorelei, {future}')
+        self.assertEqual(lorelei.payload, {'artist': 'Sting', 'venue': 'Lorelei', 'date': future,
+                                           'ticket_url': 'https://www.eventim.de/sting'})
+        venue_suggestion = Suggestion.objects.get(kind='venue', name='Seebühne Bregenz')
+        self.assertEqual((venue_suggestion.info, venue_suggestion.payload), ('Bühne im Bodensee', {'country': 'Österreich'}))
+        again = self.add({'artist': 'STING', 'venue': 'lorelei', 'date': future, 'info': 'x'}, kind='event')
+        self.assertIn('noch offen', again['skipped'][0]['reason'])
+
+    def test_event_review_form(self):
+        self.client.force_login(User.objects.create_superuser('admin', password='pw'))
+        future = datetime.date.today() + datetime.timedelta(days=100)
+        self.add({'artist': 'Sting', 'venue': 'Lorelei', 'date': future.isoformat(), 'info': 'Tour',
+                  'ticket_url': 'https://www.eventim.de/sting'},
+                 {'artist': 'Sting', 'venue': 'Seebühne Bregenz', 'date': future.isoformat(), 'info': 'x',
+                  'country': 'Österreich'},
+                 {'artist': 'Sting', 'venue': 'Arena di Verona', 'date': future.isoformat(), 'info': 'x'}, kind='event')
+        lorelei, bregenz, verona = (Suggestion.objects.get(kind='event', name__contains=n)
+                                    for n in ('Lorelei', 'Bregenz', 'Verona'))
+        r = self.client.get('/leisure/new_events')
+        self.assertContains(r, 'Neue Konzerte')
+        self.assertContains(r, 'neue Venue')
+        self.assertContains(r, '🎟 Tickets')
+
+        r = self.client.post('/leisure/new_events', {f'verdict_{lorelei.pk}': 'up', f'verdict_{bregenz.pk}': 'up',
+                                                     f'verdict_{verona.pk}': 'down'}, follow=True)
+        self.assertContains(r, 'zuerst unter Neue Venues')
+        event = UpcomingEvent.objects.get(venue__name='Lorelei', date=future)
+        self.assertEqual((event.artist.name, event.info, event.ticket_url), ('Sting', 'Tour', 'https://www.eventim.de/sting'))
+        self.assertEqual(Suggestion.objects.get(pk=bregenz.pk).status, Suggestion.Status.PENDING)
+        self.assertEqual(Suggestion.objects.get(pk=verona.pk).status, Suggestion.Status.REJECTED)
+
+        venue = Suggestion.objects.get(kind='venue', name='Seebühne Bregenz')
+        self.client.post('/leisure/new_venues', {f'verdict_{venue.pk}': 'up', f'rating_{venue.pk}': '8'})
+        self.client.post('/leisure/new_events', {f'verdict_{bregenz.pk}': 'up'})
+        self.assertTrue(UpcomingEvent.objects.filter(venue__name='Seebühne Bregenz', date=future).exists())
+        task = Task.objects.get(name='Vorschläge für weitere Upcoming Events machen')
+        self.assertEqual((task.executor, task.interval_hours), (Task.Executor.CLOUD, 168))
+        self.assertIn('/leisure/new_events', task.prompt)
