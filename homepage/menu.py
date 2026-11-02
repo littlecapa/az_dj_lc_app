@@ -12,7 +12,9 @@ ACCESS_CHECKS = {
 
 SECTIONS = [
     ('💶 Finanzen', [
-        ('fintech:fintech-index', '📈', 'Fintech', 'Portfolio, Watchlisten, News, Alarme und Verwaltung.', 'staff'),
+        # immer sichtbar: ohne Login führt /fintech/ zur Anmeldung
+        ('fintech:fintech-index', '📈', 'Fintech', 'Portfolio, Watchlisten, News, Alarme und Verwaltung (Login nötig).',
+         'public'),
         ('fintech_demo:fintech-index', '🎭', 'Fintech-Demo', 'Der Fintech-Bereich mit Beispieldaten.', 'public'),
     ]),
     ('🎶 Freizeit', [

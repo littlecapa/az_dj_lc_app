@@ -17,7 +17,7 @@ class MenuTests(TestCase):
         response = self.client.get('/menue/')
         self.assertContains(response, 'href="/leisure/"')
         self.assertContains(response, 'href="/bordkasse/"')
-        self.assertNotContains(response, 'href="/fintech/"')
+        self.assertContains(response, 'href="/fintech/"')
         self.assertNotContains(response, 'href="/tasks/"')
         self.assertContains(response, 'Anmelden')
 
