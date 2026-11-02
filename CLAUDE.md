@@ -67,5 +67,9 @@
   `TaskRun` — Dry-Run/Teilläufe (`untracked_options`) nicht; hängende Läufe > 30 Min gelten als Timeout.
   Claude-Tasks (cowork/cloud) melden ihre Läufe selbst per MCP `log_task_run`.
   Übersicht `/tasks/` (nur Staff): rot = letzter Lauf fehlgeschlagen oder überfällig (Intervall + 25 %, nur `run_days`).
+- Übersicht: `/menue/` listet alle Bereiche als Kacheln (`homepage/menu.py`, `SECTIONS` mit Zugriffsstufe
+  public/login/staff/superuser — gezeigt wird nur, was der Benutzer öffnen darf). Neue Bereiche dort eintragen.
+  Kachel-Stil gemeinsam in `homepage/_tiles_style.html` (Fintech, Leisure, Menü). `/leisure/` ist die
+  Leisure-Kachelseite: öffentlich nur die Abstimmung, der Rest nur für Staff.
 - Fintech-Zugriff: alle Seiten/APIs unter `/fintech/` nur mit Admin-Login (`is_staff`) oder `X-Api-Key`;
   einzige Ausnahme ist der Demo-Bereich `/demo/fintech/`. `fintech/tests.py` prüft das für jede URL automatisch.

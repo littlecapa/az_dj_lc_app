@@ -405,3 +405,21 @@ class SuggestionTests(TestCase):
         r = self.client.get('/leisure/new_events')
         self.assertContains(r, 'Freunde: 👍 0 · 😐 1 · 👎 1')
         self.assertContains(r, '/leisure/new_events/voting')
+
+
+@override_settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}})
+class LeisureIndexTests(TestCase):
+    def test_anonymous_sees_only_voting(self):
+        response = self.client.get('/leisure/')
+        self.assertContains(response, 'href="/leisure/new_events/voting"')
+        self.assertNotContains(response, 'href="/leisure/new_events"')
+
+    def test_staff_sees_tiles_with_counts(self):
+        Suggestion.objects.create(kind=Suggestion.Kind.EVENT, name='Sting @ Arena di Verona, 2099-07-14',
+                                  payload={'artist': 'Sting', 'venue': 'Arena di Verona', 'date': '2099-07-14'})
+        self.client.force_login(User.objects.create_user('staff', password='x', is_staff=True))
+        response = self.client.get('/leisure/')
+        self.assertContains(response, 'href="/leisure/new_events"')
+        self.assertContains(response, 'href="/admin/leisure/artist/"')
+        self.assertContains(response, 'Neue Konzerte <span class="badge text-bg-primary">1</span>')
+        self.assertNotContains(response, 'Neue Artists <span')

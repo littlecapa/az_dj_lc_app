@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import ContactForm
 from .chess_captcha import fen_to_board_rows, get_random_position, is_captcha_answer_correct, CAPTCHA_QUESTION
+from .menu import visible_sections
 from .models import ContactMessage, BlogPost, HistChessMagazine, QuickLink, ChessPosition, ScbbCheck
 from django.contrib.auth.decorators import user_passes_test
 from django.views.generic import ListView, DetailView
@@ -196,6 +197,10 @@ def check_historical_chess_mags(request):
 
 def index(request):
     return render(request, 'homepage/index.html')
+
+
+def menu(request):
+    return render(request, 'homepage/menu.html', {'sections': visible_sections(request.user)})
 
 
 def links_page(request):

@@ -35,6 +35,12 @@
                         href="{% url 'homepage:index' %}">Home</a>
                     </li>
                     
+                    <!-- MENÜ: alle Bereiche -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.view_name == 'homepage:menu' %}active fw-bold{% endif %}"
+                        href="{% url 'homepage:menu' %}">Menü</a>
+                    </li>
+
                     <!-- 2. MY BLOG (NEU) -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.view_name == 'homepage:blog' %}active fw-bold{% endif %}"

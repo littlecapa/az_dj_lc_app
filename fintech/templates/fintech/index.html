@@ -4,31 +4,7 @@
 {% block title %}Fintech – Übersicht{% endblock %}
 
 {% block content %}
-<style>
-    .ft-card {
-        display: flex; flex-direction: column;
-        border: 1px solid #e3e6ea; border-radius: 12px;
-        padding: 1.5rem; background: #fff;
-        text-decoration: none; color: inherit;
-        transition: box-shadow .15s, border-color .15s, transform .1s;
-        height: 100%;
-    }
-    .ft-card:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,.1);
-        border-color: #ced4da;
-        transform: translateY(-2px);
-        color: inherit;
-    }
-    .ft-icon { font-size: 2rem; margin-bottom: .75rem; }
-    .ft-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
-    .ft-desc  { font-size: .85rem; color: #6c757d; flex: 1; }
-    .ft-group-label {
-        font-size: .72rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: .07em; color: #6c757d;
-        margin-bottom: .75rem; margin-top: 1.5rem;
-    }
-    .ft-group-label:first-child { margin-top: 0; }
-</style>
+{% include "homepage/_tiles_style.html" %}
 
 <div class="container py-5">
     <h2 class="mb-4">Fintech</h2>

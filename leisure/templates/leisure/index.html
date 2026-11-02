@@ -1,0 +1,96 @@
+{% extends "homepage/base_home.html" %}
+
+{% block title %}Leisure – Übersicht{% endblock %}
+
+{% block content %}
+{% include "homepage/_tiles_style.html" %}
+
+<div class="container py-5">
+    <h2 class="mb-4">Leisure</h2>
+
+    <!-- Freunde (öffentlich) -->
+    <div class="ft-group-label">🎟 Mit Freunden</div>
+    <div class="row g-3 mb-2">
+        <div class="col-md-4">
+            <a href="{% url 'leisure:event-voting' %}" class="ft-card">
+                <div class="ft-icon">🗳</div>
+                <div class="ft-title">Konzert-Abstimmung</div>
+                <div class="ft-desc">Wer kommt mit? Je Konzert 👍 / 😐 / 👎 und ein Kommentar, ohne Login. Diesen Link an Freunde schicken.</div>
+            </a>
+        </div>
+    </div>
+
+    {% if request.user.is_staff %}
+    <!-- Vorschläge der Cloud-Routinen -->
+    <div class="ft-group-label">💡 Vorschläge prüfen</div>
+    <div class="row g-3 mb-2">
+        <div class="col-md-4">
+            <a href="{% url 'leisure:new-events' %}" class="ft-card">
+                <div class="ft-icon">🎤</div>
+                <div class="ft-title">Neue Konzerte {% if pending.event %}<span class="badge text-bg-primary">{{ pending.event }}</span>{% endif %}</div>
+                <div class="ft-desc">Gefundene Konzerte übernehmen oder verwerfen, mit den Stimmen der Freunde.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'leisure:new-artists' %}" class="ft-card">
+                <div class="ft-icon">🎸</div>
+                <div class="ft-title">Neue Artists {% if pending.artist %}<span class="badge text-bg-primary">{{ pending.artist }}</span>{% endif %}</div>
+                <div class="ft-desc">Vorgeschlagene Künstler bewerten: 👍 mit Rating übernehmen, 👎 auf die Blacklist.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'leisure:new-venues' %}" class="ft-card">
+                <div class="ft-icon">🏛</div>
+                <div class="ft-title">Neue Venues {% if pending.venue %}<span class="badge text-bg-primary">{{ pending.venue }}</span>{% endif %}</div>
+                <div class="ft-desc">Vorgeschlagene Orte bewerten. Neue Venues vor den Konzerten dort übernehmen.</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Bestand (Admin) -->
+    <div class="ft-group-label">📚 Bestand</div>
+    <div class="row g-3 mb-2">
+        <div class="col-md-4">
+            <a href="{% url 'admin:leisure_upcomingevent_changelist' %}" class="ft-card">
+                <div class="ft-icon">📅</div>
+                <div class="ft-title">Upcoming Events <span class="badge text-bg-light">{{ upcoming }}</span></div>
+                <div class="ft-desc">Eingeplante Konzerte ab heute. Pflege und JSON-Import im Admin.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'admin:leisure_artist_changelist' %}" class="ft-card">
+                <div class="ft-icon">⭐</div>
+                <div class="ft-title">Artists <span class="badge text-bg-light">{{ artists }}</span></div>
+                <div class="ft-desc">Alle Künstler mit Rating und Kategorie.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'admin:leisure_venue_changelist' %}" class="ft-card">
+                <div class="ft-icon">📍</div>
+                <div class="ft-title">Venues <span class="badge text-bg-light">{{ venues }}</span></div>
+                <div class="ft-desc">Alle Orte mit Land und Rating.</div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'admin:leisure_suggestion_changelist' %}" class="ft-card">
+                <div class="ft-icon">🗂</div>
+                <div class="ft-title">Alle Vorschläge</div>
+                <div class="ft-desc">Auch übernommene und verworfene Vorschläge (Blacklist), mit allen Stimmen.</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Automatik -->
+    <div class="ft-group-label">⚙️ Automatik</div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="{% url 'tasks:list' %}" class="ft-card">
+                <div class="ft-icon">⏱</div>
+                <div class="ft-title">Tasks</div>
+                <div class="ft-desc">Wann die Cloud-Routinen zuletzt Artists, Venues und Konzerte gesucht haben.</div>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

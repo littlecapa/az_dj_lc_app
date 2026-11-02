@@ -3,10 +3,11 @@ import datetime
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import ValidationError
+from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from .models import EventVote, Suggestion
+from .models import Artist, EventVote, Suggestion, UpcomingEvent, Venue
 from .suggestions import decide
 
 VOTER_SESSION_KEY = 'leisure_voter_name'
@@ -16,6 +17,21 @@ PAGES = {
     Suggestion.Kind.VENUE: {'title': 'Neue Venues', 'label': 'Venue', 'url': 'leisure:new-venues'},
     Suggestion.Kind.EVENT: {'title': 'Neue Konzerte', 'label': 'Upcoming Event', 'url': 'leisure:new-events'},
 }
+
+
+def index(request):
+    """Kachel-Übersicht von Leisure. Öffentlich ist nur die Abstimmung, alles andere sehen nur Staff-User."""
+    context = {}
+    if request.user.is_staff:
+        pending = dict(Suggestion.objects.filter(status=Suggestion.Status.PENDING)
+                       .values_list('kind').annotate(n=Count('pk')))
+        context = {
+            'pending': {kind: pending.get(kind, 0) for kind in Suggestion.Kind.values},
+            'upcoming': UpcomingEvent.objects.filter(date__gte=timezone.localdate()).count(),
+            'artists': Artist.objects.count(),
+            'venues': Venue.objects.count(),
+        }
+    return render(request, 'leisure/index.html', context)
 
 
 def _with_event_data(suggestions):

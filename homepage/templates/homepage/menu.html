@@ -1,0 +1,30 @@
+{% extends "homepage/base_home.html" %}
+
+{% block title %}Menü{% endblock %}
+
+{% block content %}
+{% include "homepage/_tiles_style.html" %}
+
+<div class="container py-5">
+    <h2 class="mb-4">Alle Bereiche</h2>
+
+    {% for section in sections %}
+    <div class="ft-group-label">{{ section.title }}</div>
+    <div class="row g-3 mb-2">
+        {% for item in section.items %}
+        <div class="col-md-4">
+            <a href="{% url item.url_name %}" class="ft-card">
+                <div class="ft-icon">{{ item.icon }}</div>
+                <div class="ft-title">{{ item.title }}</div>
+                <div class="ft-desc">{{ item.desc }}</div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% if not request.user.is_authenticated %}
+    <p class="text-muted small mt-4">Weitere Bereiche nach dem <a href="{% url 'homepage:login' %}?next={{ request.path|urlencode }}">Anmelden</a>.</p>
+    {% endif %}
+</div>
+{% endblock %}
