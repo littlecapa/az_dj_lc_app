@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from tasks.models import Task
 
 from .importer import import_events_json
-from .models import Artist, Category, Suggestion, UpcomingEvent, Venue
+from .models import Artist, Category, EventVote, Suggestion, UpcomingEvent, Venue
 
 
 class StartbestandTests(TestCase):
@@ -356,3 +356,50 @@ class SuggestionTests(TestCase):
         task = Task.objects.get(name='Vorschläge für weitere Upcoming Events machen')
         self.assertEqual((task.executor, task.interval_hours), (Task.Executor.CLOUD, 168))
         self.assertIn('/leisure/new_events', task.prompt)
+
+    def test_event_voting(self):
+        future = datetime.date.today() + datetime.timedelta(days=100)
+        self.add({'artist': 'Sting', 'venue': 'Lorelei', 'date': future.isoformat(), 'info': 'Tour'},
+                 {'artist': 'Sting', 'venue': 'Arena di Verona', 'date': future.isoformat(), 'info': 'x'},
+                 {'artist': 'Sting', 'venue': 'Seebühne Bregenz', 'date': future.isoformat(), 'info': 'x',
+                  'country': 'Österreich'}, kind='event')
+        lorelei, verona, bregenz = (Suggestion.objects.get(kind='event', name__contains=n)
+                                    for n in ('Lorelei', 'Verona', 'Bregenz'))
+        Suggestion.objects.filter(pk=verona.pk).update(status='rejected')
+        Suggestion.objects.create(kind='event', name='Alt', payload={'artist': 'Sting', 'venue': 'Lorelei',
+                                                                     'date': '2020-01-01'})
+
+        r = self.client.get('/leisure/new_events/voting')  # ohne Login
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Lorelei')
+        self.assertContains(r, 'Seebühne Bregenz')
+        self.assertNotContains(r, '@ Arena di Verona')  # verworfen
+        self.assertNotContains(r, '2020')  # vergangen
+
+        r = self.client.post('/leisure/new_events/voting', {'action': 'save', 'name': '  ', f'vote_{lorelei.pk}': 'up'},
+                             follow=True)
+        self.assertContains(r, 'Namen eintragen')
+        self.assertFalse(EventVote.objects.exists())
+
+        self.client.post('/leisure/new_events/voting', {
+            'action': 'save', 'name': ' Anna  Maria ', f'vote_{lorelei.pk}': 'up',
+            f'comment_{bregenz.pk}': 'nette Idee, aber Termin passt nicht', f'vote_{verona.pk}': 'up'})
+        self.assertEqual(sorted(EventVote.objects.values_list('name', 'vote', 'comment')),
+                         [('Anna Maria', '', 'nette Idee, aber Termin passt nicht'), ('Anna Maria', 'up', '')])
+
+        # gleicher Name (andere Schreibweise) überschreibt, leer löscht
+        self.client.post('/leisure/new_events/voting', {'action': 'save', 'name': 'anna maria',
+                                                        f'vote_{lorelei.pk}': 'neutral', f'comment_{lorelei.pk}': 'mal sehen'})
+        self.assertEqual(list(EventVote.objects.values_list('suggestion', 'vote', 'comment')),
+                         [(lorelei.pk, 'neutral', 'mal sehen')])
+
+        self.client.post('/leisure/new_events/voting', {'action': 'save', 'name': 'Ben', f'vote_{lorelei.pk}': 'down'})
+        r = self.client.get('/leisure/new_events/voting')  # Session merkt sich Ben
+        self.assertContains(r, 'value="Ben"')
+        self.assertContains(r, 'anna maria')
+        self.assertContains(r, '👍 0 · 😐 1 · 👎 1')
+
+        self.client.force_login(User.objects.create_superuser('admin', password='pw'))
+        r = self.client.get('/leisure/new_events')
+        self.assertContains(r, 'Freunde: 👍 0 · 😐 1 · 👎 1')
+        self.assertContains(r, '/leisure/new_events/voting')

@@ -53,6 +53,10 @@
   Artists; an einer fremden Venue nur Artists mit Rating ≥ 7 (`TOP_ARTIST_RATING`), die Venue wird dann zusätzlich
   als Venue-Vorschlag angelegt und muss vor dem Konzert übernommen werden. 👍 ohne Rating → `UpcomingEvent`,
   👎 = verworfen (wird nicht erneut angenommen).
+  Abstimmung mit Freunden: `/leisure/new_events/voting` ist bewusst **öffentlich** (ohne Login, wie Doodle) und zeigt
+  offene und übernommene Konzert-Vorschläge ab heute. `EventVote` (je Konzert-`Suggestion` eine Stimme pro Name,
+  Name ohne Groß-/Kleinschreibung, 👍/😐/👎 + Kommentar); der Name steht in der Session, nicht in der URL.
+  Die Summen erscheinen auf `/leisure/new_events`, alle Stimmen im Admin.
   `get_suggestions` liefert alle Status, damit Abgelehntes und Offenes nicht erneut vorgeschlagen wird.
 - Tasks: zentrale Registry in der App `tasks` (`Task`: Name, Prompt, `executor` server/cowork/cloud, Sub-Tasks über
   `parent` + `position`, `interval_hours` für den Health-Check, `parameters` als JSON; `TaskRun` = Log je Lauf). Pflege im Admin.

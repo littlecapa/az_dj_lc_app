@@ -98,3 +98,29 @@ class Suggestion(models.Model):
 
     def __str__(self):
         return f'{self.get_kind_display()}: {self.name} ({self.get_status_display()})'
+
+
+class EventVote(models.Model):
+    """Stimme eines Freundes zu einem Konzert-Vorschlag auf der öffentlichen Abstimmseite /leisure/new_events/voting.
+    Ohne Login: eine Stimme je Name (Groß-/Kleinschreibung egal), erneutes Abstimmen überschreibt sie."""
+
+    class Vote(models.TextChoices):
+        UP = 'up', '👍'
+        NEUTRAL = 'neutral', '😐'
+        DOWN = 'down', '👎'
+
+    suggestion = models.ForeignKey(Suggestion, on_delete=models.CASCADE, related_name='votes',
+                                   limit_choices_to={'kind': 'event'}, verbose_name='Konzert')
+    name = models.CharField(max_length=50)
+    vote = models.CharField('Stimme', max_length=10, choices=Vote.choices, blank=True)
+    comment = models.CharField('Kommentar', max_length=300, blank=True)
+    updated_at = models.DateTimeField('Geändert am', auto_now=True)
+
+    class Meta:
+        ordering = ['suggestion', 'name']
+        verbose_name = 'Konzert-Stimme'
+        verbose_name_plural = 'Konzert-Stimmen'
+        constraints = [models.UniqueConstraint(fields=['suggestion', 'name'], name='leisure_unique_event_vote')]
+
+    def __str__(self):
+        return f'{self.name}: {self.get_vote_display() or "–"} ({self.suggestion.name})'

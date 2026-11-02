@@ -1,0 +1,65 @@
+{% extends "homepage/base_home.html" %}
+{% load tz %}
+
+{% block title %}Konzerte – Abstimmung{% endblock %}
+
+{% block content %}
+<div class="container my-4" style="max-width: 900px">
+  <h2>Wer kommt mit?</h2>
+  <p class="text-muted small">Trag oben deinen Namen ein und sag bei jedem Konzert, ob du Lust hast: 👍 gern, 😐 vielleicht, 👎 eher nicht. Im Kommentar ist Platz für z. B. „nette Idee, aber Termin passt nicht“. Mit demselben Namen kannst du deine Stimmen später jederzeit ändern.</p>
+  {% if messages %}{% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} py-2">{{ m }}</div>{% endfor %}{% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-4 sticky-top shadow-sm" style="top: 0.5rem">
+      <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+        <label for="voter-name" class="fw-semibold me-1">Dein Name</label>
+        <input type="text" id="voter-name" name="name" value="{{ name }}" maxlength="50" required
+               class="form-control" style="max-width: 16em" autocomplete="nickname">
+        <button type="submit" name="action" value="load" class="btn btn-outline-secondary" formnovalidate
+                title="Gespeicherte Stimmen zu diesem Namen anzeigen">Meine Stimmen laden</button>
+        <button type="submit" name="action" value="save" class="btn btn-primary ms-auto">Speichern</button>
+      </div>
+    </div>
+
+    {% for c in concerts %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+          <div>
+            <div class="text-muted small">{{ c.event_date|date:"l, d.m.Y" }}</div>
+            <h5 class="mb-1">{{ c.payload.artist }} <span class="text-muted fw-normal">@ {{ c.payload.venue }}</span></h5>
+            {% if c.status == 'accepted' %}<span class="badge text-bg-success fw-normal">eingeplant</span>{% endif %}
+            {% if c.info %}<div class="small mt-1">{{ c.info }}</div>{% endif %}
+            {% if c.payload.ticket_url %}<a href="{{ c.payload.ticket_url }}" target="_blank" rel="noopener noreferrer" class="small">🎟 Tickets</a>{% endif %}
+          </div>
+          <div class="text-nowrap small" title="Bisherige Stimmen">👍 {{ c.tally.up }} · 😐 {{ c.tally.neutral }} · 👎 {{ c.tally.down }}</div>
+        </div>
+
+        {% if c.others %}
+        <ul class="list-unstyled small mt-2 mb-0 text-muted">
+          {% for v in c.others %}<li>{{ v.get_vote_display|default:"💬" }} <strong>{{ v.name }}</strong>{% if v.comment %}: {{ v.comment }}{% endif %}</li>{% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
+          <div class="btn-group" role="group" aria-label="Deine Stimme für {{ c.payload.artist }}">
+            {% for value, label in choices %}
+            <input type="radio" class="btn-check" name="vote_{{ c.pk }}" id="vote_{{ c.pk }}_{{ value }}" value="{{ value }}" autocomplete="off"{% if c.mine.vote == value %} checked{% endif %}>
+            <label class="btn btn-outline-secondary" for="vote_{{ c.pk }}_{{ value }}">{{ label }}</label>
+            {% endfor %}
+          </div>
+          <input type="text" name="comment_{{ c.pk }}" value="{{ c.mine.comment|default:'' }}" maxlength="300"
+                 class="form-control form-control-sm flex-grow-1" style="min-width: 12em"
+                 placeholder="Kommentar, z. B. Termin passt nicht" aria-label="Kommentar zu {{ c.payload.artist }}">
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <p>Gerade stehen keine Konzerte zur Abstimmung.</p>
+    {% endfor %}
+
+    {% if concerts %}<button type="submit" name="action" value="save" class="btn btn-primary">Speichern</button>{% endif %}
+  </form>
+</div>
+{% endblock %}

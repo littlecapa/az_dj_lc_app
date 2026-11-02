@@ -7,7 +7,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 
 from .importer import IMPORT_FORMAT, import_events_json
-from .models import Artist, Category, Suggestion, UpcomingEvent, Venue
+from .models import Artist, Category, EventVote, Suggestion, UpcomingEvent, Venue
 
 
 @admin.register(Venue)
@@ -23,12 +23,30 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
+class EventVoteInline(admin.TabularInline):
+    model = EventVote
+    extra = 0
+    fields = ('name', 'vote', 'comment', 'updated_at')
+    readonly_fields = ('updated_at',)
+
+
 @admin.register(Suggestion)
 class SuggestionAdmin(admin.ModelAdmin):
     list_display = ('name', 'kind', 'category', 'status', 'rating', 'created_at', 'decided_at')
     list_filter = ('kind', 'status', 'category')
     search_fields = ('name', 'info')
     date_hierarchy = 'created_at'
+    inlines = [EventVoteInline]
+
+    def get_inlines(self, request, obj):
+        return self.inlines if obj and obj.kind == Suggestion.Kind.EVENT else []
+
+
+@admin.register(EventVote)
+class EventVoteAdmin(admin.ModelAdmin):
+    list_display = ('suggestion', 'name', 'vote', 'comment', 'updated_at')
+    list_filter = ('vote',)
+    search_fields = ('name', 'comment', 'suggestion__name')
 
 
 @admin.register(Artist)
