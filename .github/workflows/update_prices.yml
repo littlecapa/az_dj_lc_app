@@ -32,7 +32,7 @@ jobs:
   update-prices:
     name: 'Kurse aktualisieren'
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # normale Läufe dauern 2-4 Min. — verhindert stundenlanges Hängen bei Mirror-Ausfall
+    timeout-minutes: 30  # normale Läufe dauern 8-14 Min. (~430 Kurse inkl. Durchschau) — verhindert stundenlanges Hängen bei Mirror-Ausfall
 
     env:
       DB_NAME: ${{ secrets.DB_NAME }}

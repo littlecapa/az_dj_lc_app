@@ -165,3 +165,33 @@ class WatchlistLinkTests(TestCase):
         wl.link = 'https://docs.google.com/spreadsheets/d/abc'
         wl.save()
         self.assertContains(self.client.get(url), 'href="https://docs.google.com/spreadsheets/d/abc"')
+
+
+class PriceFetchFailureTicketTests(TestCase):
+    def test_no_ticket_for_lookthrough_placeholders(self):
+        from unittest import mock
+        from fintech.models import Asset, Holdings, Watchlist, WatchlistEntry
+        from fintech.services import report_price_fetch_failures
+
+        def asset(isin, quantity=None):
+            a = Asset.objects.create(isin=isin, name=isin, asset_class='STOCK')
+            if quantity is not None:
+                Holdings.objects.create(asset=a, quantity=Decimal(quantity), average_purchase_price=Decimal('0'))
+            return a
+
+        asset('XS3104481257', '0')  # Anleihe nur über einen Fonds
+        asset('DE0005140008', '5')  # eigener Bestand
+        watched = asset('US00724F1012')
+        wl = Watchlist.objects.create(name='Test', user=User.objects.create_user('u'))
+        WatchlistEntry.objects.create(watchlist=wl, asset=watched)
+        failures = [{'isin': i, 'name': i, 'asset_class': 'STOCK', 'error': 'kein Kurs'}
+                    for i in ('XS3104481257', 'DE0005140008', 'US00724F1012')]
+
+        with mock.patch('fintech.services.JiraClient') as jira:
+            report_price_fetch_failures(failures[:1])
+            jira.assert_not_called()
+            report_price_fetch_failures(failures)
+            description = jira.return_value.create_issue.call_args.kwargs['description']
+        self.assertIn('DE0005140008', description)
+        self.assertIn('US00724F1012', description)
+        self.assertNotIn('XS3104481257', description)

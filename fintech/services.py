@@ -19,7 +19,7 @@ from core.jira_client import JiraClient, JiraApiError
 
 from .apis.services.provider_manager import ProviderManager
 from .apis.services.name_matching import match_held_stock, load_aliases
-from .models import Asset, Price, Holdings, FondHolding, ManualFondHolding
+from .models import Asset, Price, Holdings, FondHolding, ManualFondHolding, WatchlistEntry
 from .models_helper.asset_class import AssetClass
 from .models_helper.category_class import CategoryClass
 
@@ -186,6 +186,12 @@ def _failure_entry(asset: Asset, error_detail: str) -> dict:
     }
 
 
+def _is_lookthrough_placeholder(isin: str) -> bool:
+    """True, wenn das Asset nur über Fonds gehalten wird: kein Bestand > 0 und in keiner Watchlist."""
+    return not (Holdings.objects.filter(asset__isin=isin, quantity__gt=0).exists()
+                or WatchlistEntry.objects.filter(asset__isin=isin).exists())
+
+
 def report_price_fetch_failures(failures: list) -> None:
     """
     Legt EIN Jira-Bug-Ticket an, das alle in einem Lauf fehlgeschlagenen
@@ -194,6 +200,12 @@ def report_price_fetch_failures(failures: list) -> None:
     failures: Liste von dicts {"isin", "name", "asset_class", "error"}
     (siehe _failure_entry).
     """
+    # Durchschau-Platzhalter (Fonds-Holdings ohne eigenen Bestand und ohne Watchlist,
+    # z. B. ausgelaufene Anleihen aus Anleihe-ETFs) bleiben nur blockiert, ohne Ticket.
+    placeholders = {f["isin"] for f in failures if _is_lookthrough_placeholder(f["isin"])}
+    if placeholders:
+        logger.info(f"Kein Jira-Ticket für Durchschau-Platzhalter: {', '.join(sorted(placeholders))}")
+    failures = [f for f in failures if f["isin"] not in placeholders]
     if not failures:
         return
 
