@@ -704,6 +704,42 @@ def clean_up(request):
     return render(request, "fintech/clean_up.html", {"result": result})
 
 
+@never_cache
+@staff_member_required
+def isin_change(request):
+    """ISIN-Wechsel eines Assets (z.B. 1:1-Umtausch in neue Aktien): alte und neue
+    ISIN eingeben, als Dry-Run prüfen, ausführen. Logik in fintech/isin_change.py
+    (dieselbe wie im Management-Command change_isin)."""
+    from .isin_change import (
+        IsinChangeError, change_isin, needs_manual_review, normalize_isin, refresh_attributes,
+    )
+
+    context = {"dry_run": True}
+    if request.method == "POST":
+        old_isin = normalize_isin(request.POST.get("old_isin"))
+        new_isin = normalize_isin(request.POST.get("new_isin"))
+        dry_run = request.POST.get("dry_run") == "on"
+        context.update({"old_isin": old_isin, "new_isin": new_isin, "dry_run": dry_run})
+        try:
+            context["result"] = change_isin(old_isin, new_isin, dry_run=dry_run)
+        except IsinChangeError as exc:
+            context["error"] = str(exc)
+        except Exception as exc:
+            logger.exception(f"ISIN-Wechsel {old_isin} → {new_isin} fehlgeschlagen")
+            context["error"] = f"Unerwarteter Fehler, es wurde nichts geändert: {exc}"
+        else:
+            attributes = refresh_attributes(old_isin, new_isin, dry_run=dry_run)
+            context["attributes"] = attributes
+            context["needs_review"] = needs_manual_review(attributes)
+            # Nach einem echten Lauf existiert das Asset nur noch unter der neuen ISIN
+            context["admin_isin"] = old_isin if dry_run else new_isin
+            if not dry_run:
+                context["dry_run"] = True  # Formular für den nächsten Wechsel wieder auf Dry-Run
+
+    context["assets"] = Asset.objects.order_by("name").values("isin", "name")
+    return render(request, "fintech/isin_change.html", context)
+
+
 BACKUP_MODELS_ALL = [
     FinConfig, Asset, Holdings, Price, Watchlist, WatchlistEntry,
     FiftyTwoWeekRange, NewsEvent, FondHolding, ManualFondHolding, NameAlias,

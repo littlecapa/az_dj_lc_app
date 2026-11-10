@@ -15,6 +15,7 @@ urlpatterns = [
     path('trigger/update-etf-holdings/', views.trigger_update_etf_holdings, name="trigger-update-etf-holdings"),
     path('trigger/update-news/', views.trigger_update_news, name="trigger-update-news"),
     path('clean_up/', views.clean_up, name="clean-up"),
+    path('isin-change/', views.isin_change, name="isin-change"),
     path('backup/', views.backup_page, name="backup-page"),
     path('backup/download/', views.backup_download, name="backup-download"),
     path('trigger/refresh-week52/', views.trigger_refresh_week52, name="trigger-refresh-week52"),

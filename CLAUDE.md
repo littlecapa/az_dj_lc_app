@@ -24,6 +24,10 @@
   Google News RSS) für Aktien mit Look-Through-Wert (siehe `/fintech/overall-stocks/`) über der Schwelle,
   speichert sie dedupliziert in `NewsArticle`. Feed-Seite: `/fintech/news-feed/` (liest nur die DB, ruft
   nichts live ab).
+- ISIN-Wechsel: `python manage.py change_isin ALT NEU [--dry-run] [--skip-attributes]` bzw. Seite
+  `/fintech/isin-change/` (Kachel „ISIN-Wechsel“) — zieht ein Asset auf eine neue ISIN um (ISIN ist der PK):
+  Kopie anlegen, alle FKs auf Asset generisch umhängen, altes Asset löschen, danach WKN/Symbol/Yahoo-Symbol/Kurs
+  neu ermitteln. Logik in `fintech/isin_change.py`; der Dry-Run führt alles aus und rollt zurück.
 - Bordkasse: `/bordkasse/` (Törn-Liste) und `/bordkasse/<slug>/` (Kasse, Einkaufsliste, Historie). Neuer Törn
   nur eingeloggt; alles andere frei, solange `Bordkasse_Konfig.Authentifizierung_erforderlich` False ist (Default).
   Daten per JSON-API unter

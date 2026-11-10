@@ -195,3 +195,192 @@ class PriceFetchFailureTicketTests(TestCase):
         self.assertIn('DE0005140008', description)
         self.assertIn('US00724F1012', description)
         self.assertNotIn('XS3104481257', description)
+
+
+class IsinChangeTests(TestCase):
+    """ISIN-Wechsel (fintech/isin_change.py, Command change_isin, Seite /fintech/isin-change/)."""
+
+    OLD, NEW = 'DE000PFSE212', 'DE000PFSE253'
+
+    def setUp(self):
+        from django.utils import timezone
+        from fintech.models import (
+            Asset, FondHolding, Holdings, NewsEvent, Price, PriceAlarm, Watchlist, WatchlistEntry,
+        )
+        self.user = User.objects.create_user('littlecapa', password='pw', is_staff=True)
+        self.asset = Asset.objects.create(
+            isin=self.OLD, wkn='PFSE21', symbol='XETR-PFSE', name='Pfisterer Holding',
+            price_fetch_blocked=True, price_fetch_failing_since=timezone.now(),
+        )
+        self.other = Asset.objects.create(isin='DE0007164600', wkn='716460', name='SAP')
+        self.fund = Asset.objects.create(isin='IE00B4L5Y983', name='MSCI World', asset_class='ETF')
+        Holdings.objects.create(asset=self.asset, quantity=Decimal('30'), average_purchase_price=Decimal('62.80'))
+        Price.objects.create(asset=self.asset, current_price=Decimal('67.85'), timestamp=timezone.now())
+        Price.objects.create(asset=self.other, current_price=Decimal('210'), timestamp=timezone.now())
+        watchlist = Watchlist.objects.create(name='Test', user=self.user)
+        WatchlistEntry.objects.create(watchlist=watchlist, asset=self.asset)
+        PriceAlarm.objects.create(asset=self.asset, target_price=Decimal('80'))
+        FondHolding.objects.create(fund=self.fund, holding=self.asset, percentage=Decimal('1.5'))
+        event = NewsEvent.objects.create(event_type='new_high', new_value=Decimal('70'))
+        event.assets.add(self.asset, self.other)
+
+    def patch_lookups(self, figi='XETR-PFSE', yahoo=None, price=Decimal('68.00'), wkn=None):
+        """Externe Abfragen ersetzen; yahoo = {isin: symbol}."""
+        from unittest import mock
+        from fintech import isin_change
+        yahoo = yahoo or {}
+        pm = mock.Mock()
+        pm.isin2price.return_value = price
+        pm.isin2wkn.return_value = wkn
+        patches = [
+            mock.patch.object(isin_change, '_lookup_tradingview_symbol', return_value=figi),
+            mock.patch.object(isin_change, '_lookup_yahoo_symbol', side_effect=lambda isin: yahoo.get(isin)),
+            mock.patch.object(isin_change, '_provider_manager', return_value=pm),
+            mock.patch('fintech.services._provider_manager', pm),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        return pm
+
+    def test_moves_everything_and_deletes_old(self):
+        from fintech.isin_change import change_isin
+        from fintech.models import (
+            Asset, FondHolding, Holdings, NewsEvent, Price, PriceAlarm, WatchlistEntry,
+        )
+        created_at = self.asset.created_at
+        result = change_isin(self.OLD.lower(), f' {self.NEW} ')
+
+        self.assertFalse(Asset.objects.filter(pk=self.OLD).exists())
+        new = Asset.objects.get(pk=self.NEW)
+        self.assertEqual((new.name, new.symbol), ('Pfisterer Holding', 'XETR-PFSE'))
+        self.assertEqual(new.current_price, Decimal('67.85'))
+        self.assertEqual(new.created_at, created_at)
+        self.assertIsNone(new.wkn)
+        # Der blockierte Kurs-Abruf galt der alten ISIN
+        self.assertFalse(new.price_fetch_blocked)
+        self.assertIsNone(new.price_fetch_failing_since)
+
+        self.assertEqual(Holdings.objects.get(asset=new).quantity, Decimal('30'))
+        self.assertEqual(Price.objects.filter(asset=new).count(), 1)
+        self.assertEqual(WatchlistEntry.objects.filter(asset=new).count(), 1)
+        self.assertEqual(PriceAlarm.objects.filter(asset=new).count(), 1)
+        self.assertEqual(FondHolding.objects.get(fund=self.fund).holding_id, self.NEW)
+        self.assertEqual(set(NewsEvent.objects.get().assets.values_list('isin', flat=True)), {self.NEW, 'DE0007164600'})
+        # Fremde Daten bleiben unberührt
+        self.assertEqual(Price.objects.filter(asset=self.other).count(), 1)
+        self.assertEqual(result.total_moved, 6)
+
+    def test_dry_run_changes_nothing(self):
+        from fintech.isin_change import change_isin
+        from fintech.models import Asset, Holdings
+        result = change_isin(self.OLD, self.NEW, dry_run=True)
+        self.assertEqual(result.total_moved, 6)
+        self.assertFalse(Asset.objects.filter(pk=self.NEW).exists())
+        old = Asset.objects.get(pk=self.OLD)
+        self.assertEqual(old.wkn, 'PFSE21')
+        self.assertTrue(old.price_fetch_blocked)
+        self.assertEqual(Holdings.objects.get().asset_id, self.OLD)
+
+    def test_invalid_input_is_rejected(self):
+        from fintech.isin_change import IsinChangeError, change_isin
+        from fintech.models import Asset
+        for old, new in (
+            ('kaputt', self.NEW), (self.OLD, 'DE123'), (self.OLD, self.OLD),
+            ('DE0000000000', self.NEW),      # altes Asset unbekannt
+            (self.OLD, 'DE0007164600'),      # neue ISIN schon vergeben
+        ):
+            with self.assertRaises(IsinChangeError, msg=f'{old} → {new}'):
+                change_isin(old, new)
+        self.assertEqual(Asset.objects.count(), 3)
+        self.assertEqual(Asset.objects.get(pk=self.OLD).wkn, 'PFSE21')
+
+    def test_holdings_reference_follows(self):
+        from fintech.isin_change import change_isin
+        from fintech.models import Asset
+        Asset.objects.filter(pk=self.fund.pk).update(holdings_reference=self.asset)
+        change_isin(self.OLD, self.NEW)
+        self.assertEqual(Asset.objects.get(pk=self.fund.pk).holdings_reference_id, self.NEW)
+
+    def test_attributes_set_automatically(self):
+        from fintech.isin_change import change_isin, needs_manual_review, refresh_attributes
+        from fintech.models import Asset, Price
+        self.patch_lookups(figi='XETR-PFSE', yahoo={self.NEW: 'PFSE.DE'})
+        change_isin(self.OLD, self.NEW)
+        attributes = refresh_attributes(self.OLD, self.NEW)
+        new = Asset.objects.get(pk=self.NEW)
+        self.assertEqual(new.wkn, 'PFSE25')       # aus der deutschen ISIN abgeleitet
+        self.assertEqual(new.symbol, 'XETR-PFSE')
+        self.assertIsNone(new.yahoo_symbol)        # Yahoo findet die neue ISIN, kein Override nötig
+        self.assertEqual(new.current_price, Decimal('68.00'))
+        self.assertEqual(Price.objects.filter(asset=new).count(), 2)
+        self.assertFalse(needs_manual_review(attributes))
+
+    def test_yahoo_falls_back_to_old_ticker(self):
+        from fintech.isin_change import change_isin, refresh_attributes
+        from fintech.models import Asset
+        pm = self.patch_lookups(yahoo={self.OLD: 'PFSE.DE'})
+        change_isin(self.OLD, self.NEW)
+        refresh_attributes(self.OLD, self.NEW)
+        self.assertEqual(Asset.objects.get(pk=self.NEW).yahoo_symbol, 'PFSE.DE')
+        self.assertEqual(pm.isin2price.call_args.kwargs['yahoo_symbol'], 'PFSE.DE')
+
+    def test_unresolved_attributes_need_review(self):
+        from fintech.isin_change import MANUAL, change_isin, needs_manual_review, refresh_attributes
+        from fintech.models import Asset
+        self.patch_lookups(figi=None, price=None)
+        change_isin(self.OLD, self.NEW)
+        attributes = refresh_attributes(self.OLD, self.NEW)
+        self.assertTrue(needs_manual_review(attributes))
+        status = {a.label: a.status for a in attributes}
+        self.assertEqual(status['Symbol (TradingView)'], MANUAL)
+        self.assertEqual(status['Yahoo-Symbol'], MANUAL)
+        self.assertEqual(status['Kurs'], MANUAL)
+        self.assertEqual(Asset.objects.get(pk=self.NEW).symbol, 'XETR-PFSE')  # altes Symbol bleibt stehen
+
+    def test_dry_run_attributes_save_nothing(self):
+        from fintech.isin_change import refresh_attributes
+        from fintech.models import Asset, Price
+        self.patch_lookups(figi='XETR-NEU', yahoo={self.OLD: 'PFSE.DE'})
+        attributes = refresh_attributes(self.OLD, self.NEW, dry_run=True)
+        self.assertEqual({a.label: a.new for a in attributes}['WKN'], 'PFSE25')
+        old = Asset.objects.get(pk=self.OLD)
+        self.assertEqual((old.wkn, old.symbol, old.yahoo_symbol), ('PFSE21', 'XETR-PFSE', None))
+        self.assertEqual(Price.objects.filter(asset=old).count(), 1)
+
+    def test_command(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+        from fintech.models import Asset
+        self.patch_lookups(yahoo={self.NEW: 'PFSE.DE'})
+        out = StringIO()
+        call_command('change_isin', self.OLD, self.NEW, '--dry-run', stdout=out)
+        self.assertIn('[Dry-Run]', out.getvalue())
+        self.assertTrue(Asset.objects.filter(pk=self.OLD).exists())
+        call_command('change_isin', self.OLD, self.NEW, stdout=out)
+        self.assertEqual(Asset.objects.get(pk=self.NEW).wkn, 'PFSE25')
+        with self.assertRaises(CommandError):
+            call_command('change_isin', self.OLD, self.NEW, stdout=out)
+
+    def test_page(self):
+        from fintech.models import Asset
+        self.patch_lookups(figi=None, yahoo={self.NEW: 'PFSE.DE'})
+        self.client.force_login(self.user)
+        url = '/fintech/isin-change/'
+        self.assertContains(self.client.get(url), 'Alte ISIN')
+        self.assertContains(self.client.get('/fintech/'), url)
+
+        r = self.client.post(url, {'old_isin': self.OLD, 'new_isin': self.NEW, 'dry_run': 'on'})
+        self.assertContains(r, 'Dry-Run – es wurde nichts gespeichert')
+        self.assertContains(r, 'Jetzt ausführen')
+        self.assertTrue(Asset.objects.filter(pk=self.OLD).exists())
+
+        r = self.client.post(url, {'old_isin': self.OLD, 'new_isin': self.NEW})
+        self.assertContains(r, 'ISIN-Wechsel ausgeführt')
+        # Symbol ließ sich nicht automatisch klären → Link auf Change Asset der NEUEN ISIN
+        self.assertContains(r, f'/admin/fintech/asset/{self.NEW}/change/')
+        self.assertFalse(Asset.objects.filter(pk=self.OLD).exists())
+
+        r = self.client.post(url, {'old_isin': self.OLD, 'new_isin': self.NEW})
+        self.assertContains(r, 'Nicht ausgeführt')

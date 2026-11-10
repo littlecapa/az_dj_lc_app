@@ -1,0 +1,130 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}ISIN-Wechsel{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+  <h1>ISIN-Wechsel</h1>
+  <p style="color: var(--body-quiet-color, #666); max-width:720px;">
+    Zieht ein Asset auf eine neue ISIN um, z.B. nach einem 1:1-Umtausch in neue Aktien.
+    Holdings, Kurshistorie, Watchlist-Einträge, Alarme und News bleiben erhalten und hängen
+    danach an der neuen ISIN. Anschließend werden WKN, Symbol, Yahoo-Symbol und Kurs neu ermittelt.
+  </p>
+
+  {% if error %}
+  <div style="background:#fff3f3; border:1px solid #f5c6c6; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1.5rem; color:#c62828; max-width:720px;">
+    <strong>Nicht ausgeführt:</strong> {{ error }}
+  </div>
+  {% endif %}
+
+  {% if result %}
+  <div style="background:{% if result.dry_run %}#fff8e1{% else %}#e8f5e9{% endif %}; border:1px solid {% if result.dry_run %}#ffe082{% else %}#a5d6a7{% endif %}; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1rem; max-width:720px;">
+    {% if result.dry_run %}
+    <strong>Dry-Run – es wurde nichts gespeichert.</strong>
+    {{ result.name }} würde von <code>{{ result.old_isin }}</code> auf <code>{{ result.new_isin }}</code> umgezogen.
+    {% else %}
+    <strong>ISIN-Wechsel ausgeführt.</strong>
+    {{ result.name }} läuft jetzt unter <code>{{ result.new_isin }}</code> (vorher <code>{{ result.old_isin }}</code>).
+    {% endif %}
+  </div>
+
+  <table style="margin-bottom:1.5rem; min-width:420px;">
+    <thead>
+      <tr><th>{% if result.dry_run %}Würde umgehängt{% else %}Umgehängt{% endif %}</th><th style="text-align:right;">Zeilen</th></tr>
+    </thead>
+    <tbody>
+      {% for row in result.moved %}
+      <tr><td>{{ row.label }}</td><td style="text-align:right;">{{ row.count }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">Keine abhängigen Daten vorhanden.</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if result.moved %}
+    <tfoot>
+      <tr><th>Gesamt</th><th style="text-align:right;">{{ result.total_moved }}</th></tr>
+    </tfoot>
+    {% endif %}
+  </table>
+
+  <h2 style="font-size:1.1rem;">Attribute{% if result.dry_run %} (Vorschau){% endif %}</h2>
+  <table style="margin-bottom:1rem; min-width:420px;">
+    <thead>
+      <tr><th>Attribut</th><th>Bisher</th><th>Neu</th><th>Hinweis</th></tr>
+    </thead>
+    <tbody>
+      {% for a in attributes %}
+      <tr>
+        <td>{{ a.label }}</td>
+        <td>{{ a.old|default:"–" }}</td>
+        <td><strong>{{ a.new|default:"–" }}</strong></td>
+        <td>{% if a.status == "manual" %}<span style="color:#c62828;">⚠ {{ a.note }}</span>{% else %}✓ {{ a.note }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if needs_review %}
+  <div style="background:#fff3f3; border:1px solid #f5c6c6; border-radius:4px; padding:0.75rem 1rem; margin-bottom:1.5rem; max-width:720px;">
+    <strong>Nicht alles ließ sich automatisch setzen.</strong>
+    {% if result.dry_run %}
+    Nach dem Ausführen bitte die markierten Attribute im Admin prüfen.
+    {% else %}
+    Bitte die markierten Attribute im Admin prüfen:
+    <p style="margin:0.75rem 0 0;">
+      <a class="button default" style="padding:8px 20px;" href="{% url 'admin:fintech_asset_change' admin_isin %}">Asset im Admin öffnen</a>
+    </p>
+    {% endif %}
+  </div>
+  {% elif not result.dry_run %}
+  <p style="margin-bottom:1.5rem;">
+    Alle Attribute wurden automatisch gesetzt.
+    <a href="{% url 'admin:fintech_asset_change' admin_isin %}">Asset im Admin ansehen</a>
+  </p>
+  {% endif %}
+
+  {% if result.dry_run %}
+  <form method="post" style="margin-bottom:2rem;"
+        onsubmit="return confirm('{{ result.name|escapejs }} jetzt von {{ result.old_isin }} auf {{ result.new_isin }} umziehen?');">
+    {% csrf_token %}
+    <input type="hidden" name="old_isin" value="{{ result.old_isin }}">
+    <input type="hidden" name="new_isin" value="{{ result.new_isin }}">
+    <button type="submit" class="button default" style="padding:8px 20px;">Jetzt ausführen</button>
+  </form>
+  {% endif %}
+  {% endif %}
+
+  <div style="background:#f8f8f8; border:1px solid #ddd; border-radius:6px; padding:1.5rem; max-width:560px;">
+    <h2 style="margin-top:0; font-size:1.1rem;">{% if result %}Weiteren ISIN-Wechsel eingeben{% else %}ISIN-Wechsel eingeben{% endif %}</h2>
+    <form method="post">
+      {% csrf_token %}
+      <p>
+        <label for="old_isin" style="display:block; font-weight:bold;">Alte ISIN</label>
+        <input type="text" id="old_isin" name="old_isin" list="asset-list" maxlength="12" required
+               autocomplete="off" style="width:16em; text-transform:uppercase;"
+               value="{% if not result or result.dry_run %}{{ old_isin|default:'' }}{% endif %}">
+        <datalist id="asset-list">
+          {% for a in assets %}<option value="{{ a.isin }}">{{ a.name }}</option>{% endfor %}
+        </datalist>
+      </p>
+      <p>
+        <label for="new_isin" style="display:block; font-weight:bold;">Neue ISIN</label>
+        <input type="text" id="new_isin" name="new_isin" maxlength="12" required
+               autocomplete="off" style="width:16em; text-transform:uppercase;"
+               value="{% if not result or result.dry_run %}{{ new_isin|default:'' }}{% endif %}">
+      </p>
+      <p>
+        <label>
+          <input type="checkbox" name="dry_run" {% if dry_run %}checked{% endif %}>
+          Dry-Run (nur prüfen, nichts speichern)
+        </label>
+      </p>
+      <button type="submit" class="button default" style="padding:8px 20px;">Starten</button>
+    </form>
+  </div>
+
+  <p style="margin-top:1.5rem;"><a href="{% url 'fintech:fintech-index' %}">← Zurück zur Fintech-Übersicht</a></p>
+
+</div>
+{% endblock %}
