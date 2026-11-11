@@ -27,6 +27,7 @@
     .entry-name a:hover { text-decoration: underline; }
     .entry-isin { font-size: .75rem; color: #a8a29e; }
     .entry-perf { font-size: 1.1rem; font-weight: 800; white-space: nowrap; }
+    .entry-perf-sub { font-size: .78rem; font-weight: 600; white-space: nowrap; line-height: 1.2; }
     .edit-link { color: #d6d3d1; font-size: .8rem; text-decoration: none; margin-left: .25rem; }
     .edit-link:hover { color: #78716c; }
     .label-small { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #aaa; }
@@ -121,7 +122,12 @@
                         </div>
                         <div class="entry-isin">{{ r.isin }}</div>
                     </div>
-                    <div class="entry-perf perf-positive">{{ r.day_perc|de_percent:2 }}</div>
+                    <div class="text-end">
+                        <div class="entry-perf perf-positive">{{ r.day_perc|de_percent:2 }}</div>
+                        {% if r.total_perc is not None %}
+                        <div class="entry-perf-sub {% if r.total_perc >= 0 %}perf-positive{% else %}perf-negative{% endif %}">({{ r.total_perc|de_percent:1 }})</div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% empty %}<p class="text-muted small">Keine Daten</p>{% endfor %}
@@ -199,7 +205,12 @@
                         </div>
                         <div class="entry-isin">{{ r.isin }}</div>
                     </div>
-                    <div class="entry-perf perf-negative">{{ r.day_perc|de_percent:2 }}</div>
+                    <div class="text-end">
+                        <div class="entry-perf perf-negative">{{ r.day_perc|de_percent:2 }}</div>
+                        {% if r.total_perc is not None %}
+                        <div class="entry-perf-sub {% if r.total_perc >= 0 %}perf-positive{% else %}perf-negative{% endif %}">({{ r.total_perc|de_percent:1 }})</div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% empty %}<p class="text-muted small">Keine Daten</p>{% endfor %}
