@@ -22,6 +22,8 @@ jobs:
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
+      SQL_SERVER: lcsqlserver-live
+      SQL_RG: RG_LC
       DJANGO_ENV: production
       DJANGO_SETTINGS_MODULE: azureproject.production
       FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
@@ -35,6 +37,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5.0.0
+
+      # GitHub-Runner laufen nicht mehr nur in Azure (z.B. 3.42.157.x = AWS) —
+      # "AllowAzureServices" reicht dann nicht. Daher die aktuelle Runner-IP
+      # für die Dauer des Laufs in der SQL-Firewall freischalten.
+      - name: Azure Login (für SQL-Firewall-Regel)
+        uses: azure/login@v3.0.0
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Runner-IP in SQL-Firewall freischalten
+        run: |
+          IP=$(curl -fsS --max-time 15 --retry 3 https://api.ipify.org)
+          RULE="gh-runner-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "Runner-IP: $IP → Firewall-Regel $RULE"
+          az sql server firewall-rule create -g "$SQL_RG" -s "$SQL_SERVER" -n "$RULE" \
+            --start-ip-address "$IP" --end-ip-address "$IP" -o none
+          echo "SQL_FW_RULE=$RULE" >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v6.2.0
@@ -68,3 +87,9 @@ jobs:
           [ -n "$MIN_VALUE" ] && ARGS+=(--min-value "$MIN_VALUE")
           echo "Starte News-Update (${ARGS[*]:-Default-Schwelle})"
           python manage.py update_news "${ARGS[@]}"
+
+      - name: SQL-Firewall-Regel für Runner entfernen
+        if: always() && env.SQL_FW_RULE != ''
+        run: |
+          az sql server firewall-rule delete -g "$SQL_RG" -s "$SQL_SERVER" -n "$SQL_FW_RULE" \
+            || echo "Firewall-Regel $SQL_FW_RULE konnte nicht entfernt werden."
