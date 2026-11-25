@@ -27,7 +27,7 @@ from fintech.models import Asset, Price
 from tasks.runner import TrackedCommandMixin
 from fintech.models_helper.asset_class import AssetClass
 from fintech.apis.services.provider_manager import ProviderManager
-from fintech.services import flag_price_fetch_failure, clear_price_fetch_failure, report_price_fetch_failures
+from fintech.services import flag_price_fetch_failure, clear_price_fetch_failure, report_price_fetch_failures, save_portfolio_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +96,24 @@ class Command(TrackedCommandMixin, BaseCommand):
 
     def handle(self, *args, **options):
         async_to_sync(self.handle_async)(*args, **options)
+        if not options["dry_run"]:
+            self._save_portfolio_snapshot()
+
+    def _save_portfolio_snapshot(self):
+        """Tageswert (Investiert / Aktuell / Gesamt %) für /fintech/history/ sichern;
+        mehrere Läufe am selben Tag überschreiben den Wert. Ein Fehler hier darf
+        das Kurs-Update nicht als fehlgeschlagen markieren."""
+        try:
+            snapshot = save_portfolio_snapshot()
+        except Exception as exc:
+            logger.exception("Portfolio-Tageswert konnte nicht gespeichert werden")
+            self.stdout.write(self.style.ERROR(f"Portfolio-Tageswert nicht gespeichert: {exc}"))
+            return
+        if snapshot:
+            self.stdout.write(
+                f"Portfolio-Tageswert {snapshot.date}: investiert {snapshot.invested}, "
+                f"aktuell {snapshot.current}, gesamt {snapshot.total_perc} %"
+            )
 
     async def handle_async(self, *args, **options):
         dry_run = options["dry_run"]

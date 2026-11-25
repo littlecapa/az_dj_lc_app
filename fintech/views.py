@@ -31,7 +31,7 @@ from django.core.management import call_command
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from .services import resolve_asset_with_price, refresh_asset_price, report_price_fetch_failures, compute_stock_lookthrough_rows
+from .services import resolve_asset_with_price, refresh_asset_price, report_price_fetch_failures, compute_stock_lookthrough_rows, winner_rows, winner_totals
 
 import logging
 
@@ -1251,55 +1251,14 @@ TOP_N = 10
 @staff_required_unless_demo
 def portfolio_winners(request, demo=False):
     """4-Spalten-Übersicht: Tages/Gesamt-Top5 und -Flop5."""
-    today = timezone.now().date()
-    yesterday_sq = Price.objects.filter(
-        asset=OuterRef('asset_id'),
-        timestamp__date__lt=today,
-    ).order_by('-timestamp').values('current_price')[:1]
-
-    holdings = (
-        Holdings.objects
-        .select_related('asset')
-        .filter(category__gte=20, quantity__gt=0)
-        .annotate(yesterday_price=Subquery(
-            yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)
-        ))
-    )
-    holdings = _demo_filter(holdings, demo)
-
-    rows = []
-    for h in holdings:
-        invested   = (h.average_purchase_price or Decimal('0')) * h.quantity
-        cur_price  = h.asset.current_price or Decimal('0')
-        yest_price = getattr(h, 'yesterday_price', None) or Decimal('0')
-        current    = cur_price  * h.quantity
-        yesterday  = yest_price * h.quantity
-
-        total_perc = (current / invested  - 1) * 100 if invested  > 0 else None
-        day_perc   = (current / yesterday - 1) * 100 if yesterday > 0 else None
-
-        rows.append({
-            'name':        h.asset.name,
-            'isin':        h.asset.isin,
-            'symbol':      h.asset.symbol or '',
-            'logo':        h.asset.logo   or '',
-            'asset_class': h.asset.asset_class,
-            'holdings_id': h.pk,
-            'total_perc':  total_perc,
-            'day_perc':    day_perc,
-            'invested':    invested  if invested  > 0 else None,
-            'current':     current   if cur_price > 0 else None,
-            'yesterday':   yesterday if yest_price > 0 else None,
-        })
+    rows = winner_rows(demo)
 
     def top(lst, key, reverse=True):
         valid = [r for r in lst if r[key] is not None]
         return sorted(valid, key=lambda r: r[key], reverse=reverse)[:TOP_N]
 
-    # Summary-Daten
-    total_inv  = sum(r['invested']   for r in rows if r['invested']   is not None)
-    total_cur  = sum(r['current']    for r in rows if r['current']    is not None)
-    total_yest = sum(r['yesterday']  for r in rows if r['yesterday']  is not None)
+    totals = winner_totals(rows)
+    total_inv, total_cur, total_yest = totals['invested'], totals['current'], totals['yesterday']
 
     return render(request, 'fintech/portfolio_winners.html', {
         'day_best':      top(rows, 'day_perc',   reverse=True),
@@ -1310,10 +1269,29 @@ def portfolio_winners(request, demo=False):
         'total_cur':     total_cur,
         'total_yest':    total_yest,
         'gain_total':    total_cur - total_inv,
-        'simple_total':  (total_cur / total_inv  - 1) * 100 if total_inv  else None,
+        'simple_total':  totals['total_perc'],
         'day_abs_total': total_cur - total_yest            if total_yest else None,
         'day_pct_total': (total_cur / total_yest - 1) * 100 if total_yest else None,
         'demo':          demo,
+    })
+
+
+@never_cache
+@staff_member_required
+def portfolio_history(request):
+    """Linienkurven der täglich gesicherten Winner-Summary (PortfolioSnapshot)."""
+    from .models import PortfolioSnapshot
+
+    snapshots = list(PortfolioSnapshot.objects.order_by('date'))
+    chart = {
+        'labels':     [s.date.isoformat() for s in snapshots],
+        'invested':   [float(s.invested) for s in snapshots],
+        'current':    [float(s.current) for s in snapshots],
+        'total_perc': [float(s.total_perc) if s.total_perc is not None else None for s in snapshots],
+    }
+    return render(request, 'fintech/portfolio_history.html', {
+        'snapshots': list(reversed(snapshots)),
+        'chart':     chart,
     })
 
 

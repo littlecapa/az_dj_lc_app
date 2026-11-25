@@ -1,0 +1,122 @@
+{% extends "homepage/base_home.html" %}
+{% load de_format %}
+
+{% block title %}Portfolio-Historie{% endblock %}
+
+{% block content %}
+<style>
+    .perf-positive { color: #198754; font-weight: 700; }
+    .perf-negative { color: #dc3545; font-weight: 700; }
+    .chart-box {
+        background: #fff; border: 1px solid #e3e6ea; border-radius: 10px;
+        padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+    }
+    .chart-box h6 {
+        font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;
+        color: #6c757d; font-weight: 700; margin-bottom: .75rem;
+    }
+    .chart-wrap { position: relative; height: 320px; }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex align-items-center mb-3 gap-3">
+        <h2 class="mb-0">Portfolio-Historie</h2>
+        <a href="{% url 'fintech:portfolio-winners' %}" class="text-muted small">← Winners &amp; Losers</a>
+    </div>
+
+    {% if not snapshots %}
+    <div class="alert alert-info">
+        Noch keine Tageswerte gespeichert. Sie werden bei jedem Kurs-Update
+        (<code>update_prices</code>) angelegt – mehrere Läufe am selben Tag überschreiben den Tageswert.
+    </div>
+    {% else %}
+    <div class="chart-box">
+        <h6>Investiert &amp; Aktuell (€)</h6>
+        <div class="chart-wrap"><canvas id="valueChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+        <h6>Gesamt (%)</h6>
+        <div class="chart-wrap"><canvas id="percChart"></canvas></div>
+    </div>
+
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr>
+                <th>Datum</th>
+                <th class="text-end">Investiert</th>
+                <th class="text-end">Aktuell</th>
+                <th class="text-end">Gewinn / Verlust</th>
+                <th class="text-end">Gesamt (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in snapshots %}
+            <tr>
+                <td>{{ s.date|date:"d.m.Y" }}</td>
+                <td class="text-end">{{ s.invested|de_currency:0 }}</td>
+                <td class="text-end">{{ s.current|de_currency:0 }}</td>
+                <td class="text-end {% if s.gain >= 0 %}perf-positive{% else %}perf-negative{% endif %}">{{ s.gain|de_currency:0 }}</td>
+                <td class="text-end {% if s.total_perc >= 0 %}perf-positive{% else %}perf-negative{% endif %}">
+                    {{ s.total_perc|de_percent:1 }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {{ chart|json_script:"history-data" }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+    (function () {
+        const d = JSON.parse(document.getElementById('history-data').textContent);
+        const labels = d.labels.map(iso => {
+            const [y, m, day] = iso.split('-');
+            return `${day}.${m}.${y}`;
+        });
+        const eur = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+        const pct = v => v.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
+        const common = {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            elements: { point: { radius: labels.length > 60 ? 0 : 2 }, line: { tension: 0.2, borderWidth: 2 } },
+        };
+
+        new Chart(document.getElementById('valueChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Investiert', data: d.invested, borderColor: '#6c757d', backgroundColor: '#6c757d' },
+                    { label: 'Aktuell',    data: d.current,  borderColor: '#0d6efd', backgroundColor: '#0d6efd' },
+                ],
+            },
+            options: {
+                ...common,
+                scales: { y: { ticks: { callback: v => eur.format(v) } } },
+                plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${eur.format(c.parsed.y)}` } } },
+            },
+        });
+
+        new Chart(document.getElementById('percChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Gesamt (%)', data: d.total_perc,
+                    borderColor: '#198754', backgroundColor: 'rgba(25,135,84,.08)', fill: 'origin',
+                }],
+            },
+            options: {
+                ...common,
+                scales: { y: { ticks: { callback: v => pct(v) } } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => `Gesamt: ${pct(c.parsed.y)}` } },
+                },
+            },
+        });
+    })();
+    </script>
+    {% endif %}
+</div>
+{% endblock %}

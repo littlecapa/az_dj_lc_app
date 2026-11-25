@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent, TrailingStopLoss, TrailingStopEvent, NewsArticle
+from .models import Asset, Holdings, Price, WatchlistEntry, Watchlist, FiftyTwoWeekRange, NewsEvent, FinConfig, FondHolding, ManualFondHolding, NameAlias, PriceAlarm, PriceAlarmEvent, TrailingStopLoss, TrailingStopEvent, NewsArticle, PortfolioSnapshot
 from .model_views import PortfolioSummary
 from django.template.response import TemplateResponse
 from django.core.management import call_command
@@ -397,3 +397,8 @@ class NewsArticleAdmin(admin.ModelAdmin):
     autocomplete_fields = ('asset',)
     readonly_fields = ('asset', 'company_name', 'title', 'link', 'source', 'provider', 'thumbnail_url', 'published_at', 'fetched_at')
     ordering = ('-published_at',)
+
+@admin.register(PortfolioSnapshot)
+class PortfolioSnapshotAdmin(admin.ModelAdmin):
+    list_display = ('date', 'invested', 'current', 'total_perc', 'updated_at')
+    date_hierarchy = 'date'

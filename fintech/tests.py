@@ -384,3 +384,52 @@ class IsinChangeTests(TestCase):
 
         r = self.client.post(url, {'old_isin': self.OLD, 'new_isin': self.NEW})
         self.assertContains(r, 'Nicht ausgeführt')
+
+
+class PortfolioSnapshotTests(TestCase):
+    """Tageswerte von /fintech/winner/ (PortfolioSnapshot) und Seite /fintech/history/."""
+
+    def setUp(self):
+        from fintech.models import Asset, Holdings
+        self.asset = Asset.objects.create(isin='DE0007164600', name='SAP', current_price=Decimal('120'))
+        Holdings.objects.create(asset=self.asset, quantity=Decimal('10'),
+                                average_purchase_price=Decimal('100'), category=20)
+
+    def test_snapshot_matches_winner_summary_and_overwrites_same_day(self):
+        from fintech.models import PortfolioSnapshot
+        from fintech.services import save_portfolio_snapshot
+
+        s = save_portfolio_snapshot()
+        self.assertEqual(s.invested, Decimal('1000.00'))
+        self.assertEqual(s.current, Decimal('1200.00'))
+        self.assertEqual(s.total_perc, Decimal('20.0000'))
+
+        self.asset.current_price = Decimal('90')
+        self.asset.save()
+        save_portfolio_snapshot()
+        self.assertEqual(PortfolioSnapshot.objects.count(), 1)
+        s = PortfolioSnapshot.objects.get()
+        self.assertEqual(s.current, Decimal('900.00'))
+        self.assertEqual(s.total_perc, Decimal('-10.0000'))
+
+    def test_update_prices_saves_snapshot_but_not_on_dry_run(self):
+        from io import StringIO
+        from unittest import mock
+        from django.core.management import call_command
+        from fintech.models import PortfolioSnapshot
+
+        with mock.patch('fintech.management.commands.update_prices.Command._get_assets_to_update',
+                        new=mock.AsyncMock(return_value=[])):
+            call_command('update_prices', '--dry-run', stdout=StringIO())
+            self.assertFalse(PortfolioSnapshot.objects.exists())
+            call_command('update_prices', stdout=StringIO())
+        self.assertEqual(PortfolioSnapshot.objects.get().current, Decimal('1200.00'))
+
+    def test_history_page(self):
+        from fintech.services import save_portfolio_snapshot
+        save_portfolio_snapshot()
+        self.client.force_login(User.objects.create_user('littlecapa', password='pw', is_staff=True))
+        r = self.client.get('/fintech/history/')
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'history-data')
+        self.assertContains(self.client.get('/fintech/'), '/fintech/history/')

@@ -1055,3 +1055,29 @@ class NameAlias(models.Model):
 
     def __str__(self):
         return f"{self.external_name} → {self.search_term}"
+
+
+class PortfolioSnapshot(models.Model):
+    """
+    Tageswerte der Gesamt-Summary von /fintech/winner/ (Investiert, Aktuell,
+    Gesamt %). Wird bei jedem regulären Kurs-Update (update_prices) geschrieben;
+    mehrere Läufe am selben Tag überschreiben den Tageswert. Anzeige als
+    Linienkurve unter /fintech/history/.
+    """
+    date = models.DateField(unique=True)
+    invested = models.DecimalField(max_digits=20, decimal_places=2)
+    current = models.DecimalField(max_digits=20, decimal_places=2)
+    total_perc = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Portfolio-Tageswert"
+        verbose_name_plural = "Portfolio-Tageswerte"
+        ordering = ['-date']
+
+    @property
+    def gain(self):
+        return self.current - self.invested
+
+    def __str__(self):
+        return f"{self.date}: {self.current} / {self.invested}"

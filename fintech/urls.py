@@ -31,6 +31,7 @@ urlpatterns = [
     path("manual-fund-holdings/<str:isin>/", views.manual_fund_holdings_edit, name="manual-fund-holdings-edit"),
     path("portfolio/", views.portfolio_performance, name="portfolio-performance"),
     path("winner/", views.portfolio_winners, name="portfolio-winners"),
+    path("history/", views.portfolio_history, name="portfolio-history"),
     path("portfolio/<slug:category_slug>/", views.portfolio_category_detail, name="portfolio-category-detail"),
     path("watchlist-performance/", views.watchlist_performance, name="watchlist-performance"),
     path("watchlists_all/", views.watchlists_all, name="watchlists-all"),

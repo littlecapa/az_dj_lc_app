@@ -19,7 +19,7 @@ from core.jira_client import JiraClient, JiraApiError
 
 from .apis.services.provider_manager import ProviderManager
 from .apis.services.name_matching import match_held_stock, load_aliases
-from .models import Asset, Price, Holdings, FondHolding, ManualFondHolding, WatchlistEntry
+from .models import Asset, Price, Holdings, FondHolding, ManualFondHolding, WatchlistEntry, PortfolioSnapshot
 from .models_helper.asset_class import AssetClass
 from .models_helper.category_class import CategoryClass
 
@@ -391,3 +391,94 @@ def get_news_target_rows(min_value: Decimal) -> list[dict]:
     """Look-Through-Zeilen (siehe compute_stock_lookthrough_rows) mit
     value_total > min_value — Basis für die News-Feed-Auswahl (update_news)."""
     return [r for r in compute_stock_lookthrough_rows() if r['value_total'] > min_value]
+
+
+# ---------------------------------------------------------------------------
+# Winners & Losers / Portfolio-Tageswerte
+# ---------------------------------------------------------------------------
+
+def winner_rows(demo: bool = False) -> list:
+    """
+    Eine Zeile je gehaltener Position (Kategorie >= 20, quantity > 0) mit
+    investiertem, aktuellem und gestrigem Wert sowie Gesamt-/Tages-Performance.
+    Grundlage für /fintech/winner/ und die Tageswerte (PortfolioSnapshot).
+    """
+    from django.db.models import DecimalField, OuterRef, Subquery
+
+    today = timezone.now().date()
+    yesterday_sq = Price.objects.filter(
+        asset=OuterRef('asset_id'),
+        timestamp__date__lt=today,
+    ).order_by('-timestamp').values('current_price')[:1]
+
+    holdings = (
+        Holdings.objects
+        .select_related('asset')
+        .filter(category__gte=20, quantity__gt=0)
+        .annotate(yesterday_price=Subquery(
+            yesterday_sq, output_field=DecimalField(max_digits=20, decimal_places=4)
+        ))
+    )
+    if demo:
+        holdings = holdings.filter(demo=True)
+
+    rows = []
+    for h in holdings:
+        invested   = (h.average_purchase_price or Decimal('0')) * h.quantity
+        cur_price  = h.asset.current_price or Decimal('0')
+        yest_price = getattr(h, 'yesterday_price', None) or Decimal('0')
+        current    = cur_price  * h.quantity
+        yesterday  = yest_price * h.quantity
+
+        total_perc = (current / invested  - 1) * 100 if invested  > 0 else None
+        day_perc   = (current / yesterday - 1) * 100 if yesterday > 0 else None
+
+        rows.append({
+            'name':        h.asset.name,
+            'isin':        h.asset.isin,
+            'symbol':      h.asset.symbol or '',
+            'logo':        h.asset.logo   or '',
+            'asset_class': h.asset.asset_class,
+            'holdings_id': h.pk,
+            'total_perc':  total_perc,
+            'day_perc':    day_perc,
+            'invested':    invested  if invested  > 0 else None,
+            'current':     current   if cur_price > 0 else None,
+            'yesterday':   yesterday if yest_price > 0 else None,
+        })
+    return rows
+
+
+def winner_totals(rows: list) -> dict:
+    """Summen Investiert / Aktuell / Gestern und Gesamt-% wie auf /fintech/winner/."""
+    invested  = sum((r['invested']  for r in rows if r['invested']  is not None), Decimal('0'))
+    current   = sum((r['current']   for r in rows if r['current']   is not None), Decimal('0'))
+    yesterday = sum((r['yesterday'] for r in rows if r['yesterday'] is not None), Decimal('0'))
+    return {
+        'invested':   invested,
+        'current':    current,
+        'yesterday':  yesterday,
+        'total_perc': (current / invested - 1) * 100 if invested else None,
+    }
+
+
+def save_portfolio_snapshot(date=None) -> Optional[PortfolioSnapshot]:
+    """
+    Speichert die heutigen Summary-Werte von /fintech/winner/ als
+    PortfolioSnapshot. Ein weiterer Aufruf am selben Tag überschreibt den Wert.
+    Ohne investierten Betrag (leeres Portfolio) wird nichts gespeichert.
+    """
+    totals = winner_totals(winner_rows(demo=False))
+    if not totals['invested']:
+        return None
+    q2 = Decimal('0.01')
+    perc = totals['total_perc']
+    snapshot, _ = PortfolioSnapshot.objects.update_or_create(
+        date=date or timezone.localdate(),
+        defaults={
+            'invested':   totals['invested'].quantize(q2),
+            'current':    totals['current'].quantize(q2),
+            'total_perc': perc.quantize(Decimal('0.0001')) if perc is not None else None,
+        },
+    )
+    return snapshot

@@ -15,6 +15,10 @@
 - Hauptapp: `fintech/`
 - Portfolio-Export-View: `GET /fintech/export` — Auth via API-Key (`X-Api-Key`) oder Staff-Login
 - Kurs-Update: `python manage.py update_prices [--asset-class CLASS] [--isin ISIN] [--dry-run]`
+- Portfolio-Historie: `update_prices` speichert nach jedem regulären Lauf (nicht bei `--dry-run`) die Summary von
+  `/fintech/winner/` (Investiert, Aktuell, Gesamt %) als `PortfolioSnapshot` (ein Eintrag je Tag, spätere Läufe
+  überschreiben). Berechnung gemeinsam in `fintech/services.py` (`winner_rows`/`winner_totals`/`save_portfolio_snapshot`).
+  Linienkurven unter `/fintech/history/` (Kachel „Historie“).
 - ETF-Holdings-Update: `python manage.py update_etf_holdings [--isin ISIN] [--dry-run]` — holt Top-10-Holdings
   aller gehaltenen ETFs/Fonds via JustETF, pflegt `FondHolding`-Mapping. Legt für Aktien ohne eigene
   Holdings-Zeile einen Dummy-Eintrag (quantity=0) an, damit sie im Aktien-Look-Through
