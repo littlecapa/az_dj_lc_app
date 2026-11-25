@@ -92,3 +92,15 @@ CLUB_TILES = [
 
 def header_context():
     return {'intro': INTRO, 'contact': CONTACT}
+
+
+NAECHSTE_TERMINE_ANZAHL = 2
+
+
+def naechste_termine(anzahl=NAECHSTE_TERMINE_ANZAHL):
+    """Die nächsten aktiven Termine ab heute (Datum in deutscher Ortszeit), Pflege im Admin (JugendTermin)."""
+    from zoneinfo import ZoneInfo
+    from django.utils import timezone
+    from .models import JugendTermin
+    heute = timezone.localdate(timezone=ZoneInfo('Europe/Berlin'))
+    return list(JugendTermin.objects.filter(is_active=True, datum__gte=heute)[:anzahl])

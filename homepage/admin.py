@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ContactMessage, HistChessMagazine, BlogPost, QuickLink, ChessPosition, ScbbCheck
+from .models import ContactMessage, HistChessMagazine, BlogPost, QuickLink, ChessPosition, ScbbCheck, JugendTermin
 
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
@@ -39,3 +39,11 @@ class ScbbCheckAdmin(admin.ModelAdmin):
     list_filter   = ('status_code',)
     ordering      = ('-checked_at',)
     readonly_fields = ('checked_at', 'status_code', 'response_time_ms', 'error')
+
+@admin.register(JugendTermin)
+class JugendTerminAdmin(admin.ModelAdmin):
+    list_display  = ('datum', 'uhrzeit', 'ereignis', 'gegner', 'ort', 'is_active')
+    list_filter   = ('is_active',)
+    list_editable = ('is_active',)
+    search_fields = ('ereignis', 'gegner', 'ort')
+    date_hierarchy = 'datum'

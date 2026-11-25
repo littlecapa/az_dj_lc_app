@@ -84,6 +84,7 @@ def jugendschach(request):
         **content.header_context(),
         'heading': 'Schachjugend beim SC Bonn Beuel',
         'training_teaser': teaser,
+        'termine': content.naechste_termine(),
         'teams': content.TEAMS,
         'club_tiles': content.CLUB_TILES,
     })

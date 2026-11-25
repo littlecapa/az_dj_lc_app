@@ -81,6 +81,8 @@
   5. Mannschaft, U16 mit Rallly-Umfrage + Ergebnisseite, Vereinsinfo). Gemeinsamer Kopf (Logo, Überschrift,
   Kontakt-Kachel) `_jugendschach_header.html`, Kachel-Vorlage `_jugendschach_tile.html`; `'url': None` zeigt „Link folgt“.
   Flyer und Formulare liegen als PDFs in Google Drive (Links im Modul).
+  Kachel „Nächste Termine“ neben dem Training: die nächsten 2 aktiven `JugendTermin`e ab heute (Pflege im Admin,
+  Datum/Uhrzeit ohne Zeitzone = Ortszeit; optional Gegner und Links), Startdaten per Migration `homepage.0014`.
 - Übersicht: `/menue/` listet alle Bereiche als Kacheln (`homepage/menu.py`, `SECTIONS` mit Zugriffsstufe
   public/login/staff/superuser — gezeigt wird nur, was der Benutzer öffnen darf). Neue Bereiche dort eintragen.
   Kachel-Stil gemeinsam in `homepage/_tiles_style.html` (Fintech, Leisure, Menü). `/leisure/` ist die

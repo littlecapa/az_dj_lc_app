@@ -135,3 +135,28 @@ class ChessPosition(models.Model):
     class Meta:
         verbose_name = "Chess Captcha Position"
         verbose_name_plural = "Chess Captcha Positions"
+
+class JugendTermin(models.Model):
+    """Termin der Schachjugend SC Bonn Beuel (Kachel „Nächste Termine“ auf /jugendschach/).
+    Datum/Uhrzeit bewusst ohne Zeitzone (Ortszeit), damit die Eingabe im Admin 1:1 angezeigt wird."""
+    datum = models.DateField()
+    uhrzeit = models.TimeField(null=True, blank=True)
+    ereignis = models.CharField(max_length=120, help_text="z. B. „SC Bonn Beuel 5“ oder „Vereinsturnier“.")
+    ereignis_url = models.URLField(blank=True, help_text="Optionaler Link zum Ereignis bzw. zur eigenen Mannschaft.")
+    gegner = models.CharField(max_length=120, blank=True, help_text="Optional; wird als „… gegen Gegner“ angezeigt.")
+    gegner_url = models.URLField(blank=True)
+    ort = models.CharField(max_length=120, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['datum', 'uhrzeit']
+        verbose_name = "Jugendschach-Termin"
+        verbose_name_plural = "Jugendschach-Termine"
+
+    @property
+    def wochentag(self):
+        return ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")[self.datum.weekday()]
+
+    def __str__(self):
+        gegen = f" gegen {self.gegner}" if self.gegner else ""
+        return f"{self.datum:%d.%m.%Y} {self.ereignis}{gegen}"

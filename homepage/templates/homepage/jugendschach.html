@@ -6,11 +6,28 @@
 <div class="container py-5">
     {% include "homepage/_jugendschach_header.html" %}
 
-    <div class="ft-group-label">♟ Jugendschachtraining</div>
+    <div class="ft-group-label">♟ Training &amp; Termine</div>
     <div class="row g-3 mb-2">
         {% with tile=training_teaser %}
         <div class="col-md-4">{% include "homepage/_jugendschach_tile.html" with same_tab=True %}</div>
         {% endwith %}
+        <div class="col-md-4">
+            <div class="ft-card js-termine">
+                <div class="ft-icon">📅</div>
+                <div class="ft-title">Nächste Termine</div>
+                <div class="ft-desc">
+                    {% for t in termine %}
+                    <div class="js-termin">
+                        <div class="js-termin-when">{{ t.wochentag }}, {{ t.datum|date:"d.m.Y" }}{% if t.uhrzeit %}, {{ t.uhrzeit|time:"H:i" }} Uhr{% endif %}</div>
+                        <div>{% if t.ereignis_url %}<a href="{{ t.ereignis_url }}" target="_blank" rel="noopener">{{ t.ereignis }}</a>{% else %}{{ t.ereignis }}{% endif %}{% if t.gegner %} gegen {% if t.gegner_url %}<a href="{{ t.gegner_url }}" target="_blank" rel="noopener">{{ t.gegner }}</a>{% else %}{{ t.gegner }}{% endif %}{% endif %}</div>
+                        {% if t.ort %}<div>📍 {{ t.ort }}</div>{% endif %}
+                    </div>
+                    {% empty %}
+                    <p>Aktuell stehen keine Termine an.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </div>
 
     {% for team in teams %}

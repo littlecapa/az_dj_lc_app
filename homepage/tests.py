@@ -48,6 +48,33 @@ class JugendschachTests(TestCase):
         self.assertNotContains(response, 'Link folgt')
         self.assertNotContains(response, 'Vereins-Homepage')
 
+    def test_next_dates_tile_shows_two_upcoming_active_dates(self):
+        import datetime
+        from .models import JugendTermin
+        heute = datetime.date.today()
+        tag = datetime.timedelta(days=1)
+        JugendTermin.objects.create(datum=heute - tag, ereignis='Vorbei-Termin')
+        JugendTermin.objects.create(datum=heute + tag, ereignis='Inaktiv-Termin', is_active=False)
+        JugendTermin.objects.create(datum=heute + 3 * tag, uhrzeit=datetime.time(11, 0),
+                                    ereignis='SC Bonn Beuel 5', gegner='SF Lohmar', ort='Beuel Tentenhaus')
+        JugendTermin.objects.create(datum=heute + 2 * tag, uhrzeit=datetime.time(15, 0),
+                                    ereignis='U16 SC Bonn Beuel', ereignis_url='https://example.org/u16',
+                                    gegner='SK Troisdorf 2', gegner_url='https://example.org/troisdorf')
+        JugendTermin.objects.create(datum=heute + 9 * tag, ereignis='Dritter-Termin')
+        response = self.client.get('/jugendschach/')
+        self.assertContains(response, 'Nächste Termine')
+        self.assertContains(response, '11:00 Uhr')
+        self.assertContains(response, 'gegen SF Lohmar')
+        self.assertContains(response, '📍 Beuel Tentenhaus')
+        self.assertContains(response, '<a href="https://example.org/troisdorf"')
+        for text in ('Vorbei-Termin', 'Inaktiv-Termin', 'Dritter-Termin'):
+            self.assertNotContains(response, text)
+        content = response.content.decode()
+        self.assertLess(content.index('U16 SC Bonn Beuel'), content.index('SC Bonn Beuel 5'))
+
+    def test_next_dates_tile_without_dates(self):
+        self.assertContains(self.client.get('/jugendschach/'), 'Aktuell stehen keine Termine an.')
+
     def test_header_with_contact_on_both_pages(self):
         from .jugendschach import CLUB_HOMEPAGE, JUGEND_MAIL
         for url in ('/jugendschach/', '/jugendschach/training/'):
