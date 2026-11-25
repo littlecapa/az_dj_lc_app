@@ -27,6 +27,7 @@ SECTIONS = [
     ('♟ Schach', [
         ('chess:index', '♟', 'Chess', 'Schach-Seite.', 'public'),
         ('homepage:my_chess_club', '🏰', 'My Chess Club', 'Mein Schachverein.', 'public'),
+        ('homepage:jugendschach', '🧒', 'Jugendschach', 'Schachjugend SC Bonn Beuel: Training, Mannschaften, Verein.', 'public'),
         ('homepage:historical-chess-mags', '📚', 'Historical Chess Mags', 'Historische Schachzeitschriften.', 'public'),
         ('homepage:scbb', '📡', 'SCBB-Monitor', 'Überwachung der SCBB-Seite.', 'public'),
     ]),

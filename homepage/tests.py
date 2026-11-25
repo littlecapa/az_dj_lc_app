@@ -29,3 +29,23 @@ class MenuTests(TestCase):
         self.assertContains(response, 'href="/tasks/"')
         self.assertNotContains(response, 'href="/monitoring/"')
         self.assertNotContains(response, 'Anmelden')
+
+
+@override_settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}})
+class JugendschachTests(TestCase):
+    def test_page_is_public_and_shows_all_rows(self):
+        response = self.client.get('/jugendschach/')
+        self.assertEqual(response.status_code, 200)
+        for text in ('Jugendschachtraining', '5. Mannschaft', 'U16-Mannschaft', 'Vereinsinfo',
+                     'Jeden Dienstag, 17–19 Uhr', 'An der Wolfsburg 1, 53225 Bonn'):
+            self.assertContains(response, text)
+
+    def test_club_links_and_pending_links(self):
+        from .jugendschach import CLUB_HOMEPAGE, DRIVE_AUFNAHMEANTRAG, DRIVE_LEITFADEN_MF
+        response = self.client.get('/jugendschach/')
+        for url in (CLUB_HOMEPAGE, DRIVE_AUFNAHMEANTRAG, DRIVE_LEITFADEN_MF):
+            self.assertContains(response, f'href="{url}"')
+        self.assertContains(response, 'Link folgt', count=4)
+
+    def test_listed_in_menu(self):
+        self.assertContains(self.client.get('/menue/'), 'href="/jugendschach/"')

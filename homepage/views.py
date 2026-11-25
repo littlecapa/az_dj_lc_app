@@ -74,6 +74,12 @@ class BlogDetailView(DetailView):
 def my_chess_club(request):
     return render(request, 'homepage/my_chess_club.html')
 
+
+def jugendschach(request):
+    """Öffentliche Übergangsseite der Schachjugend SC Bonn Beuel (Inhalte in homepage/jugendschach.py)."""
+    from . import jugendschach as content
+    return render(request, 'homepage/jugendschach.html', content.context())
+
 @never_cache
 def historical_chess_mags(request):
     # Nur aktive Magazine holen

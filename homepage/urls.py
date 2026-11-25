@@ -10,6 +10,7 @@ urlpatterns = [
     path('links/', views.links_page, name='links'),
     path('contact/', views.contact, name='contact'),
     path('my-chess-club/', views.my_chess_club, name='my_chess_club'),
+    path('jugendschach/', views.jugendschach, name='jugendschach'),
     path('monitoring/', views.monitoring_view, name='monitoring'),
     path('scbb/', views.scbb_monitor_view, name='scbb'),
     path('scbb/check/', views.scbb_check_api, name='scbb-check'),

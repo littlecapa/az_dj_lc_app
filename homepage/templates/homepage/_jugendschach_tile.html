@@ -1,0 +1,14 @@
+{# Eine Kachel der Seite /jugendschach/. Mit url → Link, ohne url aber mit Schlüssel 'url' → „Link folgt“, sonst reine Info. #}
+{% if tile.url %}
+<a href="{{ tile.url }}" class="ft-card"{% if not tile.url|slice:":7" == "mailto:" %} target="_blank" rel="noopener"{% endif %}>
+{% elif 'url' in tile %}
+<div class="ft-card js-pending">
+{% else %}
+<div class="ft-card">
+{% endif %}
+    <div class="ft-icon">{{ tile.icon }}</div>
+    <div class="ft-title">{{ tile.title }}</div>
+    <div class="ft-desc">{% for line in tile.lines %}<p>{{ line }}</p>{% endfor %}</div>
+    {% if tile.url %}<div class="js-link">{{ tile.link_text|default:"Öffnen" }} →</div>
+    {% elif 'url' in tile %}<div class="js-link">Link folgt</div>{% endif %}
+{% if tile.url %}</a>{% else %}</div>{% endif %}

@@ -1,0 +1,58 @@
+{% extends "homepage/base_home.html" %}
+{% load static %}
+
+{% block title %}Schachjugend SC Bonn Beuel{% endblock %}
+
+{% block content %}
+{% include "homepage/_tiles_style.html" %}
+<style>
+    .js-head { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+    .js-head img { width: 96px; height: 96px; }
+    .js-intro { color: #495057; max-width: 46rem; }
+    .ft-card .ft-desc p { margin: 0 0 .25rem; }
+    .js-link { font-size: .85rem; font-weight: 600; margin-top: .5rem; color: #2f6fd6; }
+    .ft-card.js-pending { background: #f8f9fa; border-style: dashed; }
+    .ft-card.js-pending:hover { box-shadow: none; transform: none; border-color: #e3e6ea; }
+    .js-pending .js-link { color: #adb5bd; }
+</style>
+
+<div class="container py-5">
+    <div class="js-head mb-4">
+        <img src="{% static 'homepage/img/jugendschach/scbb_logo.png' %}" alt="Logo Schachclub Bonn Beuel">
+        <div>
+            <h2 class="mb-1">Schachjugend beim SC Bonn Beuel</h2>
+            <p class="js-intro mb-0">{{ training.intro }}</p>
+        </div>
+    </div>
+
+    {% comment %} Reihe 1: Jugendtraining (Inhalte aus dem Flyer) {% endcomment %}
+    <div class="ft-group-label">♟ Jugendschachtraining</div>
+    <div class="row g-3 mb-2">
+        {% for tile in training.tiles %}
+        <div class="col-md-4">{% include "homepage/_jugendschach_tile.html" %}</div>
+        {% endfor %}
+    </div>
+    <p class="small text-muted mb-0">
+        <a href="{{ flyer_url }}" target="_blank" rel="noopener">Flyer als PDF</a> ·
+        <a href="{{ instagram_url }}" target="_blank" rel="noopener">Instagram</a>
+    </p>
+
+    {% comment %} Reihen 2 und 3: Mannschaften {% endcomment %}
+    {% for team in teams %}
+    <div class="ft-group-label">👥 {{ team.label }}</div>
+    <div class="row g-3 mb-2">
+        {% for tile in team.tiles %}
+        <div class="col-md-4">{% include "homepage/_jugendschach_tile.html" %}</div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {% comment %} Reihe 4: Verein {% endcomment %}
+    <div class="ft-group-label">🏰 Vereinsinfo</div>
+    <div class="row g-3 mb-2">
+        {% for tile in club_tiles %}
+        <div class="col-md-4">{% include "homepage/_jugendschach_tile.html" %}</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
