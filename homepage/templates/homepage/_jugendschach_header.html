@@ -1,0 +1,37 @@
+{% load static %}
+{# Kopf der Jugendschach-Seiten: Logo + Überschrift links, Kontakt-Kachel rechts. Erwartet heading, intro, contact. #}
+{% include "homepage/_tiles_style.html" %}
+<style>
+    .js-head img { width: 96px; height: 96px; flex-shrink: 0; }
+    .js-intro { color: #495057; }
+    .ft-card .ft-desc p { margin: 0 0 .25rem; }
+    .js-link { font-size: .85rem; font-weight: 600; margin-top: .5rem; color: #2f6fd6; }
+    .ft-card.js-pending { background: #f8f9fa; border-style: dashed; }
+    .ft-card.js-pending:hover { box-shadow: none; transform: none; border-color: #e3e6ea; }
+    .js-pending .js-link { color: #adb5bd; }
+    .js-contact { padding: 1rem 1.25rem; }
+    .js-contact .ft-title { font-size: 1rem; }
+    .js-contact ul { list-style: none; padding: 0; margin: 0; font-size: .9rem; }
+    .js-contact li { margin-bottom: .3rem; word-break: break-all; }
+    .js-contact a { text-decoration: none; }
+</style>
+
+<div class="row g-3 align-items-stretch mb-4">
+    <div class="col-lg-8 d-flex align-items-center gap-3 js-head">
+        <a href="{% url 'homepage:jugendschach' %}"><img src="{% static 'homepage/img/jugendschach/scbb_logo.png' %}" alt="Logo Schachclub Bonn Beuel"></a>
+        <div>
+            <h2 class="mb-1">{{ heading }}</h2>
+            <p class="js-intro mb-0">{{ intro }}</p>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="ft-card js-contact">
+            <div class="ft-title">Kontakt</div>
+            <ul>
+                {% for c in contact %}
+                <li>{{ c.icon }} <a href="{{ c.url }}"{% if c.url|slice:":7" != "mailto:" %} target="_blank" rel="noopener"{% endif %}>{{ c.text }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>

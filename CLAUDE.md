@@ -76,9 +76,10 @@
   Claude-Tasks (cowork/cloud) melden ihre Läufe selbst per MCP `log_task_run`.
   Übersicht `/tasks/` (nur Staff): rot = letzter Lauf fehlgeschlagen oder überfällig (Intervall + 25 %, nur `run_days`).
 - Jugendschach: `/jugendschach/` (öffentlich, Menü „Schach“) ist die Übergangsseite der Schachjugend SC Bonn Beuel,
-  solange die Vereins-Homepage (WordPress) nicht gepflegt wird. Inhalte stehen als Daten in `homepage/jugendschach.py`
-  (Reihen: Training laut Flyer, 5. Mannschaft, U16, Vereinsinfo); Kachel-Vorlage `_jugendschach_tile.html`.
-  Kacheln mit `'url': None` zeigen „Link folgt“ — fehlende Links (Rallly-Umfragen, Ergebnisseiten) dort nachtragen.
+  solange die Vereins-Homepage (WordPress) nicht gepflegt wird; Details zum Training laut Flyer unter
+  `/jugendschach/training/`. Inhalte stehen als Daten in `homepage/jugendschach.py` (Übersicht: Training-Kachel,
+  5. Mannschaft, U16 mit Rallly-Umfrage + Ergebnisseite, Vereinsinfo). Gemeinsamer Kopf (Logo, Überschrift,
+  Kontakt-Kachel) `_jugendschach_header.html`, Kachel-Vorlage `_jugendschach_tile.html`; `'url': None` zeigt „Link folgt“.
   Flyer und Formulare liegen als PDFs in Google Drive (Links im Modul).
 - Übersicht: `/menue/` listet alle Bereiche als Kacheln (`homepage/menu.py`, `SECTIONS` mit Zugriffsstufe
   public/login/staff/superuser — gezeigt wird nur, was der Benutzer öffnen darf). Neue Bereiche dort eintragen.

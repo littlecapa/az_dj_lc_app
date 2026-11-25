@@ -77,8 +77,26 @@ def my_chess_club(request):
 
 def jugendschach(request):
     """Öffentliche Übergangsseite der Schachjugend SC Bonn Beuel (Inhalte in homepage/jugendschach.py)."""
+    from django.urls import reverse
     from . import jugendschach as content
-    return render(request, 'homepage/jugendschach.html', content.context())
+    teaser = dict(content.TRAINING_TEASER, url=reverse('homepage:jugendschach-training'))
+    return render(request, 'homepage/jugendschach.html', {
+        **content.header_context(),
+        'heading': 'Schachjugend beim SC Bonn Beuel',
+        'training_teaser': teaser,
+        'teams': content.TEAMS,
+        'club_tiles': content.CLUB_TILES,
+    })
+
+
+def jugendschach_training(request):
+    """Detailseite zum Jugendschachtraining (Inhalte laut Flyer)."""
+    from . import jugendschach as content
+    return render(request, 'homepage/jugendschach_training.html', {
+        **content.header_context(),
+        'heading': 'Jugendschachtraining beim SC Bonn Beuel',
+        'tiles': content.TRAINING_TILES,
+    })
 
 @never_cache
 def historical_chess_mags(request):

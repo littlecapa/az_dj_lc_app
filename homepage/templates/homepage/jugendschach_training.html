@@ -1,0 +1,17 @@
+{% extends "homepage/base_home.html" %}
+
+{% block title %}Jugendschachtraining – SC Bonn Beuel{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    {% include "homepage/_jugendschach_header.html" %}
+
+    <div class="ft-group-label">♟ Jugendschachtraining</div>
+    <div class="row g-3 mb-3">
+        {% for tile in tiles %}
+        <div class="col-md-4">{% include "homepage/_jugendschach_tile.html" %}</div>
+        {% endfor %}
+    </div>
+    <a href="{% url 'homepage:jugendschach' %}" class="small">← Zurück zur Übersicht Schachjugend</a>
+</div>
+{% endblock %}

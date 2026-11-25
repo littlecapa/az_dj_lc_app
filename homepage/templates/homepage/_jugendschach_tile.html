@@ -1,6 +1,6 @@
-{# Eine Kachel der Seite /jugendschach/. Mit url → Link, ohne url aber mit Schlüssel 'url' → „Link folgt“, sonst reine Info. #}
+{# Eine Kachel der Jugendschach-Seiten. Mit url → Link (extern in neuem Tab, außer mailto/same_tab), 'url': None → „Link folgt“, ohne url → reine Info. #}
 {% if tile.url %}
-<a href="{{ tile.url }}" class="ft-card"{% if not tile.url|slice:":7" == "mailto:" %} target="_blank" rel="noopener"{% endif %}>
+<a href="{{ tile.url }}" class="ft-card"{% if not same_tab and tile.url|slice:":7" != "mailto:" %} target="_blank" rel="noopener"{% endif %}>
 {% elif 'url' in tile %}
 <div class="ft-card js-pending">
 {% else %}
