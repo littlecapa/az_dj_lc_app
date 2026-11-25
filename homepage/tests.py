@@ -31,6 +31,12 @@ class MenuTests(TestCase):
         self.assertNotContains(response, 'Anmelden')
 
 
+    def test_nav_menu_link_only_for_logged_in_users(self):
+        for url in ('/', '/jugendschach/', '/links/'):
+            self.assertNotContains(self.client.get(url), 'href="/menue/"')
+        self.client.force_login(User.objects.create_user('member', password='x'))
+        self.assertContains(self.client.get('/jugendschach/'), 'href="/menue/"')
+
 @override_settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}})
 class JugendschachTests(TestCase):
     def test_overview_is_public_and_shows_all_rows(self):
