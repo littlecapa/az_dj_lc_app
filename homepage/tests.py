@@ -42,7 +42,7 @@ class JugendschachTests(TestCase):
     def test_overview_is_public_and_shows_all_rows(self):
         response = self.client.get('/jugendschach/')
         self.assertEqual(response.status_code, 200)
-        for text in ('Jugendschachtraining', '5. Mannschaft', 'U16-Mannschaft', 'Vereinsinfo',
+        for text in ('Jugendschachtraining', '5. Mannschaft', 'U16-Mannschaft', 'Vereinsinfos',
                      'href="/jugendschach/training/"'):
             self.assertContains(response, text)
         self.assertNotContains(response, 'Link folgt')
